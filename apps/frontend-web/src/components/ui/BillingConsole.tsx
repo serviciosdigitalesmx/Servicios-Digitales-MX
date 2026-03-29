@@ -41,6 +41,14 @@ type AuthMeResponse = {
   };
 };
 
+type BillingPlan = {
+  code: string;
+  name: string;
+  priceMxn: number;
+  billingInterval: string;
+  modules: string[];
+};
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:5111";
 
 async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
@@ -128,11 +136,17 @@ function getStatusCopy(status: string) {
   }
 }
 
-export function BillingConsole() {
+type BillingConsoleProps = {
+  initialPlanCode?: string;
+};
+
+export function BillingConsole({ initialPlanCode = "esencial-350" }: BillingConsoleProps) {
   const [auth, setAuth] = useState<AuthMeResponse["data"] | null>(null);
+  const [plans, setPlans] = useState<BillingPlan[]>([]);
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(true);
   const [paying, setPaying] = useState(false);
+  const [selectedPlanCode, setSelectedPlanCode] = useState(initialPlanCode);
 
   useEffect(() => {
     async function load() {
@@ -140,8 +154,12 @@ export function BillingConsole() {
       setMessage("");
 
       try {
-        const response = await fetchJson<AuthMeResponse>("/api/auth/me");
+        const [response, planResponse] = await Promise.all([
+          fetchJson<AuthMeResponse>("/api/auth/me"),
+          fetchJson<{ data: BillingPlan[] }>("/api/billing/plans")
+        ]);
         setAuth(response.data);
+        setPlans(planResponse.data);
       } catch (error) {
         setMessage(error instanceof Error ? error.message : "No se pudo cargar la cuenta");
       } finally {
@@ -152,10 +170,18 @@ export function BillingConsole() {
     void load();
   }, []);
 
+  useEffect(() => {
+    setSelectedPlanCode(initialPlanCode);
+  }, [initialPlanCode]);
+
   const statusCopy = useMemo(
     () => getStatusCopy(auth?.subscription.status ?? "unknown"),
     [auth?.subscription.status]
   );
+
+  const selectedPlan = useMemo(() => {
+    return plans.find((plan) => plan.code === selectedPlanCode) ?? plans[0] ?? null;
+  }, [plans, selectedPlanCode]);
 
   async function handleCheckout() {
     setMessage("");
@@ -163,7 +189,13 @@ export function BillingConsole() {
 
     try {
       const response = await fetchJson<{ data: { checkoutUrl: string } }>("/api/billing/checkout-preference", {
-        method: "POST"
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          planCode: selectedPlanCode
+        })
       });
       window.location.href = response.data.checkoutUrl;
     } catch (error) {
@@ -215,21 +247,21 @@ export function BillingConsole() {
           </dl>
         </article>
 
-        <article className="card billing-card">
-          <span className="billing-kicker">Plan actual</span>
-          <h3>{auth?.subscription.planName ?? "Plan Base"}</h3>
-          <p className="billing-price">{auth ? formatMoney(auth.subscription.priceMxn) : "$350 MXN"}<small>/mes</small></p>
-          <dl className="billing-facts compact">
-            <div>
-              <dt>Código</dt>
-              <dd>{auth?.subscription.planCode ?? "base-350"}</dd>
-            </div>
-            <div>
-              <dt>Periodo</dt>
-              <dd>{auth?.subscription.billingInterval ?? "monthly"}</dd>
-            </div>
-            <div>
-              <dt>Inicio</dt>
+      <article className="card billing-card">
+        <span className="billing-kicker">Plan seleccionado</span>
+        <h3>{selectedPlan?.name ?? auth?.subscription.planName ?? "Plan Esencial"}</h3>
+        <p className="billing-price">{selectedPlan ? formatMoney(selectedPlan.priceMxn) : auth ? formatMoney(auth.subscription.priceMxn) : "$350 MXN"}<small>/mes</small></p>
+        <dl className="billing-facts compact">
+          <div>
+            <dt>Código</dt>
+            <dd>{selectedPlan?.code ?? auth?.subscription.planCode ?? "esencial-350"}</dd>
+          </div>
+          <div>
+            <dt>Periodo</dt>
+            <dd>{selectedPlan?.billingInterval ?? auth?.subscription.billingInterval ?? "monthly"}</dd>
+          </div>
+          <div>
+            <dt>Inicio</dt>
               <dd>{formatDate(auth?.subscription.currentPeriodStart)}</dd>
             </div>
             <div>
@@ -238,10 +270,10 @@ export function BillingConsole() {
             </div>
             <div>
               <dt>Gracia</dt>
-              <dd>{formatDate(auth?.subscription.graceUntil)}</dd>
-            </div>
-          </dl>
-        </article>
+            <dd>{formatDate(auth?.subscription.graceUntil)}</dd>
+          </div>
+        </dl>
+      </article>
 
         <article className="card billing-card">
           <span className="billing-kicker">Acciones</span>
@@ -265,7 +297,7 @@ export function BillingConsole() {
               onClick={() => void handleCheckout()}
               disabled={paying || loading}
             >
-              {paying ? "Redirigiendo..." : "Pagar Ahora"}
+              {paying ? "Redirigiendo..." : `Contratar ${selectedPlan?.name ?? "plan"}`}
             </button>
           </div>
           <p className="billing-footnote">
@@ -273,6 +305,33 @@ export function BillingConsole() {
           </p>
         </article>
       </div>
+
+      <article className="card billing-card billing-card-wide">
+        <div className="billing-card-header">
+          <div>
+            <span className="billing-kicker">Planes disponibles</span>
+            <h3>Elige cómo quieres operar tu negocio</h3>
+          </div>
+        </div>
+        <div className="billing-plan-grid">
+          {plans.map((plan) => (
+            <button
+              key={plan.code}
+              type="button"
+              className={`billing-plan-option ${selectedPlanCode === plan.code ? "is-selected" : ""}`}
+              onClick={() => setSelectedPlanCode(plan.code)}
+            >
+              <span className="billing-plan-name">{plan.name}</span>
+              <strong>{formatMoney(plan.priceMxn)}<small>/mes</small></strong>
+              <ul>
+                {plan.modules.map((module) => (
+                  <li key={module}>{module}</li>
+                ))}
+              </ul>
+            </button>
+          ))}
+        </div>
+      </article>
 
       <article className="card billing-card billing-card-wide">
         <div className="billing-card-header">

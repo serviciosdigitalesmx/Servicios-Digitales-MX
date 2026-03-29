@@ -1079,7 +1079,24 @@ app.MapGet("/api/reports/operational", async (SupabaseService supabase, Cancella
 })
 .WithName("GetOperationalReport");
 
-app.MapPost("/api/billing/checkout-preference", async (SupabaseService supabase, MercadoPagoService mercadoPago, CancellationToken cancellationToken) =>
+app.MapGet("/api/billing/plans", () =>
+{
+    return Results.Ok(new
+    {
+        success = true,
+        data = SubscriptionPlans.All.Select(plan => new
+        {
+            code = plan.Code,
+            name = plan.Name,
+            priceMxn = plan.PriceMxn,
+            billingInterval = plan.BillingInterval,
+            modules = plan.Modules
+        })
+    });
+})
+.WithName("GetBillingPlans");
+
+app.MapPost("/api/billing/checkout-preference", async (BillingCheckoutRequest? request, SupabaseService supabase, MercadoPagoService mercadoPago, CancellationToken cancellationToken) =>
 {
     await supabase.RefreshSubscriptionContextAsync(cancellationToken);
 
@@ -1097,13 +1114,14 @@ app.MapPost("/api/billing/checkout-preference", async (SupabaseService supabase,
     }
 
     var bootstrap = supabase.Bootstrap;
+    var selectedPlan = SubscriptionPlans.Resolve(request?.PlanCode ?? bootstrap.SubscriptionPlanCode);
     var preference = await mercadoPago.CreateSubscriptionPreferenceAsync(
         new MercadoPagoPreferenceRequest(
             bootstrap.TenantId,
-            string.IsNullOrWhiteSpace(bootstrap.SubscriptionPlanCode) ? "base-350" : bootstrap.SubscriptionPlanCode,
-            "Servicios Digitales MX - Plan Base",
-            "Suscripcion mensual para acceso operativo del shop",
-            bootstrap.SubscriptionPriceMxn > 0 ? bootstrap.SubscriptionPriceMxn : 350m,
+            selectedPlan.Code,
+            $"Servicios Digitales MX - {selectedPlan.Name}",
+            $"Suscripcion mensual {selectedPlan.Name} para acceso operativo del shop",
+            selectedPlan.PriceMxn,
             "MXN",
             $"shop:{bootstrap.TenantId}:subscription:{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}",
             bootstrap.UserFullName,
@@ -1195,6 +1213,7 @@ app.MapPost("/api/webhooks/mercadopago", async (HttpRequest httpRequest, Supabas
         payment.Payer?.Email,
         payment.TransactionAmount,
         payment.CurrencyId,
+        payment.Metadata?.SubscriptionPlan,
         cancellationToken
     );
 
@@ -1253,6 +1272,7 @@ app.MapPost("/api/billing/simulate-payment-sync", async (string paymentId, Supab
         payment.Payer?.Email,
         payment.TransactionAmount,
         payment.CurrencyId,
+        payment.Metadata?.SubscriptionPlan,
         cancellationToken
     );
 

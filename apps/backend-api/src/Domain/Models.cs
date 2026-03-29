@@ -56,7 +56,12 @@ public sealed record RegisterRequest(
     string Email,
     string? Phone,
     string Password,
-    string? ReferralCode
+    string? ReferralCode,
+    string? PlanCode
+);
+
+public sealed record BillingCheckoutRequest(
+    string? PlanCode
 );
 
 public sealed record CreateCustomerRequest(
@@ -228,6 +233,85 @@ public sealed record MercadoPagoPaymentMetadata(
     string? TenantId,
     string? SubscriptionPlan
 );
+
+public sealed record SubscriptionPlanDefinition(
+    string Code,
+    string Name,
+    decimal PriceMxn,
+    string BillingInterval,
+    IReadOnlyList<string> Modules
+);
+
+public static class SubscriptionPlans
+{
+    public static readonly SubscriptionPlanDefinition Essential = new(
+        "esencial-350",
+        "Plan Esencial",
+        350.00m,
+        "monthly",
+        new[]
+        {
+            "Operativo",
+            "Técnico",
+            "Solicitudes / Cotizaciones",
+            "Archivo",
+            "Clientes",
+            "Portal por Folio",
+            "Billing"
+        }
+    );
+
+    public static readonly SubscriptionPlanDefinition Professional = new(
+        "profesional-650",
+        "Plan Profesional",
+        650.00m,
+        "monthly",
+        new[]
+        {
+            "Todo lo del Esencial",
+            "Stock / Inventario",
+            "Proveedores",
+            "Compras",
+            "Gastos",
+            "Finanzas",
+            "Reportes",
+            "Referidos"
+        }
+    );
+
+    public static readonly SubscriptionPlanDefinition Elite = new(
+        "elite-1200",
+        "Plan Elite",
+        1200.00m,
+        "monthly",
+        new[]
+        {
+            "Todo lo del Profesional",
+            "Multi-sucursal",
+            "Branding Personalizado",
+            "Dashboard Ejecutivo",
+            "Soporte VIP"
+        }
+    );
+
+    public static readonly IReadOnlyList<SubscriptionPlanDefinition> All = new[]
+    {
+        Essential,
+        Professional,
+        Elite
+    };
+
+    public static SubscriptionPlanDefinition Resolve(string? code)
+    {
+        if (string.IsNullOrWhiteSpace(code))
+        {
+            return Essential;
+        }
+
+        return All.FirstOrDefault(plan => string.Equals(plan.Code, code.Trim(), StringComparison.OrdinalIgnoreCase))
+            ?? Essential;
+    }
+}
 
 public sealed record MercadoPagoPaymentPayer(
     string? Email

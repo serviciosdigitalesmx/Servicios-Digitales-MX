@@ -1,9 +1,17 @@
 import { BillingConsole } from "../../components/ui/BillingConsole";
 
-export default function BillingPage() {
+type BillingPageProps = {
+  searchParams: Promise<{
+    plan?: string;
+  }>;
+};
+
+export default async function BillingPage({ searchParams }: BillingPageProps) {
+  const params = await searchParams;
+
   return (
     <main className="page-shell">
-      <BillingConsole />
+      <BillingConsole initialPlanCode={params.plan} />
     </main>
   );
 }

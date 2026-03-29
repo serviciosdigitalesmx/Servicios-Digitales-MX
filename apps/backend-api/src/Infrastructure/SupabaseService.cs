@@ -126,13 +126,14 @@ public sealed class SupabaseService
         if (subscription is null)
         {
             var now = DateTimeOffset.UtcNow;
+            var defaultPlan = SubscriptionPlans.Essential;
             subscription = await InsertSingleAsync<DbSubscription>("subscriptions", new
             {
                 tenant_id = tenant.Id,
-                plan_code = "base-350",
-                plan_name = "Plan Base",
-                price_mxn = 350.00m,
-                billing_interval = "monthly",
+                plan_code = defaultPlan.Code,
+                plan_name = defaultPlan.Name,
+                price_mxn = defaultPlan.PriceMxn,
+                billing_interval = defaultPlan.BillingInterval,
                 status = "trialing",
                 current_period_start = now,
                 current_period_end = now.AddDays(30),
@@ -213,13 +214,14 @@ public sealed class SupabaseService
         }, cancellationToken, "id,tenant_id,full_name,email,role,is_active,branch_id,referral_code,balance");
 
         var now = DateTimeOffset.UtcNow;
+        var selectedPlan = SubscriptionPlans.Resolve(request.PlanCode);
         await InsertSingleAsync<DbSubscription>("subscriptions", new
         {
             tenant_id = tenant.Id,
-            plan_code = "base-350",
-            plan_name = "Plan Base",
-            price_mxn = 350.00m,
-            billing_interval = "monthly",
+            plan_code = selectedPlan.Code,
+            plan_name = selectedPlan.Name,
+            price_mxn = selectedPlan.PriceMxn,
+            billing_interval = selectedPlan.BillingInterval,
             status = "trialing",
             current_period_start = now,
             current_period_end = now.AddDays(30),
@@ -360,6 +362,7 @@ public sealed class SupabaseService
         string? payerEmail,
         decimal? amount,
         string? currencyId,
+        string? planCode,
         CancellationToken cancellationToken = default)
     {
         var subscription = await GetSingleAsync<DbSubscription>(
@@ -373,6 +376,7 @@ public sealed class SupabaseService
 
         var now = DateTimeOffset.UtcNow;
         var normalizedStatus = NormalizeSubscriptionStatusFromPayment(paymentStatus);
+        var selectedPlan = SubscriptionPlans.Resolve(planCode);
         var periodStart = now;
         var periodEnd = normalizedStatus == "active"
             ? MaxDate(subscription.CurrentPeriodEnd, now).AddDays(30)
@@ -394,6 +398,10 @@ public sealed class SupabaseService
             new
             {
                 status = normalizedStatus,
+                plan_code = selectedPlan.Code,
+                plan_name = selectedPlan.Name,
+                price_mxn = selectedPlan.PriceMxn,
+                billing_interval = selectedPlan.BillingInterval,
                 current_period_start = normalizedStatus == "active" ? periodStart : now,
                 current_period_end = periodEnd,
                 grace_until = normalizedStatus == "active" ? periodEnd?.AddDays(5) : now.AddDays(5),

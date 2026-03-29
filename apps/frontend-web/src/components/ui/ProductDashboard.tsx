@@ -81,6 +81,7 @@ export function ProductDashboard({ initialModule = "operativo" }: ProductDashboa
   const businessSubtitle = auth?.shop.slug
     ? `Panel interno · ${auth.shop.slug}`
     : "Soluciones en Tecnología";
+  const moduleLabel = MODULES.find((module) => module.key === initialModule)?.label ?? "Operativo";
 
   useEffect(() => {
     sessionStorage.setItem("srfix_pass_master", MASTER_PASSWORD);
@@ -115,7 +116,7 @@ export function ProductDashboard({ initialModule = "operativo" }: ProductDashboa
       Object.fromEntries(
         MODULES.map((module) => [
           module.key,
-          module.key === "operativo" ? "/" : `/?modulo=${encodeURIComponent(module.key)}`
+          module.key === "operativo" ? "/interno" : `/interno?modulo=${encodeURIComponent(module.key)}`
         ])
       ) as Record<ModuleKey, string>,
     []
@@ -128,121 +129,139 @@ export function ProductDashboard({ initialModule = "operativo" }: ProductDashboa
 
   return (
     <section className="integrator-shell">
-      <header className="integrator-bar">
-        <div className="integrator-left">
-          <div className="integrator-logo-wrap">
-            <img className="integrator-logo-image" src="/logo-srfix.webp" alt="Logo base de SR. FIX" />
+      <div className="samii-shell">
+        <aside className="samii-sidebar">
+          <div className="samii-sidebar-top">
+            <a className="samii-sidebar-brand" href="/interno">
+              <img className="samii-sidebar-logo" src="/logo-srfix.webp" alt="SR. FIX" />
+            </a>
+
+            <div className="samii-business-chip">
+              <img className="samii-business-avatar" src="/logo-srfix.webp" alt={businessName} />
+              <div>
+                <strong>{businessName}</strong>
+                <span>{auth?.subscription.status ?? "sin estado"}</span>
+              </div>
+            </div>
+
+            <select
+              className="samii-branch-select"
+              value={branchFilter}
+              onChange={(event) => setBranchFilter(event.target.value)}
+            >
+              <option value="GLOBAL">Sucursal | todas</option>
+              <option value="MATRIZ">Sucursal | matriz</option>
+            </select>
           </div>
-          <div className="integrator-brand">
-            <strong>{businessName}</strong>
-            <span>
-              {businessSubtitle} · {auth?.subscription.status ?? "sin estado"}
-            </span>
+
+          <nav className="samii-sidebar-nav" aria-label="Módulos principales">
+            {MODULES.map((module) => (
+              <a
+                key={module.key}
+                className={`samii-sidebar-link ${initialModule === module.key ? "is-active" : ""}`}
+                href={moduleLinkMap[module.key]}
+                title={module.label}
+              >
+                <span className="samii-sidebar-icon" />
+                <span>{module.label}</span>
+              </a>
+            ))}
+          </nav>
+
+          <div className="samii-sidebar-bottom">
+            <a className="samii-sidebar-ghost" href="/billing">
+              Billing
+            </a>
           </div>
+        </aside>
+
+        <div className="samii-main">
+          <header className="samii-topbar">
+            <div className="samii-topbar-title">
+              <strong>{businessName}</strong>
+              <span>{moduleLabel} · {businessSubtitle}</span>
+            </div>
+
+            <div className="samii-topbar-actions">
+              <input
+                className="samii-search"
+                type="search"
+                placeholder="Buscar en órdenes, clientes, folios o módulos"
+              />
+              <a className="samii-topbar-button" href="/billing">
+                Planes
+              </a>
+            </div>
+          </header>
+
+          <section className="samii-surface">
+            {message ? <div className="console-message">{message}</div> : null}
+
+            {initialModule === "operativo" ? (
+              <section className="integrator-native-shell">
+                <OperativoNative />
+              </section>
+            ) : initialModule === "tecnico" ? (
+              <section className="integrator-native-shell">
+                <TecnicoNative />
+              </section>
+            ) : initialModule === "solicitudes" ? (
+              <section className="integrator-native-shell">
+                <SolicitudesNative />
+              </section>
+            ) : initialModule === "archivo" ? (
+              <section className="integrator-native-shell">
+                <ArchivoNative />
+              </section>
+            ) : initialModule === "clientes" ? (
+              <section className="integrator-native-shell">
+                <ClientesNative />
+              </section>
+            ) : initialModule === "tareas" ? (
+              <section className="integrator-native-shell">
+                <TareasNative />
+              </section>
+            ) : initialModule === "stock" ? (
+              <section className="integrator-native-shell">
+                <StockNative />
+              </section>
+            ) : initialModule === "proveedores" ? (
+              <section className="integrator-native-shell">
+                <ProveedoresNative />
+              </section>
+            ) : initialModule === "compras" ? (
+              <section className="integrator-native-shell">
+                <ComprasNative />
+              </section>
+            ) : initialModule === "gastos" ? (
+              <section className="integrator-native-shell">
+                <GastosNative />
+              </section>
+            ) : initialModule === "finanzas" ? (
+              <section className="integrator-native-shell">
+                <FinanzasNative />
+              </section>
+            ) : initialModule === "reportes" ? (
+              <section className="integrator-native-shell">
+                <ReportesNative />
+              </section>
+            ) : initialModule === "sucursales" ? (
+              <section className="integrator-native-shell">
+                <SucursalesNative />
+              </section>
+            ) : (
+              <section className="integrator-iframe-shell">
+                <iframe
+                  key={`${initialModule}-${branchFilter}`}
+                  className="integrator-iframe"
+                  title={`Modulo ${initialModule}`}
+                  src={iframeSrc}
+                />
+              </section>
+            )}
+          </section>
         </div>
-
-        <div className="integrator-controls">
-          <select
-            className="integrator-select"
-            value={branchFilter}
-            onChange={(event) => setBranchFilter(event.target.value)}
-          >
-            <option value="GLOBAL">Todas las sucursales</option>
-            <option value="MATRIZ">Matriz</option>
-          </select>
-
-          <a className="integrator-link" href="/billing">
-            Billing
-          </a>
-        </div>
-      </header>
-
-      <nav className="integrator-tabs" aria-label="Módulos principales">
-        {MODULES.map((module) => (
-          <a
-            key={module.key}
-            className={`integrator-tab ${initialModule === module.key ? "is-active" : ""}`}
-            href={moduleLinkMap[module.key]}
-          >
-            {module.label}
-          </a>
-        ))}
-      </nav>
-
-      <section className="brand-showcase">
-        <div className="brand-showcase-card">
-          <img className="brand-showcase-logo" src="/logo-srfix.webp" alt="Logo principal SR. FIX" />
-          <div className="brand-showcase-copy">
-            <strong>{businessName}</strong>
-            <span>La identidad visual, logo propio y datos del negocio se personalizan desde el registro del cliente.</span>
-          </div>
-        </div>
-      </section>
-
-      {message ? <div className="console-message">{message}</div> : null}
-
-      {initialModule === "operativo" ? (
-        <section className="integrator-native-shell">
-          <OperativoNative />
-        </section>
-      ) : initialModule === "tecnico" ? (
-        <section className="integrator-native-shell">
-          <TecnicoNative />
-        </section>
-      ) : initialModule === "solicitudes" ? (
-        <section className="integrator-native-shell">
-          <SolicitudesNative />
-        </section>
-      ) : initialModule === "archivo" ? (
-        <section className="integrator-native-shell">
-          <ArchivoNative />
-        </section>
-      ) : initialModule === "clientes" ? (
-        <section className="integrator-native-shell">
-          <ClientesNative />
-        </section>
-      ) : initialModule === "tareas" ? (
-        <section className="integrator-native-shell">
-          <TareasNative />
-        </section>
-      ) : initialModule === "stock" ? (
-        <section className="integrator-native-shell">
-          <StockNative />
-        </section>
-      ) : initialModule === "proveedores" ? (
-        <section className="integrator-native-shell">
-          <ProveedoresNative />
-        </section>
-      ) : initialModule === "compras" ? (
-        <section className="integrator-native-shell">
-          <ComprasNative />
-        </section>
-      ) : initialModule === "gastos" ? (
-        <section className="integrator-native-shell">
-          <GastosNative />
-        </section>
-      ) : initialModule === "finanzas" ? (
-        <section className="integrator-native-shell">
-          <FinanzasNative />
-        </section>
-      ) : initialModule === "reportes" ? (
-        <section className="integrator-native-shell">
-          <ReportesNative />
-        </section>
-      ) : initialModule === "sucursales" ? (
-        <section className="integrator-native-shell">
-          <SucursalesNative />
-        </section>
-      ) : (
-        <section className="integrator-iframe-shell">
-          <iframe
-            key={`${initialModule}-${branchFilter}`}
-            className="integrator-iframe"
-            title={`Modulo ${initialModule}`}
-            src={iframeSrc}
-          />
-        </section>
-      )}
+      </div>
     </section>
   );
 }
