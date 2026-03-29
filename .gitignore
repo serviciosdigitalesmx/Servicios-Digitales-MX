@@ -1,0 +1,13 @@
+node_modules/
+.next/
+dist/
+coverage/
+bin/
+obj/
+.DS_Store
+.env
+.env.local
+.env.development.local
+.env.production.local
+apps/frontend-web/.env.local
+apps/backend-api/appsettings.Development.local.json
