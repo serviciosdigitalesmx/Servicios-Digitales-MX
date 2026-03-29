@@ -77,6 +77,10 @@ export function ProductDashboard({ initialModule = "operativo" }: ProductDashboa
   const [branchFilter, setBranchFilter] = useState("GLOBAL");
   const [auth, setAuth] = useState<AuthMeResponse["data"] | null>(null);
   const [message, setMessage] = useState("");
+  const businessName = auth?.shop.name?.trim() || "SR. FIX";
+  const businessSubtitle = auth?.shop.slug
+    ? `Panel interno · ${auth.shop.slug}`
+    : "Soluciones en Tecnología";
 
   useEffect(() => {
     sessionStorage.setItem("srfix_pass_master", MASTER_PASSWORD);
@@ -126,11 +130,13 @@ export function ProductDashboard({ initialModule = "operativo" }: ProductDashboa
     <section className="integrator-shell">
       <header className="integrator-bar">
         <div className="integrator-left">
-          <div className="integrator-logo">SD</div>
+          <div className="integrator-logo-wrap">
+            <img className="integrator-logo-image" src="/logo-srfix.webp" alt="Logo base de SR. FIX" />
+          </div>
           <div className="integrator-brand">
-            <strong>Servicios Digitales MX</strong>
+            <strong>{businessName}</strong>
             <span>
-              {auth?.shop.name ?? "Shop cargando..."} · {auth?.subscription.status ?? "sin estado"}
+              {businessSubtitle} · {auth?.subscription.status ?? "sin estado"}
             </span>
           </div>
         </div>
@@ -162,6 +168,16 @@ export function ProductDashboard({ initialModule = "operativo" }: ProductDashboa
           </a>
         ))}
       </nav>
+
+      <section className="brand-showcase">
+        <div className="brand-showcase-card">
+          <img className="brand-showcase-logo" src="/logo-srfix.webp" alt="Logo principal SR. FIX" />
+          <div className="brand-showcase-copy">
+            <strong>{businessName}</strong>
+            <span>La identidad visual, logo propio y datos del negocio se personalizan desde el registro del cliente.</span>
+          </div>
+        </div>
+      </section>
 
       {message ? <div className="console-message">{message}</div> : null}
 
