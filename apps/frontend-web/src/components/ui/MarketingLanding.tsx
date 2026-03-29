@@ -101,7 +101,9 @@ export function MarketingLanding() {
       <nav className="landing-nav">
         <div className="landing-nav-card">
           <a className="landing-brand" href="#inicio">
-            <img src="/logo-srfix.webp" alt="Servicios Digitales MX" className="landing-brand-logo" />
+            <span className="brand-logo-frame landing-brand-logo-frame">
+              <img src="/logo-srfix.webp" alt="Servicios Digitales MX" className="landing-brand-logo" />
+            </span>
             <span>
               Servicios Digitales <em>MX</em>
             </span>
@@ -160,7 +162,9 @@ export function MarketingLanding() {
             <div className="landing-preview-main">
               <div className="landing-preview-card">
                 <div className="landing-preview-header">
-                  <img src="/logo-srfix.webp" alt="Servicios Digitales MX" />
+                  <span className="brand-logo-frame landing-preview-logo-frame">
+                    <img src="/logo-srfix.webp" alt="Servicios Digitales MX" className="brand-logo-image" />
+                  </span>
                   <div>
                     <strong>Servicios Digitales MX</strong>
                     <span>Operación, clientes, inventario y finanzas</span>
@@ -211,7 +215,9 @@ export function MarketingLanding() {
 
           <div className="landing-feature-visual">
             <div className="landing-feature-card">
-              <img src="/logo-srfix.webp" alt="Servicios Digitales MX" />
+              <span className="brand-logo-frame landing-feature-logo-frame">
+                <img src="/logo-srfix.webp" alt="Servicios Digitales MX" className="brand-logo-image" />
+              </span>
               <div>
                 <strong>Control real para talleres</strong>
                 <span>Recepción, técnicos, inventario, compras, finanzas, reportes y portal cliente.</span>
@@ -296,7 +302,9 @@ export function MarketingLanding() {
       <footer id="contacto" className="landing-footer">
         <div className="landing-container landing-footer-top">
           <div className="landing-brand footer">
-            <img src="/logo-srfix.webp" alt="Servicios Digitales MX" className="landing-brand-logo" />
+            <span className="brand-logo-frame landing-brand-logo-frame is-footer">
+              <img src="/logo-srfix.webp" alt="Servicios Digitales MX" className="landing-brand-logo" />
+            </span>
             <span>
               Servicios Digitales <em>MX</em>
             </span>

@@ -133,11 +133,15 @@ export function ProductDashboard({ initialModule = "operativo" }: ProductDashboa
         <aside className="samii-sidebar">
           <div className="samii-sidebar-top">
             <a className="samii-sidebar-brand" href="/interno">
-              <img className="samii-sidebar-logo" src="/logo-srfix.webp" alt="SR. FIX" />
+              <span className="brand-logo-frame samii-sidebar-logo-frame">
+                <img className="samii-sidebar-logo" src="/logo-srfix.webp" alt="SR. FIX" />
+              </span>
             </a>
 
             <div className="samii-business-chip">
-              <img className="samii-business-avatar" src="/logo-srfix.webp" alt={businessName} />
+              <span className="brand-logo-frame samii-business-avatar-frame">
+                <img className="samii-business-avatar" src="/logo-srfix.webp" alt={businessName} />
+              </span>
               <div>
                 <strong>{businessName}</strong>
                 <span>{auth?.subscription.status ?? "sin estado"}</span>
