@@ -7,6 +7,19 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Configuration.AddJsonFile("appsettings.Development.local.json", optional: true, reloadOnChange: true);
 
+var allowedOrigins = new[]
+{
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    builder.Configuration["MercadoPago:BaseUrl"],
+    builder.Configuration["Frontend:BaseUrl"],
+    builder.Configuration["NEXT_PUBLIC_APP_URL"]
+}
+    .Where(origin => !string.IsNullOrWhiteSpace(origin))
+    .Select(origin => origin!.Trim().TrimEnd('/'))
+    .Distinct(StringComparer.OrdinalIgnoreCase)
+    .ToArray();
+
 builder.Services.Configure<SupabaseOptions>(builder.Configuration.GetSection("Supabase"));
 builder.Services.Configure<MercadoPagoOptions>(builder.Configuration.GetSection("MercadoPago"));
 builder.Services.AddCors(options =>
@@ -14,7 +27,7 @@ builder.Services.AddCors(options =>
     options.AddPolicy("frontend-dev", policy =>
     {
         policy
-            .WithOrigins("http://localhost:3000", "http://127.0.0.1:3000")
+            .WithOrigins(allowedOrigins)
             .AllowAnyHeader()
             .AllowAnyMethod();
     });
