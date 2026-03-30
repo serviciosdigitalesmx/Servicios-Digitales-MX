@@ -1,5 +1,8 @@
 "use client";
 
+import { useState } from "react";
+import { IconMicrochip, IconRobot, IconCheck, IconStar, IconCheckCircular } from "./Icons";
+
 const MODULE_CHIPS = [
   "Panel Técnico",
   "Folios",
@@ -28,7 +31,7 @@ const PLANS = [
   {
     name: "Esencial",
     code: "esencial-350",
-    price: "$350",
+    price: "350",
     meta: "1 Sucursal · 1 Usuario",
     button: "Comenzar Ahora",
     tone: "light",
@@ -45,7 +48,7 @@ const PLANS = [
   {
     name: "Profesional",
     code: "profesional-650",
-    price: "$650",
+    price: "650",
     meta: "1 Sucursal · Usuarios Ilimitados",
     button: "Lo quiero ya",
     tone: "featured",
@@ -62,7 +65,7 @@ const PLANS = [
   {
     name: "Elite",
     code: "elite-1200",
-    price: "$1,200",
+    price: "1,200",
     meta: "Multi-sucursal · Usuarios Ilimitados",
     button: "Hablar con Ventas",
     tone: "light",
@@ -81,255 +84,294 @@ const TESTIMONIALS = [
   {
     name: "Anahí G.",
     role: "Taller de Celulares",
-    text: "Gracias a Servicios Digitales MX, mi taller ha ganado mucha eficiencia. Llevar el control de inventario es sencillo."
+    text: '"Gracias a Servicios Digitales MX, mi taller ha ganado mucha eficiencia. Llevar el control de inventario es sencillo."'
   },
   {
     name: "Carlos M.",
     role: "Servicio Automotriz",
-    text: "SDMX transformó la manera en que gestiono mi taller. Ahora todo está centralizado y he reducido errores."
+    text: '"SDMX transformó la manera en que gestiono mi taller. Ahora todo está centralizado y he reducido errores."'
   },
   {
     name: "María M.",
     role: "Centro Técnico",
-    text: "Desde que implementé Servicios Digitales MX, la organización ha mejorado notablemente. Puedo seguir cada reparación."
+    text: '"Desde que implementé Servicios Digitales MX, la organización ha mejorado notablemente. Puedo seguir cada reparación."'
   }
 ];
 
-export function MarketingLanding() {
-  return (
-    <main className="landing-shell">
-      <nav className="landing-nav">
-        <div className="landing-nav-card">
-          <a className="landing-brand" href="#inicio">
-            <span className="brand-logo-frame landing-brand-logo-frame">
-              <img src="/logo-srfix.webp" alt="Servicios Digitales MX" className="landing-brand-logo" />
-            </span>
-            <span>
-              Servicios Digitales <em>MX</em>
-            </span>
-          </a>
+function getChipColor(index: number) {
+  const colors = [
+    "sdmx-chip-indigo",
+    "sdmx-chip-blue",
+    "sdmx-chip-brand",
+    "sdmx-chip-orange",
+    "sdmx-chip-pink",
+    "sdmx-chip-purple",
+    "sdmx-chip-red",
+    "sdmx-chip-brand-bold",
+    "sdmx-chip-rose",
+    "sdmx-chip-slate",
+    "sdmx-chip-yellow",
+    "sdmx-chip-brand",
+    "sdmx-chip-yellow-alert"
+  ];
+  return colors[index % colors.length];
+}
 
-          <div className="landing-nav-links">
+export function MarketingLanding() {
+  const [tab, setTab] = useState("recepcion");
+
+  return (
+    <div className="sdmx-landing-page">
+      {/* NAVBAR */}
+      <nav className="sdmx-nav-fixed">
+        <div className="sdmx-nav-container">
+          <div className="sdmx-nav-brand">
+            <div className="sdmx-nav-logo-box">
+              <IconMicrochip width={18} height={18} style={{color: 'white'}} />
+            </div>
+            <span>Servicios Digitales <span style={{color: '#0066FF', fontStyle: 'italic'}}>MX</span></span>
+          </div>
+          
+          <div className="sdmx-nav-links">
             <a href="#inicio">Inicio</a>
             <a href="#caracteristicas">Características</a>
             <a href="#planes">Planes</a>
             <a href="#contacto">Contacto</a>
-            <a className="landing-nav-cta" href="/interno">
-              Acceso Clientes
-            </a>
+            <a href="/login" className="sdmx-nav-cta">Iniciar sesión</a>
           </div>
         </div>
       </nav>
 
-      <section id="inicio" className="landing-hero">
-        <div className="landing-container landing-hero-inner">
-          <h1>
-            Te presentamos el mejor software
-            <br />
-            para administrar tu <span>taller de reparación</span>
+      {/* HERO SECTION */}
+      <section id="inicio" className="sdmx-hero">
+        <div className="sdmx-container-6xl">
+          <h1 className="sdmx-hero-title">
+            Te presentamos el mejor software <br className="hidden md:block" />
+            para administrar tu <span style={{color: '#0f172a'}}>taller de reparación</span>{' '}
+            <span style={{display: 'inline-block', transform: 'translateY(8px)'}}>🔨</span>
           </h1>
-          <p>Toma el control de tu negocio con una sola aplicación.</p>
+          <p className="sdmx-hero-subtitle">Toma el control de tu negocio con una sola aplicación.</p>
 
-          <div className="landing-pill-row">
-            <button>Recepción</button>
-            <button>Inventario</button>
-            <button>Finanzas</button>
-            <button>Clientes</button>
+          {/* Pill Navigation */}
+          <div className="sdmx-pills-row">
+            <button 
+              onClick={() => setTab("recepcion")} 
+              className={`sdmx-pill-button ${tab === "recepcion" ? "is-active" : ""}`}
+            >
+              Recepción
+            </button>
+            <span className="sdmx-pill-separator"></span>
+            
+            <button 
+              onClick={() => setTab("inventario")} 
+              className={`sdmx-pill-button ${tab === "inventario" ? "is-active" : ""}`}
+            >
+              Inventario
+            </button>
+            <span className="sdmx-pill-separator"></span>
+
+            <button 
+              onClick={() => setTab("finanzas")} 
+              className={`sdmx-pill-button ${tab === "finanzas" ? "is-active" : ""}`}
+            >
+              Finanzas
+            </button>
+            <span className="sdmx-pill-separator"></span>
+
+            <button 
+              onClick={() => setTab("clientes")} 
+              className={`sdmx-pill-button ${tab === "clientes" ? "is-active" : ""}`}
+            >
+              Clientes
+            </button>
           </div>
 
-          <div className="landing-chip-grid">
-            {MODULE_CHIPS.map((chip) => (
-              <span key={chip} className="landing-chip">
-                {chip}
-              </span>
+          {/* Function Chips */}
+          <div className="sdmx-chips-container">
+            {MODULE_CHIPS.map((chip, i) => (
+              <div key={chip} className={`sdmx-chip ${getChipColor(i)}`}>{chip}</div>
             ))}
           </div>
 
-          <div className="landing-cta-card">
-            <div className="landing-cta-actions">
-              <a className="landing-primary-button" href="#planes">
-                Comenzar ahora
-              </a>
-              <a className="landing-secondary-button" href="https://wa.me/528181234567" target="_blank" rel="noreferrer">
-                Consultar por WhatsApp
+          {/* CTA Block */}
+          <div className="sdmx-central-action">
+            <div className="sdmx-central-buttons">
+              <a href="#planes" className="sdmx-btn-primary">Comenzar ahora</a>
+              <a href="#" className="sdmx-btn-secondary">
+                <IconRobot width={16} height={16} style={{marginRight: '0.5rem'}} /> Consultar con el Bot
               </a>
             </div>
-            <p>Suscríbete mensualmente de forma segura con Mercado Pago.</p>
+            <p className="sdmx-central-disclaimer">Suscríbete mensualmente de forma segura con Mercado Pago.</p>
           </div>
 
-          <div className="landing-dashboard-preview">
-            <div className="landing-watermark">TODO EL CONTROL</div>
-            <div className="landing-preview-main">
-              <div className="landing-preview-card">
-                <div className="landing-preview-header">
-                  <span className="brand-logo-frame landing-preview-logo-frame">
-                    <img src="/logo-srfix.webp" alt="Servicios Digitales MX" className="brand-logo-image" />
-                  </span>
-                  <div>
-                    <strong>Servicios Digitales MX</strong>
-                    <span>Operación, clientes, inventario y finanzas</span>
-                  </div>
-                </div>
-
-                <div className="landing-preview-grid">
-                  <div className="landing-preview-panel">
-                    <span>Nueva orden</span>
-                    <strong>Recepción rápida</strong>
-                    <p>Cliente, equipo, promesa de entrega y costo estimado.</p>
-                  </div>
-                  <div className="landing-preview-panel">
-                    <span>Finanzas</span>
-                    <strong>$1055 MXN</strong>
-                    <p>Utilidad proyectada del periodo actual.</p>
-                  </div>
-                  <div className="landing-preview-panel">
-                    <span>Stock</span>
-                    <strong>12 alertas</strong>
-                    <p>Refacciones críticas y ordenes pendientes.</p>
-                  </div>
-                </div>
-              </div>
-              <div className="landing-preview-mobile">
-                <strong>Portal cliente</strong>
-                <p>Seguimiento por folio y estado del equipo.</p>
-              </div>
+          {/* Dashboard Preview */}
+          <div className="sdmx-mockups-wrapper">
+            <h2 className="sdmx-watermark-huge">TODO EL CONTROL</h2>
+            <div className="sdmx-mockup-desktop">
+              <img src="https://images.unsplash.com/photo-1551288049-bbbda5366391?auto=format&fit=crop&q=80&w=2000" alt="Dashboard" />
+            </div>
+            <div className="sdmx-mockup-mobile">
+              <img src="https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?auto=format&fit=crop&q=80&w=800" alt="Mobile" />
             </div>
           </div>
         </div>
       </section>
 
-      <section id="caracteristicas" className="landing-features">
-        <div className="landing-container landing-feature-grid">
-          <div className="landing-feature-copy">
-            <h2>Te presentamos nuestras características</h2>
-            <p>
-              Personaliza la forma en que llevas el control de tu negocio con una plataforma
-              completamente moldeable a tus necesidades.
-            </p>
-            <ul>
-              {FEATURES.map((feature) => (
-                <li key={feature}>{feature}</li>
-              ))}
-            </ul>
-          </div>
+      {/* CARACTERISTICAS */}
+      <section id="caracteristicas" className="sdmx-features-section">
+        <div className="sdmx-container-7xl">
+          <h2 className="sdmx-features-title">Te presentamos nuestras <span>características</span></h2>
+          <p className="sdmx-features-subtitle">Toma el control de tu negocio con una sola aplicacion.</p>
 
-          <div className="landing-feature-visual">
-            <div className="landing-feature-card">
-              <span className="brand-logo-frame landing-feature-logo-frame">
-                <img src="/logo-srfix.webp" alt="Servicios Digitales MX" className="brand-logo-image" />
-              </span>
-              <div>
-                <strong>Control real para talleres</strong>
-                <span>Recepción, técnicos, inventario, compras, finanzas, reportes y portal cliente.</span>
-              </div>
+          <div className="sdmx-features-grid">
+            <div className="sdmx-features-text-box">
+              <p className="sdmx-features-lead">Personaliza la forma en que llevas el control de tu negocio con una plataforma completamente moldeable a tus necesidades.</p>
+              <ul className="sdmx-features-list">
+                {FEATURES.map((feature) => (
+                  <li key={feature}>
+                    <div className="sdmx-features-icon"><IconCheck width={12} height={12} /></div>
+                    {feature}
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div className="sdmx-features-image-wrap">
+              <img src="https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&q=80&w=1200" alt="UI App" />
             </div>
           </div>
         </div>
       </section>
 
-      <section id="planes" className="landing-pricing">
-        <div className="landing-pricing-watermark">COMIENZA HOY MISMO</div>
-        <div className="landing-container">
-          <div className="landing-pricing-head">
+      {/* PLANES */}
+      <section id="planes" className="sdmx-pricing-section">
+        <h2 className="sdmx-pricing-watermark">COMIENZA HOY MISMO</h2>
+        <div className="sdmx-container-7xl" style={{position: 'relative', zIndex: 10}}>
+          <div className="sdmx-pricing-head">
             <h2>Planes de Pago</h2>
-            <p>Toma el control de tu negocio con una sola aplicación.</p>
+            <p>Toma el control de tu negocio con una sola aplicacion</p>
           </div>
 
-          <div className="landing-pricing-grid">
-            {PLANS.map((plan) => (
-              <article
-                key={plan.name}
-                className={`landing-plan-card ${plan.tone === "featured" ? "is-featured" : ""}`}
+          <div className="sdmx-pricing-grid">
+            {PLANS.map((plan, i) => (
+              <div 
+                key={plan.name} 
+                className={plan.tone === 'featured' ? 'sdmx-pricing-card-featured' : `sdmx-pricing-card ${i === 0 ? 'left' : 'right'}`}
               >
-                {plan.badge ? <span className="landing-plan-badge">{plan.badge}</span> : null}
-                <div className="landing-plan-head">
-                  <h3>{plan.name}</h3>
-                  <div className="landing-plan-price">
-                    <span>{plan.price}</span>
-                    <small>MXN/mes</small>
+                {plan.badge && (
+                  <div className="sdmx-pricing-badge-wrap">
+                    <span className="sdmx-pricing-badge">{plan.badge}</span>
                   </div>
-                  <p>{plan.meta}</p>
+                )}
+                
+                <div className={plan.tone === 'featured' ? 'sdmx-pricing-featured-header' : 'sdmx-pricing-header'}>
+                  <h3 className="sdmx-pricing-title">{plan.name}</h3>
+                  <div className="sdmx-pricing-amount-row">
+                    <span className="sdmx-pricing-currency">$</span>
+                    <span className="sdmx-pricing-value">{plan.price}</span>
+                    <span className="sdmx-pricing-period">MXN/mes</span>
+                  </div>
+                  <p className="sdmx-pricing-desc">{plan.meta}</p>
                 </div>
 
-                <ul className="landing-plan-features">
-                  {plan.features.map((feature) => (
-                    <li key={feature}>{feature}</li>
+                <ul className="sdmx-pricing-list">
+                  {plan.features.map((feature, j) => (
+                    <li key={feature}>
+                      {feature} 
+                      {j === plan.features.length - 1 ? (
+                        <IconStar width={16} height={16} className={plan.tone === 'featured' ? '' : 'sdmx-pricing-feature-special'} />
+                      ) : (
+                        <IconCheckCircular width={16} height={16} className={plan.tone === 'featured' ? '' : 'sdmx-pricing-icon-brand'} />
+                      )}
+                    </li>
                   ))}
                 </ul>
 
-                <a
-                  className={`landing-plan-button ${plan.tone === "featured" ? "is-featured" : ""}`}
-                  href={`/billing?plan=${plan.code}`}
+                <a 
+                  href={`/register?plan=${plan.code}`} 
+                  className={plan.tone === 'featured' ? 'sdmx-pricing-btn-white' : 'sdmx-pricing-btn-primary'}
                 >
                   {plan.button}
                 </a>
-              </article>
+              </div>
             ))}
           </div>
         </div>
       </section>
 
-      <section className="landing-proof">
-        <div className="landing-container">
-          <div className="landing-proof-stats">
-            <div>
-              <strong>+32</strong>
-              <span>Estados en México</span>
-              <p>Y haciendo crecer tu negocio</p>
+      {/* STATS & TESTIMONIALS */}
+      <section className="sdmx-stats-section">
+        <img src="https://upload.wikimedia.org/wikipedia/commons/e/ec/World_map_blank_without_borders.svg" className="sdmx-stats-map" alt="Map" />
+        <div className="sdmx-container-7xl">
+          <div className="sdmx-stats-grid">
+            <div className="sdmx-stat-box">
+              <span className="sdmx-stat-val">+32</span>
+              <span className="sdmx-stat-label">Estados en México</span>
+              <p className="sdmx-stat-desc">Y haciendo crecer tu negocio</p>
             </div>
-            <div>
-              <strong>+150,000</strong>
-              <span>Órdenes creadas</span>
-              <p>Usando nuestra plataforma</p>
+            <div className="sdmx-stat-box">
+              <span className="sdmx-stat-val brand">+150,000</span>
+              <span className="sdmx-stat-label">Órdenes creadas</span>
+              <p className="sdmx-stat-desc">Usando nuestra plataforma</p>
             </div>
           </div>
 
-          <div className="landing-testimonials">
-            {TESTIMONIALS.map((testimonial) => (
-              <article key={testimonial.name} className="landing-testimonial-card">
-                <div className="landing-stars">★★★★★</div>
-                <p>{testimonial.text}</p>
-                <div>
-                  <strong>{testimonial.name}</strong>
-                  <span>{testimonial.role}</span>
+          <div className="sdmx-testimonials-grid">
+            {TESTIMONIALS.map((t) => (
+              <div key={t.name} className="sdmx-testimonial-card">
+                <div className="sdmx-stars">
+                  <div style={{display: 'flex', gap: '0.25rem', justifyContent: 'center'}}>
+                    <IconStar fill="currentColor" width={16} height={16} /><IconStar fill="currentColor" width={16} height={16} /><IconStar fill="currentColor" width={16} height={16} /><IconStar fill="currentColor" width={16} height={16} /><IconStar fill="currentColor" width={16} height={16} />
+                  </div>
                 </div>
-              </article>
+                <p className="sdmx-testimonial-body">{t.text}</p>
+                <div className="sdmx-testimonial-author">
+                  <div className="sdmx-testimonial-avatar"></div>
+                  <div>
+                    <p className="sdmx-testimonial-name">{t.name}</p>
+                    <p className="sdmx-testimonial-role">{t.role}</p>
+                  </div>
+                </div>
+              </div>
             ))}
           </div>
         </div>
       </section>
 
-      <footer id="contacto" className="landing-footer">
-        <div className="landing-container landing-footer-top">
-          <div className="landing-brand footer">
-            <span className="brand-logo-frame landing-brand-logo-frame is-footer">
-              <img src="/logo-srfix.webp" alt="Servicios Digitales MX" className="landing-brand-logo" />
-            </span>
-            <span>
-              Servicios Digitales <em>MX</em>
-            </span>
+      {/* FOOTER */}
+      <footer id="contacto" className="sdmx-footer">
+        <div className="sdmx-container-7xl">
+          <div className="sdmx-footer-top">
+            <div className="sdmx-footer-brand">
+              <div className="sdmx-footer-logo-box">
+                <IconMicrochip width={24} height={24} />
+              </div>
+              <span className="sdmx-footer-brand-text">Servicios Digitales <span>MX</span></span>
+            </div>
+            <div className="sdmx-footer-links">
+              <a href="#inicio">Inicio</a>
+              <a href="#caracteristicas">Características</a>
+              <a href="#planes">Planes</a>
+              <a href="#contacto">Contacto</a>
+            </div>
+            <a href="/login" className="sdmx-footer-cta">Iniciar sesión</a>
           </div>
-
-          <div className="landing-footer-links">
-            <a href="#inicio">Inicio</a>
-            <a href="#caracteristicas">Características</a>
-            <a href="#planes">Planes</a>
-            <a href="#contacto">Contacto</a>
-          </div>
-
-          <a className="landing-nav-cta" href="/interno">
-            Iniciar sesión
-          </a>
-        </div>
-
-        <div className="landing-container landing-footer-bottom">
-          <span>&copy; 2026 Servicios Digitales MX. Reservados todos los derechos.</span>
-          <div>
-            <a href="#">Privacidad</a>
-            <a href="#">Términos</a>
+          <div className="sdmx-footer-bottom">
+            <span>&copy; 2026 Servicios Digitales MX. Reservados todos los derechos.</span>
+            <div className="sdmx-footer-legal">
+              <a href="#">Privacidad</a>
+              <a href="#">Términos</a>
+            </div>
           </div>
         </div>
       </footer>
-    </main>
+
+      {/* FLOAT BOT */}
+      <div className="sdmx-bot-wrap">
+        <button className="sdmx-bot-btn">
+          <IconRobot width={24} height={24} />
+        </button>
+        <div className="sdmx-bot-tooltip">Asistente Virtual</div>
+      </div>
+    </div>
   );
 }

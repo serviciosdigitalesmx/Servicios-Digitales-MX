@@ -1,21 +1,16 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useState, useMemo } from "react";
+import { 
+  IconSearch, IconPlus, IconCheckCircular, IconWarning, IconPen, 
+  IconThumbsUp, IconChart, IconSync, IconArchive, IconMonitor, 
+  IconClose, IconUser, IconPaperPlane, IconCircleNotch 
+} from "./Icons";
 
 type ServiceRequest = {
-  id: string;
-  folio: string;
-  customerName: string;
-  customerPhone?: string;
-  customerEmail?: string;
-  deviceType?: string;
-  deviceModel?: string;
-  issueDescription?: string;
-  urgency?: string;
-  status: string;
-  quotedTotal: number;
-  depositAmount: number;
-  balanceAmount: number;
+  id: string; folio: string; customerName: string; customerPhone?: string; customerEmail?: string;
+  deviceType?: string; deviceModel?: string; issueDescription?: string; urgency?: string;
+  status: string; quotedTotal: number; depositAmount: number; balanceAmount: number;
 };
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:5111";
@@ -23,14 +18,12 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:5
 async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...init,
-    headers: {
-      "Content-Type": "application/json",
-      ...(init?.headers ?? {})
-    },
-    cache: "no-store"
+    headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) },
+    cache: "no-store",
+    mode: "cors"
   });
   const data = await response.json();
-  if (!response.ok) throw new Error(data?.error?.message ?? "No se pudo completar la operación");
+  if (!response.ok) throw new Error(data?.error?.message ?? "Error al conectar con el servidor.");
   return data as T;
 }
 
@@ -38,115 +31,292 @@ function formatMoney(value: number) {
   return new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN", maximumFractionDigits: 0 }).format(value || 0);
 }
 
+const SERVICE_REQUEST_STATUS_LABELS: Record<string, string> = { pendiente: "En Dictamen / Pausa", aprobada: "Autorizada (Comercial)" };
+function getRequestStatusLabel(value?: string) { return SERVICE_REQUEST_STATUS_LABELS[(value ?? "").trim().toLowerCase()] ?? (value ? value.charAt(0).toUpperCase() + value.slice(1) : "Abierto"); }
+
 export function SolicitudesNative() {
   const [items, setItems] = useState<ServiceRequest[]>([]);
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState("");
+  const [apiStateMessage, setApiStateMessage] = useState("");
+  const [apiStateError, setApiStateError] = useState("");
+  const [formError, setFormError] = useState("");
+  const [search, setSearch] = useState("");
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  
   const [form, setForm] = useState({
-    customerName: "",
-    customerPhone: "",
-    customerEmail: "",
-    deviceType: "",
-    deviceModel: "",
-    issueDescription: "",
-    urgency: "normal",
-    quotedTotal: "0",
-    depositAmount: "0"
+    customerName: "", customerPhone: "", customerEmail: "", deviceType: "", deviceModel: "",
+    issueDescription: "", urgency: "normal", quotedTotal: "0", depositAmount: "0"
   });
 
   async function loadData() {
-    setLoading(true);
+    setLoading(true); setApiStateMessage(""); setApiStateError("");
     try {
       const result = await fetchJson<{ data: ServiceRequest[] }>("/api/service-requests");
       setItems(result.data);
-      setMessage("");
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "No se pudieron cargar las solicitudes");
+       setApiStateError("Error de conexión al cargar la bandeja.");
     } finally {
       setLoading(false);
     }
   }
 
-  useEffect(() => {
-    void loadData();
-  }, []);
+  useEffect(() => { void loadData(); }, []);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+    event.preventDefault(); setFormError(""); setApiStateMessage(""); setApiStateError("");
+
+    if (!form.customerName.trim() || !form.deviceType.trim()) return setFormError("Los campos Prospecto y Equipo son obligatorios.");
+    const quoted = Number(form.quotedTotal || 0);
+    const deposit = Number(form.depositAmount || 0);
+    if (deposit > quoted) return setFormError("El anticipo no puede ser mayor al costo cotizado.");
+
     setLoading(true);
-    setMessage("");
     try {
-      const quotedTotal = Number(form.quotedTotal || 0);
-      const depositAmount = Number(form.depositAmount || 0);
       await fetchJson("/api/service-requests", {
         method: "POST",
-        body: JSON.stringify({
-          ...form,
-          quotedTotal,
-          depositAmount,
-          balanceAmount: Math.max(quotedTotal - depositAmount, 0)
-        })
+        body: JSON.stringify({ ...form, customerPhone: form.customerPhone.trim() || null, customerEmail: form.customerEmail.trim() || null, quotedTotal: quoted, depositAmount: deposit, balanceAmount: Math.max(quoted - deposit, 0) })
       });
-      setForm({
-        customerName: "",
-        customerPhone: "",
-        customerEmail: "",
-        deviceType: "",
-        deviceModel: "",
-        issueDescription: "",
-        urgency: "normal",
-        quotedTotal: "0",
-        depositAmount: "0"
-      });
+      setForm({ customerName: "", customerPhone: "", customerEmail: "", deviceType: "", deviceModel: "", issueDescription: "", urgency: "normal", quotedTotal: "0", depositAmount: "0" });
+      setIsModalOpen(false);
       await loadData();
-      setMessage("Solicitud guardada.");
+      setApiStateMessage("Solicitud completada exitosamente.");
+      setTimeout(() => setApiStateMessage(""), 4000);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "No se pudo guardar la solicitud");
+       setApiStateError(error instanceof Error ? error.message : "Error al registrar la cotización.");
     } finally {
       setLoading(false);
     }
   }
 
+  const filteredItems = useMemo(() => items.filter(t => !search || t.folio.toLowerCase().includes(search.toLowerCase()) || t.customerName.toLowerCase().includes(search.toLowerCase()) || (t.deviceType && t.deviceType.toLowerCase().includes(search.toLowerCase()))), [items, search]);
+
+  const stats = useMemo(() => {
+    return {
+      borradores: items.filter(i => i.status.toLowerCase() === 'pendiente').length,
+      aprobadas: items.filter(i => i.status.toLowerCase() === 'aprobada').length,
+      potencial: items.reduce((acc, curr) => acc + curr.quotedTotal, 0)
+    };
+  }, [items]);
+
   return (
-    <section className="module-native-shell">
-      <div className="module-native-header">
-        <div>
-          <span className="hero-eyebrow">Solicitudes nativo</span>
-          <h1>Solicitudes y cotizaciones</h1>
-          <p>Este panel ya registra solicitudes reales y controla anticipo, saldo y cotización.</p>
+    <div style={{display: 'flex', flexDirection: 'column', gap: '2rem', transition: 'all 0.3s ease'}}>
+      
+      {/* HEADER & GLOBAL ACTIONS */}
+      <div className="finanzas-header" style={{marginBottom: 0}}>
+         <div>
+            <h1>Cotizaciones</h1>
+            <p>Captura diagnósticos previos y presupuesta nuevos servicios.</p>
+         </div>
+         <div style={{display: 'flex', gap: '1rem', alignItems: 'center'}}>
+           <div style={{position: 'relative', width: '280px'}}>
+             <div style={{position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', display: 'flex', alignItems: 'center'}}>
+                <IconSearch width={14} height={14} />
+             </div>
+             <input 
+               type="text" 
+               placeholder="Buscar folio o cliente..." 
+               value={search} 
+               onChange={(e) => setSearch(e.target.value)}
+               style={{width: '100%', padding: '0.625rem 1rem 0.625rem 2.5rem', borderRadius: '9999px', border: '1px solid #e2e8f0', background: 'white', fontSize: '0.875rem', outline: 'none', transition: 'all 0.2s', boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.01)'}}
+             />
+           </div>
+           <button onClick={() => setIsModalOpen(true)} className="sdmx-btn-primary">
+              <IconPlus width={16} height={16} />
+              Nueva Cotización
+           </button>
+         </div>
+      </div>
+
+      {apiStateMessage && <div style={{padding: '1rem', background: '#ecfdf5', color: '#059669', borderRadius: '0.75rem', fontWeight: 600, fontSize: '0.875rem', border: '1px solid #d1fae5', display: 'flex', alignItems: 'center', gap: '0.5rem'}}><IconCheckCircular width={16} height={16} />{apiStateMessage}</div>}
+      {apiStateError && <div style={{padding: '1rem', background: '#fef2f2', color: '#dc2626', borderRadius: '0.75rem', fontWeight: 600, fontSize: '0.875rem', border: '1px solid #fee2e2', display: 'flex', alignItems: 'center', gap: '0.5rem'}}><IconWarning width={16} height={16} />{apiStateError}</div>}
+
+      {/* STATS ROW */}
+      <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.5rem'}}>
+         <div className="sdmx-card-premium" style={{padding: '1.5rem', display: 'flex', alignItems: 'center', gap: '1rem'}}>
+            <div style={{background: '#f8fafc', color: '#64748b', width: '3rem', height: '3rem', borderRadius: '0.75rem', display: 'flex', alignItems: 'center', justifyContent: 'center'}}>
+               <IconPen width={20} height={20} />
+            </div>
+            <div>
+               <p style={{fontSize: '0.75rem', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0}}>Borradores</p>
+               <p style={{fontSize: '1.5rem', fontWeight: 800, color: '#0f172a', margin: '0.25rem 0 0 0'}}>{stats.borradores}</p>
+            </div>
+         </div>
+         <div className="sdmx-card-premium" style={{padding: '1.5rem', display: 'flex', alignItems: 'center', gap: '1rem'}}>
+            <div style={{background: '#ecfdf5', color: '#10b981', width: '3rem', height: '3rem', borderRadius: '0.75rem', display: 'flex', alignItems: 'center', justifyContent: 'center'}}>
+               <IconThumbsUp width={20} height={20} />
+            </div>
+            <div>
+               <p style={{fontSize: '0.75rem', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0}}>Aprobadas</p>
+               <p style={{fontSize: '1.5rem', fontWeight: 800, color: '#0f172a', margin: '0.25rem 0 0 0'}}>{stats.aprobadas}</p>
+            </div>
+         </div>
+         <div className="sdmx-card-premium" style={{padding: '1.5rem', display: 'flex', alignItems: 'center', gap: '1rem'}}>
+            <div style={{background: '#eff6ff', color: '#3b82f6', width: '3rem', height: '3rem', borderRadius: '0.75rem', display: 'flex', alignItems: 'center', justifyContent: 'center'}}>
+               <IconChart width={20} height={20} />
+            </div>
+            <div>
+               <p style={{fontSize: '0.75rem', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0}}>Ingreso Potencial</p>
+               <p style={{fontSize: '1.5rem', fontWeight: 800, color: '#0f172a', margin: '0.25rem 0 0 0'}}>{formatMoney(stats.potencial)}</p>
+            </div>
+         </div>
+      </div>
+
+      {/* LIST VIEW */}
+      <div className="sdmx-card-premium">
+         <div className="sdmx-card-header">
+            <div>
+               <h3>Bandeja de Entrada</h3>
+               <p>Registros de cotización activos</p>
+            </div>
+            <div>
+               <button className="sdmx-btn-ghost" onClick={() => void loadData()} disabled={loading}>
+                 <IconSync width={14} height={14} style={{animation: loading ? 'sdmx-spin 1s linear infinite' : 'none'}} />
+               </button>
+            </div>
+         </div>
+         <div className="sdmx-card-body" style={{padding: 0}}>
+            <ul style={{listStyle: 'none', margin: 0, padding: 0}}>
+               {filteredItems.length === 0 ? (
+                  <li style={{padding: '4rem 2rem', textAlign: 'center', color: '#94a3b8'}}>
+                     <div style={{background: '#f1f5f9', width: '4rem', height: '4rem', borderRadius: '9999px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem auto', color: '#64748b'}}>
+                        <IconArchive width={24} height={24} />
+                     </div>
+                     <strong style={{display: 'block', color: '#1e293b', fontSize: '1.125rem', marginBottom: '0.25rem'}}>No hay registros activos</strong>
+                     <span style={{fontSize: '0.875rem'}}>Registra una nueva cotización comercial disponible en el botón superior.</span>
+                  </li>
+               ) : (
+                  filteredItems.map((item, idx) => (
+                    <li key={item.id} style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1.5rem', borderBottom: '1px solid #f1f5f9', background: idx % 2 === 0 ? 'white' : '#f8fafc', transition: 'background 0.2s'}}>
+                       <div style={{display: 'flex', gap: '1.25rem'}}>
+                          <div style={{background: '#eff6ff', color: '#2563eb', padding: '0.5rem', borderRadius: '0.5rem', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minWidth: '4.5rem', border: '1px solid #dbeafe'}}>
+                             <span style={{fontSize: '0.5625rem', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.1em', opacity: 0.8}}>FOLIO</span>
+                             <strong style={{fontSize: '0.875rem'}}>{item.folio}</strong>
+                          </div>
+                          <div style={{display: 'flex', flexDirection: 'column', justifyContent: 'center'}}>
+                             <strong style={{fontSize: '1rem', color: '#0f172a', marginBottom: '0.25rem'}}>{item.customerName}</strong>
+                             <div style={{fontSize: '0.8125rem', color: '#64748b', display: 'flex', gap: '0.75rem', alignItems: 'center'}}>
+                                <span style={{display: 'flex', alignItems: 'center', gap: '0.25rem'}}><IconMonitor width={12} height={12} style={{opacity:0.7}} /> {item.deviceType || "Genérico"}</span>
+                                <span style={{color: '#cbd5e1'}}>•</span>
+                                <span>{item.issueDescription?.slice(0, 60) || "Sin historial vinculado"}...</span>
+                             </div>
+                          </div>
+                       </div>
+                       
+                       <div style={{display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.75rem'}}>
+                          <span className={`sdmx-badge ${item.status.toLowerCase() === 'aprobada' ? 'sdmx-badge-emerald' : 'sdmx-badge-amber'}`}>
+                             {getRequestStatusLabel(item.status)}
+                          </span>
+                          {item.quotedTotal > 0 && (
+                            <div style={{display: 'flex', gap: '1rem', fontSize: '0.75rem', fontWeight: 600}}>
+                               <span style={{color: '#64748b'}}>Costo: <strong style={{color: '#0f172a'}}>{formatMoney(item.quotedTotal)}</strong></span>
+                               {item.depositAmount > 0 && <span style={{color: '#10b981'}}>Anticipo: {formatMoney(item.depositAmount)}</span>}
+                            </div>
+                          )}
+                       </div>
+                    </li>
+                  ))
+               )}
+            </ul>
+         </div>
+      </div>
+
+      {/* FLOATING MODAL */}
+      {isModalOpen && (
+        <div style={{position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem', background: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(4px)'}}>
+           <div style={{background: 'white', borderRadius: '1.25rem', width: '100%', maxWidth: '42rem', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)'}} className="sdmx-scrollbar">
+              
+              <div style={{padding: '1.5rem', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(8px)', zIndex: 10}}>
+                 <div>
+                    <h3 style={{fontSize: '1.25rem', fontWeight: 800, color: '#0f172a', margin: 0}}>Nueva Cotización</h3>
+                    <p style={{fontSize: '0.75rem', color: '#64748b', margin: '0.25rem 0 0 0'}}>Emite un dictamen preliminar.</p>
+                 </div>
+                 <button onClick={() => setIsModalOpen(false)} style={{background: '#f1f5f9', border: 'none', width: '2rem', height: '2rem', borderRadius: '0.5rem', color: '#64748b', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center'}}>
+                    <IconClose width={16} height={16} />
+                 </button>
+              </div>
+
+              <form onSubmit={handleSubmit} style={{padding: '1.5rem'}}>
+                 {formError && <div style={{padding: '1rem', background: '#fef2f2', color: '#dc2626', borderRadius: '0.75rem', fontWeight: 600, fontSize: '0.875rem', border: '1px solid #fee2e2', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem'}}><IconWarning width={16} height={16} />{formError}</div>}
+                 
+                 <div style={{display: 'flex', flexDirection: 'column', gap: '1.5rem'}}>
+                    {/* CLIENT INFO */}
+                    <div style={{background: '#f8fafc', padding: '1rem', borderRadius: '0.75rem', border: '1px solid #f1f5f9'}}>
+                       <h4 style={{fontSize: '0.75rem', fontWeight: 800, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '1rem', marginTop: 0, display: 'flex', alignItems: 'center', gap: '0.5rem'}}><IconUser width={14} height={14} />Datos de Contacto</h4>
+                       <div style={{display: 'grid', gridTemplateColumns: 'repeat(1, 1fr)', gap: '1rem'}}>
+                          <div style={{display: 'flex', flexDirection: 'column'}}>
+                             <label style={{fontSize: '0.75rem', fontWeight: 700, color: '#1e293b', marginBottom: '0.375rem'}}>Prospecto / Organización *</label>
+                             <input required style={{padding: '0.625rem', borderRadius: '0.5rem', border: '1px solid #cbd5e1', outline: 'none', fontSize: '0.875rem'}} value={form.customerName} onChange={(e) => setForm({ ...form, customerName: e.target.value })} placeholder="Ej. Corporativo Zenith"/>
+                          </div>
+                       </div>
+                       <div style={{display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem', marginTop: '1rem'}}>
+                          <div style={{display: 'flex', flexDirection: 'column'}}>
+                             <label style={{fontSize: '0.75rem', fontWeight: 700, color: '#1e293b', marginBottom: '0.375rem'}}>Teléfono Celular</label>
+                             <input style={{padding: '0.625rem', borderRadius: '0.5rem', border: '1px solid #cbd5e1', outline: 'none', fontSize: '0.875rem'}} value={form.customerPhone} onChange={(e) => setForm({ ...form, customerPhone: e.target.value })} placeholder="10 dígitos"/>
+                          </div>
+                          <div style={{display: 'flex', flexDirection: 'column'}}>
+                             <label style={{fontSize: '0.75rem', fontWeight: 700, color: '#1e293b', marginBottom: '0.375rem'}}>Correo Electrónico</label>
+                             <input type="email" style={{padding: '0.625rem', borderRadius: '0.5rem', border: '1px solid #cbd5e1', outline: 'none', fontSize: '0.875rem'}} value={form.customerEmail} onChange={(e) => setForm({ ...form, customerEmail: e.target.value })} placeholder="usuario@empresa.com"/>
+                          </div>
+                       </div>
+                    </div>
+
+                    {/* DEVICE INFO */}
+                    <div>
+                       <h4 style={{fontSize: '0.75rem', fontWeight: 800, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '1rem', marginTop: 0, display:'flex', alignItems:'center', gap:'0.5rem'}}><IconMonitor width={14} height={14} />Activo Tecnológico</h4>
+                       <div style={{display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem'}}>
+                          <div style={{display: 'flex', flexDirection: 'column'}}>
+                             <label style={{fontSize: '0.75rem', fontWeight: 700, color: '#1e293b', marginBottom: '0.375rem'}}>Tipo de Equipo *</label>
+                             <input required style={{padding: '0.625rem', borderRadius: '0.5rem', border: '1px solid #cbd5e1', outline: 'none', fontSize: '0.875rem'}} value={form.deviceType} onChange={(e) => setForm({ ...form, deviceType: e.target.value })} placeholder="Laptop, Servidor..."/>
+                          </div>
+                          <div style={{display: 'flex', flexDirection: 'column'}}>
+                             <label style={{fontSize: '0.75rem', fontWeight: 700, color: '#1e293b', marginBottom: '0.375rem'}}>Modelo Específico</label>
+                             <input style={{padding: '0.625rem', borderRadius: '0.5rem', border: '1px solid #cbd5e1', outline: 'none', fontSize: '0.875rem'}} value={form.deviceModel} onChange={(e) => setForm({ ...form, deviceModel: e.target.value })} placeholder="Ej. ThinkPad T14"/>
+                          </div>
+                       </div>
+                       <div style={{display: 'flex', flexDirection: 'column', marginTop: '1rem'}}>
+                          <label style={{fontSize: '0.75rem', fontWeight: 700, color: '#1e293b', marginBottom: '0.375rem'}}>Descripción del Requerimiento</label>
+                          <textarea style={{padding: '0.625rem', borderRadius: '0.5rem', border: '1px solid #cbd5e1', outline: 'none', fontSize: '0.875rem', minHeight: '5rem', resize: 'vertical'}} value={form.issueDescription} onChange={(e) => setForm({ ...form, issueDescription: e.target.value })} placeholder="Detalla el escenario de falla o mejora esperada..."></textarea>
+                       </div>
+                    </div>
+
+                    {/* FINANCIAL INFO */}
+                    <div style={{background: '#eff6ff', padding: '1rem', borderRadius: '0.75rem', border: '1px solid #dbeafe'}}>
+                       <div style={{display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem'}}>
+                          <div style={{display: 'flex', flexDirection: 'column'}}>
+                             <label style={{fontSize: '0.75rem', fontWeight: 700, color: '#1e3a8a', marginBottom: '0.375rem'}}>SLA Prioridad</label>
+                             <select style={{padding: '0.625rem', borderRadius: '0.5rem', border: '1px solid #bfdbfe', background: 'white', outline: 'none', fontSize: '0.875rem'}} value={form.urgency} onChange={(e) => setForm({ ...form, urgency: e.target.value })}>
+                                <option value="baja">Baja</option>
+                                <option value="normal">Estándar</option>
+                                <option value="alta">Prioritaria</option>
+                                <option value="urgente">Crítica</option>
+                             </select>
+                          </div>
+                          <div style={{display: 'flex', flexDirection: 'column'}}>
+                             <label style={{fontSize: '0.75rem', fontWeight: 700, color: '#1e3a8a', marginBottom: '0.375rem'}}>Presupuesto (MXN) *</label>
+                             <input type="number" min="0" step="0.01" style={{padding: '0.625rem', borderRadius: '0.5rem', border: '1px solid #bfdbfe', outline: 'none', fontSize: '0.875rem', fontWeight: 'bold'}} value={form.quotedTotal} onChange={(e) => setForm({ ...form, quotedTotal: e.target.value })} />
+                          </div>
+                          <div style={{display: 'flex', flexDirection: 'column'}}>
+                             <label style={{fontSize: '0.75rem', fontWeight: 700, color: '#059669', marginBottom: '0.375rem'}}>Anticipo</label>
+                             <input type="number" min="0" step="0.01" style={{padding: '0.625rem', borderRadius: '0.5rem', border: '1px solid #a7f3d0', background: '#ecfdf5', outline: 'none', fontSize: '0.875rem', color: '#059669', fontWeight: 'bold'}} value={form.depositAmount} onChange={(e) => setForm({ ...form, depositAmount: e.target.value })} />
+                          </div>
+                       </div>
+                    </div>
+
+                 </div>
+
+                 <div style={{paddingTop: '1.5rem', marginTop: '1.5rem', borderTop: '1px solid #f1f5f9', display: 'flex', justifyContent: 'flex-end', gap: '1rem'}}>
+                    <button type="button" onClick={() => setIsModalOpen(false)} className="sdmx-btn-ghost">Cancelar</button>
+                    <button type="submit" disabled={loading} className="sdmx-btn-primary">
+                       {loading ? <IconCircleNotch width={16} height={16} style={{animation:'sdmx-spin 1s linear infinite'}} /> : <IconPaperPlane width={16} height={16} />}
+                       Confirmar Alta
+                    </button>
+                 </div>
+              </form>
+
+           </div>
         </div>
-      </div>
-      {message ? <div className="console-message">{message}</div> : null}
-      <div className="module-native-grid">
-        <form className="card form-card" onSubmit={handleSubmit}>
-          <h3>Nueva solicitud</h3>
-          <label>Cliente<input required value={form.customerName} onChange={(e) => setForm({ ...form, customerName: e.target.value })} /></label>
-          <label>WhatsApp<input value={form.customerPhone} onChange={(e) => setForm({ ...form, customerPhone: e.target.value })} /></label>
-          <label>Email<input type="email" value={form.customerEmail} onChange={(e) => setForm({ ...form, customerEmail: e.target.value })} /></label>
-          <label>Tipo de equipo<input value={form.deviceType} onChange={(e) => setForm({ ...form, deviceType: e.target.value })} /></label>
-          <label>Modelo<input value={form.deviceModel} onChange={(e) => setForm({ ...form, deviceModel: e.target.value })} /></label>
-          <label>Falla reportada<textarea value={form.issueDescription} onChange={(e) => setForm({ ...form, issueDescription: e.target.value })} /></label>
-          <label>Urgencia<select value={form.urgency} onChange={(e) => setForm({ ...form, urgency: e.target.value })}><option value="normal">Normal</option><option value="alta">Alta</option><option value="urgente">Urgente</option></select></label>
-          <label>Cotización<input type="number" min="0" step="0.01" value={form.quotedTotal} onChange={(e) => setForm({ ...form, quotedTotal: e.target.value })} /></label>
-          <label>Anticipo<input type="number" min="0" step="0.01" value={form.depositAmount} onChange={(e) => setForm({ ...form, depositAmount: e.target.value })} /></label>
-          <button type="submit" disabled={loading}>Guardar solicitud</button>
-        </form>
-        <article className="card">
-          <h3>Solicitudes recientes</h3>
-          <ul className="data-list">
-            {items.length === 0 ? (
-              <li><strong>Sin solicitudes todavía</strong><span>La primera cotización nueva aparecerá aquí.</span></li>
-            ) : (
-              items.map((item) => (
-                <li key={item.id}>
-                  <strong>{item.folio} · {item.customerName}</strong>
-                  <span>{item.deviceType || "Sin equipo"} · {item.status} · {formatMoney(item.balanceAmount)}</span>
-                </li>
-              ))
-            )}
-          </ul>
-        </article>
-      </div>
-    </section>
+      )}
+
+    </div>
   );
 }

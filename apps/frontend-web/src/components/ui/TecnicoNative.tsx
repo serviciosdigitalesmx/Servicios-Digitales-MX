@@ -97,7 +97,7 @@ export function TecnicoNative() {
       </div>
       {message ? <div className="console-message">{message}</div> : null}
       <div className="module-native-grid">
-        <form className="card form-card" onSubmit={handleSubmit}>
+        <form className="sdmx-card-premium" onSubmit={handleSubmit}>
           <h3>Actualizar orden</h3>
           <label>
             Orden
@@ -118,7 +118,7 @@ export function TecnicoNative() {
           <label>Costo final<input type="number" min="0" step="0.01" value={finalCost} onChange={(e) => setFinalCost(e.target.value)} /></label>
           <button type="submit">Guardar avance</button>
         </form>
-        <article className="card">
+        <article className="sdmx-card-premium">
           <h3>Órdenes activas</h3>
           <ul className="data-list">
             {orders.length === 0 ? (
@@ -133,7 +133,7 @@ export function TecnicoNative() {
             )}
           </ul>
         </article>
-        <article className="card">
+        <article className="sdmx-card-premium">
           <h3>Tareas abiertas</h3>
           <ul className="data-list">
             {tasks.length === 0 ? (

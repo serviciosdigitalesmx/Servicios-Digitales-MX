@@ -20,12 +20,13 @@ async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
       "Content-Type": "application/json",
       ...(init?.headers ?? {})
     },
-    cache: "no-store"
+    cache: "no-store",
+    mode: "cors"
   });
 
   const data = await response.json();
   if (!response.ok) {
-    throw new Error(data?.error?.message ?? "No se pudo completar la operación");
+    throw new Error(data?.error?.message ?? "Falló el backend, comunícate con soporte.");
   }
 
   return data as T;
@@ -34,7 +35,11 @@ async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
 export function ProveedoresNative() {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState("");
+  const [apiStateMessage, setApiStateMessage] = useState("");
+  const [apiStateError, setApiStateError] = useState("");
+  const [formError, setFormError] = useState("");
+  const [search, setSearch] = useState("");
+  
   const [form, setForm] = useState({
     businessName: "",
     contactName: "",
@@ -46,12 +51,13 @@ export function ProveedoresNative() {
 
   async function loadSuppliers() {
     setLoading(true);
+    setApiStateMessage("");
+    setApiStateError("");
     try {
       const result = await fetchJson<{ data: Supplier[] }>("/api/suppliers");
       setSuppliers(result.data);
-      setMessage("");
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "No se pudieron cargar los proveedores");
+       setApiStateError(error instanceof Error ? error.message : "Ups, no pudimos cargar los proveedores. Revisa la red.");
     } finally {
       setLoading(false);
     }
@@ -63,85 +69,105 @@ export function ProveedoresNative() {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    setFormError("");
+    setApiStateMessage("");
+    setApiStateError("");
+
+    if (!form.businessName.trim()) {
+       setFormError("⚠️ Ingrese al menos la Razón Social o Nombre Comercial del proveedor.");
+       return;
+    }
+    
+    if (!form.phone && !form.email) {
+       setFormError("⚠️ Recomendamos ingresar al menos un número de teléfono o correo electrónico para contacto.");
+    }
+
     setLoading(true);
-    setMessage("");
     try {
       await fetchJson("/api/suppliers", {
         method: "POST",
         body: JSON.stringify(form)
       });
-      setForm({
-        businessName: "",
-        contactName: "",
-        phone: "",
-        email: "",
-        categories: "",
-        notes: ""
-      });
+      setForm({ businessName: "", contactName: "", phone: "", email: "", categories: "", notes: "" });
+      
       await loadSuppliers();
-      setMessage("Proveedor guardado.");
+      setApiStateMessage("✅ Proveedor registrado exitosamente en plataforma.");
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "No se pudo guardar el proveedor");
+      setApiStateError(error instanceof Error ? error.message : "El sistema rechazó el guardado del proveedor.");
     } finally {
       setLoading(false);
     }
   }
 
+  const filteredSuppliers = suppliers.filter(s => !search || s.businessName.toLowerCase().includes(search.toLowerCase()) || (s.categories && s.categories.toLowerCase().includes(search.toLowerCase())));
+
   return (
     <section className="module-native-shell">
       <div className="module-native-header">
         <div>
-          <span className="hero-eyebrow">Proveedores nativo</span>
-          <h1>Catálogo de proveedores</h1>
-          <p>Este panel centraliza el alta y la consulta de proveedores reales del negocio.</p>
+          <span className="hero-eyebrow">Red de Suministros</span>
+          <h1>Catálogo de Proveedores</h1>
+          <p>Centraliza y busca ágilmente los contactos de abastecimiento reales para tus sucursales y reparaciones.</p>
+        </div>
+        <div className="module-native-actions">
+           <div style={{ position: "relative", width: "100%", maxWidth: "340px" }}>
+            <span style={{ position: "absolute", top: "16px", left: "14px", opacity: 0.5 }}>🔍</span>
+            <input
+              className="module-search-input"
+              style={{ width: "100%", paddingLeft: "38px" }}
+              placeholder="Filtro rápido..."
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+            />
+          </div>
         </div>
       </div>
 
-      {message ? <div className="console-message">{message}</div> : null}
+      {apiStateMessage && <div className="form-message is-success">{apiStateMessage}</div>}
+      {apiStateError && <div className="console-message is-warning">{apiStateError}</div>}
 
-      <div className="module-native-grid">
-        <form className="card form-card" onSubmit={handleSubmit}>
-          <h3>Nuevo proveedor</h3>
+      <div className="module-native-grid module-native-grid-wide">
+        <form className="sdmx-card-premium" onSubmit={handleSubmit}>
+          <h3>Registrar Nueva Entidad</h3>
+          {formError && <div className="form-message is-warning">{formError}</div>}
           <label>
-            Nombre comercial
-            <input required value={form.businessName} onChange={(event) => setForm({ ...form, businessName: event.target.value })} />
+            Entidad Comercial / Razón Social *
+            <input value={form.businessName} onChange={(event) => setForm({ ...form, businessName: event.target.value })} placeholder="Ej. Distribuidora Central SA" />
           </label>
-          <label>
-            Contacto
-            <input value={form.contactName} onChange={(event) => setForm({ ...form, contactName: event.target.value })} />
-          </label>
-          <label>
-            Teléfono
-            <input value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} />
-          </label>
-          <label>
-            Email
-            <input type="email" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} />
-          </label>
-          <label>
-            Categorías
-            <input value={form.categories} onChange={(event) => setForm({ ...form, categories: event.target.value })} />
-          </label>
-          <button type="submit" disabled={loading}>Guardar proveedor</button>
+          <div className="grid-cols-auto">
+             <label>Teléfono<input value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} placeholder="10+ dígitos"/></label>
+             <label>Correo Soporte<input type="email" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} placeholder="ventas@proveedor.com"/></label>
+          </div>
+          <div className="grid-cols-2">
+             <label>Representante Directo<input value={form.contactName} onChange={(event) => setForm({ ...form, contactName: event.target.value })} placeholder="Ej. Lic. Martínez"/></label>
+             <label>Categorías Distribuidas<input value={form.categories} onChange={(event) => setForm({ ...form, categories: event.target.value })} placeholder="Refacciones, Displays, Insumos..."/></label>
+          </div>
+          <button type="submit" disabled={loading} >Integrar Proveedor al Catálogo</button>
         </form>
 
-        <article className="card">
-          <h3>Proveedores registrados</h3>
-          <ul className="data-list">
-            {suppliers.length === 0 ? (
-              <li>
-                <strong>Sin proveedores todavía</strong>
-                <span>Empieza dando de alta el primero desde este panel.</span>
-              </li>
+        <article className="sdmx-card-premium" style={{display: 'flex', flexDirection: 'column'}}>
+          <h3>Directorio de Distribuidores</h3>
+          <p className="muted" style={{borderBottom: '1px solid rgba(15,23,42,0.08)', paddingBottom: '12px', marginBottom: '14px'}}>Listado con {filteredSuppliers.length} entidad(es) halladas.</p>
+          <ul className="data-list scrollable-list">
+            {filteredSuppliers.length === 0 ? (
+               <li className="empty-state">
+                  <strong>Busqueda Vacía</strong>
+                  <span>Registra a la izquierda un nuevo flujo logístico.</span>
+               </li>
             ) : (
-              suppliers.map((supplier) => (
-                <li key={supplier.id}>
-                  <strong>{supplier.businessName}</strong>
-                  <span>
-                    {supplier.contactName || "Sin contacto"}
-                    {supplier.phone ? ` · ${supplier.phone}` : ""}
-                    {supplier.categories ? ` · ${supplier.categories}` : ""}
-                  </span>
+              filteredSuppliers.map((supplier) => (
+                <li key={supplier.id} className="list-item-grid">
+                  <div className="flex-col">
+                    <strong style={{ fontSize: '1.05rem', color: '#0f172a' }}>{supplier.businessName}</strong>
+                    <span style={{ fontSize: '0.85rem', color: '#64748b' }}>
+                      👤 Rep: {supplier.contactName || "NA"} · 📞 {supplier.phone || "Sin Teléfono"} · 📧 {supplier.email || "Sin Email"}
+                    </span>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <span style={{color: '#1e3a8a', backgroundColor: 'rgba(30,58,138,0.06)', padding: '4px 10px', borderRadius: '12px', fontSize: '0.8rem', fontWeight: 'bold' }}>
+                       {supplier.categories || "Cat. Múltiple"}
+                    </span>
+                  </div>
                 </li>
               ))
             )}

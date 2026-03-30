@@ -1,0 +1,160 @@
+/* src/app/(public)/portal/portal.css */
+
+.portal-wrapper {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background-color: #f8fafc;
+  color: #0f172a;
+}
+
+.portal-header {
+  background: white;
+  border-bottom: 1px solid #e2e8f0;
+  padding: 1rem;
+  position: sticky;
+  top: 0;
+  z-index: 40;
+}
+
+.portal-header-max {
+  max-width: 64rem;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.portal-tech-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+  border-radius: 0.75rem;
+}
+
+.portal-btn-naranja {
+  background-color: #FF6A2A;
+  color: #ffffff;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 1rem;
+  border-radius: 0.75rem;
+  font-weight: 800;
+  font-size: 1.125rem;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.portal-btn-naranja:hover {
+  background-color: #e85a1f;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 6px -1px rgba(255, 106, 42, 0.2);
+}
+
+.portal-btn-naranja:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.portal-btn-wa {
+  background-color: #22c55e;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 1rem;
+  border-radius: 0.75rem;
+  font-weight: 800;
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  width: 100%;
+  transition: background-color 0.2s;
+}
+
+.portal-btn-wa:hover {
+  background-color: #16a34a;
+}
+
+.portal-input-tech {
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  color: #0f172a;
+  width: 100%;
+  border-radius: 0.75rem;
+  padding: 1rem 1rem 1rem 3rem;
+  font-size: 1.25rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: -0.025em;
+  transition: all 0.2s ease;
+  outline: none;
+}
+
+.portal-input-tech:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1);
+}
+
+@keyframes portalFadeInUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.portal-animate-up {
+  animation: portalFadeInUp 0.4s ease-out forwards;
+}
+
+.portal-status-badge {
+  padding: 0.25rem 0.75rem;
+  border-radius: 0.375rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+  border-width: 1px;
+  display: inline-flex;
+  align-items: center;
+}
+
+.portal-status-Reparación { background: #eff6ff; color: #1d4ed8; border-color: #dbeafe; }
+.portal-status-Listo { background: #f0fdf4; color: #15803d; border-color: #dcfce7; }
+.portal-status-Diagnóstico { background: #fff7ed; color: #c2410c; border-color: #ffedd5; }
+.portal-status-Recibido { background: #f8fafc; color: #475569; border-color: #e2e8f0; }
+.portal-status-Entregado { background: #f1f5f9; color: #334155; border-color: #e2e8f0; }
+.portal-status-default { background: #f8fafc; color: #475569; border-color: #e2e8f0; }
+
+.portal-lightbox {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.8);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.portal-lightbox-img {
+  max-width: 90%;
+  max-height: 80vh;
+  border-radius: 1rem;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+}
+
+.portal-lightbox-close {
+  position: absolute;
+  top: 2rem;
+  right: 2rem;
+  color: white;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+}

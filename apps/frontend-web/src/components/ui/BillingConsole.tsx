@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useAuth } from "./AuthGuard";
 
 type AuthMeResponse = {
   data: {
@@ -48,6 +49,30 @@ type BillingPlan = {
   billingInterval: string;
   modules: string[];
 };
+
+const DEFAULT_BILLING_PLANS: BillingPlan[] = [
+  {
+    code: "esencial-350",
+    name: "Plan Esencial",
+    priceMxn: 350,
+    billingInterval: "monthly",
+    modules: ["Operativo", "Técnico", "Solicitudes", "Clientes", "Portal por folio"]
+  },
+  {
+    code: "profesional-650",
+    name: "Plan Profesional",
+    priceMxn: 650,
+    billingInterval: "monthly",
+    modules: ["Todo lo del Esencial", "Stock", "Compras", "Proveedores", "Gastos", "Reportes"]
+  },
+  {
+    code: "elite-1200",
+    name: "Plan Elite",
+    priceMxn: 1200,
+    billingInterval: "monthly",
+    modules: ["Todo lo del Profesional", "Multi-sucursal", "Branding", "Dashboard ejecutivo"]
+  }
+];
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:5111";
 
@@ -140,38 +165,55 @@ type BillingConsoleProps = {
   initialPlanCode?: string;
 };
 
-export function BillingConsole({ initialPlanCode = "esencial-350" }: BillingConsoleProps) {
-  const [auth, setAuth] = useState<AuthMeResponse["data"] | null>(null);
-  const [plans, setPlans] = useState<BillingPlan[]>([]);
-  const [message, setMessage] = useState("");
+export function BillingConsole({ initialPlanCode }: { initialPlanCode?: string }) {
+  const { session } = useAuth();
+  const auth = session as AuthMeResponse["data"] | null;
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [targetPlan, setTargetPlan] = useState<BillingPlan | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [view, setView] = useState<"overview" | "checkout">("overview");
+  
+  const [plans, setPlans] = useState<BillingPlan[]>(DEFAULT_BILLING_PLANS);
+  const [selectedPlanCode, setSelectedPlanCode] = useState(initialPlanCode ?? "esencial-350");
+  const [message, setMessage] = useState("");
   const [paying, setPaying] = useState(false);
-  const [selectedPlanCode, setSelectedPlanCode] = useState(initialPlanCode);
 
   useEffect(() => {
-    async function load() {
-      setLoading(true);
-      setMessage("");
+    if (initialPlanCode && auth && !loading) {
+      const planToBuy = DEFAULT_BILLING_PLANS.find(p => p.code === initialPlanCode);
+      if (planToBuy && auth.subscription.planCode !== planToBuy.code) {
+        setTargetPlan(planToBuy);
+        setView("checkout");
+      }
+    }
+  }, [initialPlanCode, auth, loading]);
 
+  useEffect(() => {
+    async function loadPlans() {
       try {
-        const [response, planResponse] = await Promise.all([
-          fetchJson<AuthMeResponse>("/api/auth/me"),
-          fetchJson<{ data: BillingPlan[] }>("/api/billing/plans")
-        ]);
-        setAuth(response.data);
+        setLoading(true);
+        const planResponse = await fetchJson<{ data: BillingPlan[] }>("/api/billing/plans");
         setPlans(planResponse.data);
-      } catch (error) {
-        setMessage(error instanceof Error ? error.message : "No se pudo cargar la cuenta");
+      } catch (err: any) {
+        setPlans(DEFAULT_BILLING_PLANS);
+        setMessage(
+          err instanceof Error
+            ? "Error al contactar con el servidor. Se muestran los planes base."
+            : "No se pudieron cargar los planes comerciales."
+        );
       } finally {
         setLoading(false);
       }
     }
 
-    void load();
+    void loadPlans();
   }, []);
 
   useEffect(() => {
-    setSelectedPlanCode(initialPlanCode);
+    if (initialPlanCode) {
+      setSelectedPlanCode(initialPlanCode);
+    }
   }, [initialPlanCode]);
 
   const statusCopy = useMemo(
@@ -185,6 +227,7 @@ export function BillingConsole({ initialPlanCode = "esencial-350" }: BillingCons
 
   async function handleCheckout() {
     setMessage("");
+
     setPaying(true);
 
     try {
@@ -204,9 +247,29 @@ export function BillingConsole({ initialPlanCode = "esencial-350" }: BillingCons
     }
   }
 
+  if (auth && !["owner", "admin"].includes(auth.user.role.toLowerCase())) {
+    return (
+      <section className="billing-shell" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '80vh' }}>
+        <div className="flex flex-col items-center justify-center p-8 text-center bg-white rounded-2xl shadow-sm border border-[#E2E8F0]" style={{maxWidth: '500px'}}>
+           <div className="w-20 h-20 bg-[#E2E8F0] flex items-center justify-center rounded-full mb-6 text-4xl">
+              ⛔
+           </div>
+           <h2 className="text-2xl font-bold text-[#1A202C] mb-2">Acceso Denegado</h2>
+           <p className="text-[#4A5568] mb-8">
+             El módulo de Facturación y Planes es de carácter administrativo y exclusivo para el dueño. Tu puesto (<strong className="uppercase">{auth.user.role}</strong>) no tiene permisos para consultar información comercial o modificar suscripciones.
+           </p>
+           <a href="/hub" className="bg-[#1A202C] hover:bg-[#2D3748] text-white px-8 py-3 rounded-xl font-bold transition">
+             Volver al Hub
+           </a>
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section className="billing-shell">
-      <div className="billing-hero">
+      <div className="billing-hero" style={{ position: 'relative' }}>
+        <a href="/hub" style={{ position: 'absolute', top: '-30px', left: '0', color: '#0066FF', textDecoration: 'none', fontWeight: 600, fontSize: '14px' }}>← Volver al Hub</a>
         <span className="hero-eyebrow">Cuenta y Suscripción</span>
         <h1>Control comercial del Shop</h1>
         <p>
@@ -215,7 +278,9 @@ export function BillingConsole({ initialPlanCode = "esencial-350" }: BillingCons
         </p>
       </div>
 
-      {message ? <div className="console-message">{message}</div> : null}
+      {message ? (
+        <div className="console-message is-warning">{message}</div>
+      ) : null}
 
       <div className="billing-grid">
         <article className="card billing-card billing-card-primary">
@@ -297,11 +362,13 @@ export function BillingConsole({ initialPlanCode = "esencial-350" }: BillingCons
               onClick={() => void handleCheckout()}
               disabled={paying || loading}
             >
-              {paying ? "Redirigiendo..." : `Contratar ${selectedPlan?.name ?? "plan"}`}
+              {paying
+                ? "Redirigiendo..."
+                : `Contratar ${selectedPlan?.name ?? "plan"}`}
             </button>
           </div>
           <p className="billing-footnote">
-            El pago sale por Mercado Pago Checkout Pro en modo de prueba.
+            El pago será procesado de forma segura a través de Mercado Pago.
           </p>
         </article>
       </div>

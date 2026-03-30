@@ -100,6 +100,79 @@ if (app.Environment.IsDevelopment())
 app.UseCors("frontend-dev");
 app.UseHttpsRedirection();
 
+app.Use(async (context, next) =>
+{
+    var path = context.Request.Path;
+    if (path.StartsWithSegments("/api") && 
+        !path.StartsWithSegments("/api/auth/login") && 
+        !path.StartsWithSegments("/api/auth/register") && 
+        !path.StartsWithSegments("/api/health") && 
+        !path.StartsWithSegments("/api/portal") &&
+        !path.StartsWithSegments("/api/billing/checkout-preference") &&
+        !path.StartsWithSegments("/api/billing/plans"))
+    {
+        var authHeader = context.Request.Headers.Authorization.FirstOrDefault();
+        if (string.IsNullOrWhiteSpace(authHeader) || !authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+        {
+            context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+            return;
+        }
+
+        var token = authHeader.Substring("Bearer ".Length).Trim();
+        var parts = token.Split('.');
+        if (parts.Length != 2)
+        {
+            context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+            return;
+        }
+
+        var config = context.RequestServices.GetRequiredService<IConfiguration>();
+        var secretKey = config["Supabase:ServiceKey"];
+        if (string.IsNullOrWhiteSpace(secretKey))
+        {
+            context.Response.StatusCode = StatusCodes.Status500InternalServerError;
+            return;
+        }
+        
+        using var hmac = new System.Security.Cryptography.HMACSHA256(System.Text.Encoding.UTF8.GetBytes(secretKey));
+        var expectedSignature = Convert.ToBase64String(hmac.ComputeHash(System.Text.Encoding.UTF8.GetBytes(parts[0])));
+        
+        if (parts[1] != expectedSignature)
+        {
+            context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+            return;
+        }
+
+        try
+        {
+            var decodedPayload = System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(parts[0]));
+            using var doc = System.Text.Json.JsonDocument.Parse(decodedPayload);
+            var root = doc.RootElement;
+            var decodedEmail = root.GetProperty("email").GetString() ?? "";
+            var exp = root.GetProperty("exp").GetInt64();
+
+            if (DateTimeOffset.UtcNow.ToUnixTimeSeconds() > exp)
+            {
+                context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(decodedEmail))
+            {
+                context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                return;
+            }
+        }
+        catch
+        {
+            context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+            return;
+        }
+    }
+
+    await next(context);
+});
+
 app.MapGet("/api/health", () =>
 {
     var bootstrap = app.Services.GetRequiredService<SupabaseBootstrapContext>();
@@ -128,66 +201,105 @@ app.MapGet("/api/health", () =>
 })
 .WithName("HealthCheck");
 
-app.MapPost("/api/auth/login", async (LoginRequest request, SupabaseService supabase, CancellationToken cancellationToken) =>
+app.MapPost("/api/auth/login", async (LoginRequest request, SupabaseService supabase, IConfiguration config, CancellationToken cancellationToken) =>
 {
-    await supabase.RefreshSubscriptionContextAsync(cancellationToken);
     var email = request.Email.Trim().ToLowerInvariant();
-    var bootstrap = supabase.Bootstrap;
+    
+    // Hardening: fetch user dynamically instead of relying on singleton bootstrap bypass
+    var user = await supabase.GetSingleAsync<SupabaseService.DbUser>($"users?email=eq.{Uri.EscapeDataString(email)}&select=id,tenant_id,branch_id,full_name,email,role,is_active,referral_code,balance", cancellationToken);
 
-    if (!supabase.IsConfigured || bootstrap.UserId == Guid.Empty || bootstrap.UserEmail.ToLowerInvariant() != email || request.Password != "Admin123!")
+    if (user is null || !user.IsActive)
     {
         return Results.BadRequest(new
         {
             success = false,
-            error = new
-            {
-                code = "INVALID_CREDENTIALS",
-                message = "Credenciales inválidas"
-            }
+            error = new { code = "INVALID_CREDENTIALS", message = "Credenciales inválidas o cuenta inactiva" }
         });
     }
 
-    if (!bootstrap.HasOperationalAccess)
+    if (!SupabaseService.VerifySimulatedPassword(email, request.Password))
     {
-        return RequireOperationalAccess(bootstrap)!;
+        return Results.BadRequest(new
+        {
+            success = false,
+            error = new { code = "INVALID_CREDENTIALS", message = "Credenciales inválidas" }
+        });
     }
+
+    var tenant = await supabase.GetSingleAsync<SupabaseService.DbTenant>($"tenants?id=eq.{user.TenantId}&select=id,name,slug", cancellationToken);
+    var subscription = await supabase.GetSingleAsync<SupabaseService.DbSubscription>($"subscriptions?tenant_id=eq.{user.TenantId}&order=created_at.desc&limit=1&select=id,tenant_id,plan_code,plan_name,price_mxn,billing_interval,status,current_period_start,current_period_end,grace_until", cancellationToken);
+
+    if (tenant is null) 
+    {
+        return Results.BadRequest(new { success = false, error = new { code = "INVALID_TENANT", message = "Organización no encontrada" } });
+    }
+
+    bool hasOperationalAccess = subscription?.Status is "active" or "trialing" or "past_due";
+
+    if (!hasOperationalAccess)
+    {
+        var tempContext = new SupabaseBootstrapContext { 
+            TenantSlug = tenant.Slug, 
+            SubscriptionStatus = subscription?.Status ?? "suspended"
+        };
+        return RequireOperationalAccess(tempContext)!;
+    }
+
+    var payloadObj = new { 
+        email = user.Email, 
+        iat = DateTimeOffset.UtcNow.ToUnixTimeSeconds(), 
+        exp = DateTimeOffset.UtcNow.AddHours(24).ToUnixTimeSeconds(),
+        jti = Guid.NewGuid().ToString("N")
+    };
+    var payloadJson = System.Text.Json.JsonSerializer.Serialize(payloadObj);
+    var payloadBase64 = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(payloadJson));
+    var secretKey = config["Supabase:ServiceKey"];
+    
+    if (string.IsNullOrWhiteSpace(secretKey))
+    {
+        return Results.StatusCode(StatusCodes.Status500InternalServerError);
+    }
+
+    using var hmac = new System.Security.Cryptography.HMACSHA256(System.Text.Encoding.UTF8.GetBytes(secretKey));
+    var signature = Convert.ToBase64String(hmac.ComputeHash(System.Text.Encoding.UTF8.GetBytes(payloadBase64)));
+    var token = $"{payloadBase64}.{signature}";
 
     return Results.Ok(new
     {
         success = true,
         data = new
         {
-            accessToken = "demo-token",
+            accessToken = token,
             user = new
             {
-                Id = bootstrap.UserId,
-                TenantId = bootstrap.TenantId,
-                ShopId = bootstrap.TenantId,
-                BranchId = bootstrap.BranchId,
-                FullName = bootstrap.UserFullName,
-                Email = bootstrap.UserEmail,
-                Role = bootstrap.UserRole,
-                ReferralCode = bootstrap.UserReferralCode,
-                Balance = bootstrap.UserBalance
+                Id = user.Id,
+                TenantId = user.TenantId,
+                ShopId = user.TenantId,
+                BranchId = user.BranchId,
+                FullName = user.FullName,
+                Email = user.Email,
+                Role = user.Role,
+                ReferralCode = user.ReferralCode ?? string.Empty,
+                Balance = user.Balance
             },
             shop = new
             {
-                Id = bootstrap.TenantId,
-                Name = bootstrap.TenantName,
-                Slug = bootstrap.TenantSlug
+                Id = tenant.Id,
+                Name = tenant.Name,
+                Slug = tenant.Slug
             },
-            subscription = new
+            subscription = subscription != null ? new
             {
-                Id = bootstrap.SubscriptionId,
-                Status = bootstrap.SubscriptionStatus,
-                PlanCode = bootstrap.SubscriptionPlanCode,
-                PlanName = bootstrap.SubscriptionPlanName,
-                PriceMxn = bootstrap.SubscriptionPriceMxn,
-                BillingInterval = bootstrap.BillingInterval,
-                CurrentPeriodStart = bootstrap.CurrentPeriodStart,
-                CurrentPeriodEnd = bootstrap.CurrentPeriodEnd,
-                GraceUntil = bootstrap.GraceUntil
-            }
+                Id = subscription.Id,
+                Status = subscription.Status,
+                PlanCode = subscription.PlanCode,
+                PlanName = subscription.PlanName,
+                PriceMxn = subscription.PriceMxn,
+                BillingInterval = subscription.BillingInterval,
+                CurrentPeriodStart = subscription.CurrentPeriodStart,
+                CurrentPeriodEnd = subscription.CurrentPeriodEnd,
+                GraceUntil = subscription.GraceUntil
+            } : null
         }
     });
 })
@@ -240,6 +352,7 @@ app.MapPost("/api/auth/register", async (RegisterRequest request, SupabaseServic
 
 app.MapGet("/api/auth/me", async (SupabaseService supabase, CancellationToken cancellationToken) =>
 {
+
     await supabase.RefreshSubscriptionContextAsync(cancellationToken);
     var bootstrap = supabase.Bootstrap;
     var lastPayment = bootstrap.TenantId == Guid.Empty

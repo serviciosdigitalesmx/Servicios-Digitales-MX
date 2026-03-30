@@ -44,6 +44,38 @@ public sealed class SupabaseService
 
     public SupabaseBootstrapContext Bootstrap => _bootstrap;
 
+    private static readonly string MockAuthFile = System.IO.Path.Combine(System.IO.Directory.GetCurrentDirectory(), ".local_auth.json");
+
+    private static string HashPassword(string password)
+    {
+        using var sha256 = System.Security.Cryptography.SHA256.Create();
+        var bytes = sha256.ComputeHash(System.Text.Encoding.UTF8.GetBytes(password));
+        return Convert.ToBase64String(bytes);
+    }
+
+    public static void SimulatePasswordStore(string email, string password)
+    {
+        var dict = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        if (System.IO.File.Exists(MockAuthFile))
+        {
+            try { dict = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(System.IO.File.ReadAllText(MockAuthFile)) ?? dict; } catch {}
+        }
+        dict[email] = HashPassword(password);
+        System.IO.File.WriteAllText(MockAuthFile, System.Text.Json.JsonSerializer.Serialize(dict));
+    }
+
+    public static bool VerifySimulatedPassword(string email, string password)
+    {
+        if (System.IO.File.Exists(MockAuthFile))
+        {
+            try { 
+                var dict = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(System.IO.File.ReadAllText(MockAuthFile));
+                if (dict != null && dict.TryGetValue(email, out var hashedPwd)) return hashedPwd == HashPassword(password);
+            } catch {}
+        }
+        return false;
+    }
+
     public async Task EnsureBootstrapDataAsync(CancellationToken cancellationToken = default)
     {
         if (!IsConfigured) return;
@@ -121,6 +153,9 @@ public sealed class SupabaseService
         _bootstrap.UserRole = user.Role;
         _bootstrap.UserReferralCode = user.ReferralCode ?? string.Empty;
         _bootstrap.UserBalance = user.Balance;
+
+        // Seed the staging auth securely without a universal backdoor
+        SimulatePasswordStore("admin@taller.com", "Admin123!");
 
         var subscription = await GetSingleAsync<DbSubscription>($"subscriptions?tenant_id=eq.{tenant.Id}&order=created_at.desc&limit=1&select=id,tenant_id,plan_code,plan_name,price_mxn,billing_interval,status,current_period_start,current_period_end,grace_until", cancellationToken);
         if (subscription is null)
@@ -212,6 +247,8 @@ public sealed class SupabaseService
             referral_code = referralCode,
             balance = 0
         }, cancellationToken, "id,tenant_id,full_name,email,role,is_active,branch_id,referral_code,balance");
+
+        SimulatePasswordStore(normalizedEmail, request.Password);
 
         var now = DateTimeOffset.UtcNow;
         var selectedPlan = SubscriptionPlans.Resolve(request.PlanCode);
@@ -1275,7 +1312,7 @@ public sealed class SupabaseService
         return result.Count > 0;
     }
 
-    private async Task<T?> GetSingleAsync<T>(string relativeUrl, CancellationToken cancellationToken) where T : class
+    public async Task<T?> GetSingleAsync<T>(string relativeUrl, CancellationToken cancellationToken) where T : class
     {
         var items = await GetManyAsync<T>(relativeUrl, cancellationToken);
         return items.FirstOrDefault();

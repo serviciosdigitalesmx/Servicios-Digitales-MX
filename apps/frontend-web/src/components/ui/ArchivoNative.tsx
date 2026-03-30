@@ -3,118 +3,91 @@
 import { useEffect, useState } from "react";
 
 type ArchivedOrder = {
-  id: string;
-  folio: string;
-  status: string;
-  deviceType?: string;
-  deviceBrand?: string;
-  deviceModel?: string;
-  reportedIssue?: string;
-  finalCost: number;
-};
-
-type ActiveOrder = {
-  id: string;
-  folio: string;
-  status: string;
-  deviceType?: string;
+  id: string; folio: string; status: string; customerName?: string;
+  deviceType: string; priority?: string; estimatedCost: number; promisedDate?: string;
 };
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:5111";
 
 async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
-    ...init,
-    headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) },
-    cache: "no-store"
+    ...init, headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) }, cache: "no-store", mode: "cors"
   });
-  const data = await response.json();
-  if (!response.ok) throw new Error(data?.error?.message ?? "No se pudo completar la operación");
-  return data as T;
+  if (!response.ok) throw new Error("Error de conexión con el servidor.");
+  return response.json() as Promise<T>;
 }
 
-function formatMoney(value: number) {
-  return new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN", maximumFractionDigits: 0 }).format(value || 0);
-}
+function formatMoney(value: number) { return new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN", maximumFractionDigits: 0 }).format(value || 0); }
+function formatDate(dateStr?: string) { return dateStr ? new Intl.DateTimeFormat("es-MX", { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(dateStr)) : "Indefinida"; }
 
 export function ArchivoNative() {
-  const [orders, setOrders] = useState<ArchivedOrder[]>([]);
-  const [activeOrders, setActiveOrders] = useState<ActiveOrder[]>([]);
-  const [message, setMessage] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [archived, setArchived] = useState<ArchivedOrder[]>([]);
+  const [search, setSearch] = useState("");
 
-  async function loadArchive() {
+  async function loadData() {
+    setLoading(true);
     try {
-      const [archiveResult, activeResult] = await Promise.all([
-        fetchJson<{ data: ArchivedOrder[] }>("/api/archive/service-orders"),
-        fetchJson<{ data: ActiveOrder[] }>("/api/service-orders")
-      ]);
-      setOrders(archiveResult.data);
-      setActiveOrders(
-        activeResult.data.filter((item) => !["archivado", "entregado", "cancelado"].includes(item.status))
-      );
-      setMessage("");
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "No se pudo cargar el archivo");
-    }
+      const resp = await fetchJson<{ data: ArchivedOrder[] }>("/api/archive/service-orders");
+      setArchived(resp.data);
+    } catch { } finally { setLoading(false); }
   }
 
-  useEffect(() => {
-    void loadArchive();
-  }, []);
+  useEffect(() => { void loadData(); }, []);
 
-  async function handleArchive(orderId: string) {
-    try {
-      await fetchJson(`/api/archive/service-orders/${orderId}`, { method: "POST" });
-      await loadArchive();
-      setMessage("Orden enviada a archivo.");
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "No se pudo archivar la orden");
-    }
-  }
+  const filtered = archived.filter((o) => !search || o.folio.toLowerCase().includes(search.toLowerCase()) || o.deviceType.toLowerCase().includes(search.toLowerCase()) || (o.customerName && o.customerName.toLowerCase().includes(search.toLowerCase())));
 
   return (
-    <section className="module-native-shell">
-      <div className="module-native-header">
-        <div>
-          <span className="hero-eyebrow">Archivo nativo</span>
-          <h1>Histórico y cierre de órdenes</h1>
-          <p>Este panel ya consulta y archiva órdenes cerradas desde el backend nuevo.</p>
+    <section className="operativo-shell">
+      <div className="operativo-header">
+        <div className="flex-col">
+          <span className="hero-eyebrow">Historial</span>
+          <h1>Archivo de Órdenes</h1>
+          <p className="muted">Consulta el historial de órdenes entregadas y canceladas.</p>
+        </div>
+        <div className="operativo-summary" style={{alignItems: 'center', marginTop: '16px'}}>
+           <div className="flex-col" style={{gridColumn: '1 / -1', flexDirection: 'row', gap: '8px', marginBottom: '8px', width: '100%'}}>
+              <input type="text" className="module-search-input" style={{flex: 1}} placeholder="🔍 Buscar exacto por Folio, Equipo o Cliente histórico..." value={search} onChange={(e) => setSearch(e.target.value)} />
+              <button disabled={loading} className="product-button is-primary" onClick={loadData} style={{padding: '0 20px', minWidth: '150px'}}>{loading ? 'Leyendo...' : 'Buscar'}</button>
+           </div>
         </div>
       </div>
-      {message ? <div className="console-message">{message}</div> : null}
-      <article className="card">
-        <h3>Órdenes archivadas</h3>
-        <ul className="data-list">
-          {orders.length === 0 ? (
-            <li><strong>Sin archivo todavía</strong><span>Cuando archives órdenes cerradas aparecerán aquí.</span></li>
-          ) : (
-            orders.map((order) => (
-              <li key={order.id}>
-                <strong>{order.folio} · {order.deviceType || "Equipo"}</strong>
-                <span>{order.status} · {formatMoney(order.finalCost)}</span>
+
+      <div className="operativo-grid" style={{gridTemplateColumns: '1fr'}}>
+        <article className="sdmx-card-premium" style={{display: "flex", flexDirection: "column"}}>
+          <div style={{borderBottom: '1px solid rgba(15,23,42,0.08)', paddingBottom: '16px', marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+             <div className="flex-col">
+                <h3 style={{fontSize: '1.25rem', margin: 0}}>Historial de Órdenes</h3>
+                <p className="muted" style={{margin: 0, fontSize: '0.85rem'}}>Mostrando {filtered.length} orden(es) en el historial.</p>
+             </div>
+          </div>
+
+          <ul className="data-list scrollable-list">
+            {filtered.length === 0 ? (
+              <li className="empty-state">
+                <strong>No hay órdenes archivadas</strong>
+                <span>No se encontraron órdenes con esos filtros de búsqueda.</span>
               </li>
-            ))
-          )}
-        </ul>
-      </article>
-      <article className="card">
-        <h3>Acción rápida</h3>
-        {activeOrders.length === 0 ? (
-          <p className="muted">No hay órdenes activas disponibles para archivar desde este panel.</p>
-        ) : (
-          <ul className="data-list">
-            {activeOrders.map((order) => (
-              <li key={order.id}>
-                <strong>{order.folio} · {order.deviceType || "Equipo"}</strong>
-                <span>{order.status}</span>
-                <button type="button" className="product-button is-primary" onClick={() => void handleArchive(order.id)}>
-                  Archivar
-                </button>
-              </li>
-            ))}
+            ) : (
+              filtered.map((order) => (
+                <li key={order.id} className="list-item-grid" style={{background: order.status === 'cancelado' ? '#fef2f2' : '#f8fafc'}}>
+                   <div style={{ background: '#0f172a', color: 'white', padding: '8px 12px', borderRadius: '8px', fontWeight: 'bold', fontSize: '0.9rem' }}>
+                    Folio: {order.folio}
+                   </div>
+                   <div className="flex-col">
+                     <strong style={{fontSize: '1.05rem', color: '#1e3a8a'}}>{order.customerName || "Venta de mostrador"}</strong>
+                     <span style={{color: '#64748b', fontSize: '0.85rem'}}>Servicio: {order.deviceType} · Liquidado/Cancelado el: {formatDate(order.promisedDate)}</span>
+                   </div>
+                   <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '6px' }}>
+                     <span className={`badge-${order.status === 'cancelado' ? 'danger' : 'neutral'}`}>DICTAMEN: {order.status.toUpperCase()}</span>
+                     <span style={{fontSize: '0.95rem', fontWeight: 'bold', color: order.status === 'cancelado' ? '#ef4444' : '#0f172a'}}>Costo final: {formatMoney(order.estimatedCost)}</span>
+                   </div>
+                </li>
+              ))
+            )}
           </ul>
-        )}
-      </article>
+        </article>
+      </div>
     </section>
   );
 }

@@ -17,25 +17,32 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:5
 async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...init,
-    headers: {
-      "Content-Type": "application/json",
-      ...(init?.headers ?? {})
-    },
-    cache: "no-store"
+    headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) },
+    cache: "no-store",
+    mode: "cors"
   });
 
   const data = await response.json();
   if (!response.ok) {
-    throw new Error(data?.error?.message ?? "No se pudo completar la operación");
+    throw new Error(data?.error?.message ?? "El sistema reportó un error de procesamiento.");
   }
 
   return data as T;
 }
 
+function formatDate(dateStr: string) {
+  if (!dateStr) return "";
+  return new Intl.DateTimeFormat("es-MX", { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(dateStr));
+}
+
 export function TareasNative() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState("");
+  const [apiStateMessage, setApiStateMessage] = useState("");
+  const [apiStateError, setApiStateError] = useState("");
+  const [formError, setFormError] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+
   const [form, setForm] = useState({
     title: "",
     description: "",
@@ -46,12 +53,13 @@ export function TareasNative() {
 
   async function loadTasks() {
     setLoading(true);
+    setApiStateMessage("");
+    setApiStateError("");
     try {
       const result = await fetchJson<{ data: Task[] }>("/api/tasks");
       setTasks(result.data);
-      setMessage("");
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "No se pudieron cargar las tareas");
+       setApiStateError(error instanceof Error ? error.message : "Error al cargar las tareas.");
     } finally {
       setLoading(false);
     }
@@ -63,8 +71,16 @@ export function TareasNative() {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    setFormError("");
+    setApiStateMessage("");
+    setApiStateError("");
+
+    if (!form.title.trim()) {
+      setFormError("⚠️ El título de la tarea es obligatorio.");
+      return;
+    }
+
     setLoading(true);
-    setMessage("");
     try {
       await fetchJson("/api/tasks", {
         method: "POST",
@@ -84,78 +100,96 @@ export function TareasNative() {
         dueDate: ""
       });
       await loadTasks();
-      setMessage("Tarea guardada.");
+      setApiStateMessage("✅ Tarea asignada exitosamente.");
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "No se pudo guardar la tarea");
+       setApiStateError(error instanceof Error ? error.message : "Error al guardar la tarea.");
     } finally {
       setLoading(false);
     }
   }
 
+  const filteredTasks = tasks.filter(t => !searchQuery || t.title.toLowerCase().includes(searchQuery.toLowerCase()) || (t.assignedUserName && t.assignedUserName.toLowerCase().includes(searchQuery.toLowerCase())));
+
   return (
     <section className="module-native-shell">
       <div className="module-native-header">
         <div>
-          <span className="hero-eyebrow">Tareas nativo</span>
-          <h1>Seguimiento operativo de tareas</h1>
-          <p>Este panel ya registra tareas reales del shop y las enlaza al backend nuevo.</p>
+           <span className="hero-eyebrow">Tareas</span>
+           <h1>Gestión de Tareas</h1>
+           <p>Control de pendientes y asignaciones del equipo.</p>
         </div>
       </div>
 
-      {message ? <div className="console-message">{message}</div> : null}
+      {apiStateMessage && <div className="form-message is-success">{apiStateMessage}</div>}
+      {apiStateError && <div className="console-message is-warning">{apiStateError}</div>}
 
-      <div className="module-native-grid">
-        <form className="card form-card" onSubmit={handleSubmit}>
-          <h3>Nueva tarea</h3>
-          <label>
-            Título
-            <input required value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} />
+      <div className="module-native-grid module-native-grid-wide">
+        <form className="sdmx-card-premium" onSubmit={handleSubmit}>
+          <h3>Nueva Tarea</h3>
+          {formError && <div className="form-message is-warning">{formError}</div>}
+          
+          <label>Título *
+            <input value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} placeholder="Ej. Realizar corte de caja adelantado"/>
           </label>
-          <label>
-            Descripción
-            <textarea value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} />
+          <label>Descripción
+            <textarea value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })}  placeholder="Pasos clave o advertencias..." />
           </label>
-          <label>
-            Estado
-            <select value={form.status} onChange={(event) => setForm({ ...form, status: event.target.value })}>
-              <option value="pendiente">Pendiente</option>
-              <option value="en_proceso">En proceso</option>
-              <option value="completada">Completada</option>
-              <option value="cancelada">Cancelada</option>
-            </select>
-          </label>
-          <label>
-            Prioridad
-            <select value={form.priority} onChange={(event) => setForm({ ...form, priority: event.target.value })}>
-              <option value="baja">Baja</option>
-              <option value="media">Media</option>
-              <option value="alta">Alta</option>
-              <option value="urgente">Urgente</option>
-            </select>
-          </label>
-          <label>
-            Fecha límite
+          
+          <div className="grid-cols-2">
+             <label>Estado
+               <select value={form.status} onChange={(event) => setForm({ ...form, status: event.target.value })}>
+                 <option value="pendiente">Pendiente (No iniciada)</option>
+                 <option value="en_proceso">En Proceso o Espera</option>
+                 <option value="completada">Resuelta</option>
+                 <option value="cancelada">Cancelada</option>
+               </select>
+             </label>
+             <label>Prioridad
+               <select value={form.priority} onChange={(event) => setForm({ ...form, priority: event.target.value })}>
+                 <option value="baja">Baja</option>
+                 <option value="media">Media</option>
+                 <option value="alta">Alta</option>
+                 <option value="urgente">Urgente</option>
+               </select>
+             </label>
+          </div>
+          <label>Fecha Límite
             <input type="date" value={form.dueDate} onChange={(event) => setForm({ ...form, dueDate: event.target.value })} />
           </label>
-          <button type="submit" disabled={loading}>Guardar tarea</button>
+          <button type="submit" disabled={loading} >Guardar Tarea</button>
         </form>
 
-        <article className="card">
-          <h3>Tareas recientes</h3>
-          <ul className="data-list">
-            {tasks.length === 0 ? (
-              <li>
-                <strong>Sin tareas todavía</strong>
-                <span>Cuando registres tareas aquí, aparecerán en esta lista.</span>
-              </li>
+        <article className="sdmx-card-premium" style={{display: 'flex', flexDirection: 'column'}}>
+           <div className="flex-row-between">
+              <h3>Lista de Tareas</h3>
+              <input type="text" className="module-search-input" style={{width: '260px', padding: '8px 12px', fontSize: '0.85rem'}} placeholder="Buscar folio o título..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
+           </div>
+          <ul className="data-list scrollable-list">
+            {filteredTasks.length === 0 ? (
+               <li className="empty-state">
+                  <strong>No hay tareas registradas.</strong>
+                  <span>No hay registros pendientes para mostrar.</span>
+               </li>
             ) : (
-              tasks.map((task) => (
-                <li key={task.id}>
-                  <strong>{task.title}</strong>
-                  <span>
-                    {task.status} · {task.priority}
-                    {task.dueDate ? ` · vence ${task.dueDate}` : ""}
-                  </span>
+              filteredTasks.map((task) => (
+                <li key={task.id} className="list-item-grid">
+                  <div style={{ background: task.priority === 'urgente' ? '#ef4444' : task.priority === 'alta' ? '#f59e0b' : '#334155', color: 'white', padding: '6px 14px', borderRadius: '8px', fontWeight: 'bold', fontSize: '0.85rem' }}>
+                    {task.priority.toUpperCase()}
+                  </div>
+                  <div className="flex-col">
+                    <strong style={{ fontSize: '1.05rem', color: '#0f172a', textDecoration: task.status === 'completada' ? 'line-through' : 'none' }}>{task.title}</strong>
+                    <span style={{ fontSize: '0.85rem', color: '#64748b' }}>
+                      Estado Actual: <strong>{task.status}</strong> 
+                      {task.dueDate ? ` · Expira en: ${formatDate(task.dueDate)}` : ""}
+                    </span>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    {task.assignedUserName && (
+                       <span style={{color: '#1e3a8a', backgroundColor: 'rgba(30,58,138,0.06)', padding: '6px 14px', borderRadius: '12px', fontSize: '0.85rem', fontWeight: 'bold' }}>
+                          Asignado a: {task.assignedUserName}
+                       </span>
+                    )}
+                  </div>
                 </li>
               ))
             )}

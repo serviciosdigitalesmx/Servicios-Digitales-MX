@@ -17,16 +17,14 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:5
 async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...init,
-    headers: {
-      "Content-Type": "application/json",
-      ...(init?.headers ?? {})
-    },
-    cache: "no-store"
+    headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) },
+    cache: "no-store",
+    mode: "cors"
   });
 
   const data = await response.json();
   if (!response.ok) {
-    throw new Error(data?.error?.message ?? "No se pudo completar la operación");
+    throw new Error(data?.error?.message ?? "El sistema reportó un error de procesamiento.");
   }
 
   return data as T;
@@ -35,7 +33,10 @@ async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
 export function SucursalesNative() {
   const [branches, setBranches] = useState<Branch[]>([]);
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState("");
+  const [apiStateMessage, setApiStateMessage] = useState("");
+  const [apiStateError, setApiStateError] = useState("");
+  const [formError, setFormError] = useState("");
+
   const [form, setForm] = useState({
     name: "",
     code: "",
@@ -47,12 +48,13 @@ export function SucursalesNative() {
 
   async function loadBranches() {
     setLoading(true);
+    setApiStateMessage("");
+    setApiStateError("");
     try {
       const result = await fetchJson<{ data: Branch[] }>("/api/branches");
       setBranches(result.data);
-      setMessage("");
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "No se pudieron cargar las sucursales");
+       setApiStateError(error instanceof Error ? error.message : "Error al cargar las sucursales.");
     } finally {
       setLoading(false);
     }
@@ -64,25 +66,39 @@ export function SucursalesNative() {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    setFormError("");
+    setApiStateMessage("");
+    setApiStateError("");
+
+    if (!form.name.trim()) {
+      setFormError("⚠️ El nombre de la sucursal es obligatorio.");
+      return;
+    }
+    if (!form.code.trim()) {
+       setFormError("⚠️ El código de la sucursal es obligatorio.");
+       return;
+    }
+
     setLoading(true);
-    setMessage("");
     try {
       await fetchJson("/api/branches", {
         method: "POST",
-        body: JSON.stringify(form)
+        body: JSON.stringify({
+          name: form.name.trim(),
+          code: form.code.trim(),
+          address: form.address,
+          city: form.city,
+          state: form.state,
+          phone: form.phone
+        })
       });
       setForm({
-        name: "",
-        code: "",
-        address: "",
-        city: "",
-        state: "",
-        phone: ""
+        name: "", code: "", address: "", city: "", state: "", phone: ""
       });
       await loadBranches();
-      setMessage("Sucursal guardada.");
+      setApiStateMessage("✅ Sucursal guardada exitosamente.");
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "No se pudo guardar la sucursal");
+       setApiStateError(error instanceof Error ? error.message : "Error al guardar la sucursal.");
     } finally {
       setLoading(false);
     }
@@ -92,61 +108,73 @@ export function SucursalesNative() {
     <section className="module-native-shell">
       <div className="module-native-header">
         <div>
-          <span className="hero-eyebrow">Sucursales nativo</span>
-          <h1>Administración de sucursales</h1>
-          <p>Este panel ya gestiona las sucursales reales del shop sobre el backend nuevo.</p>
+           <span className="hero-eyebrow">Sucursales</span>
+           <h1>Gestión de Sucursales</h1>
+           <p>Administra las sucursales y puntos de venta activos.</p>
         </div>
       </div>
 
-      {message ? <div className="console-message">{message}</div> : null}
+      {apiStateMessage && <div className="form-message is-success">{apiStateMessage}</div>}
+      {apiStateError && <div className="console-message is-warning">{apiStateError}</div>}
 
-      <div className="module-native-grid">
-        <form className="card form-card" onSubmit={handleSubmit}>
-          <h3>Nueva sucursal</h3>
-          <label>
-            Nombre
-            <input required value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} />
+      <div className="module-native-grid module-native-grid-wide">
+        <form className="sdmx-card-premium" onSubmit={handleSubmit}>
+          <h3>Nueva Sucursal</h3>
+          {formError && <div className="form-message is-warning">{formError}</div>}
+          
+          <div className="grid-cols-auto">
+             <label>Nombre de la Sucursal *
+               <input value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} placeholder="Ej. Laboratorio Tech"/>
+             </label>
+             <label>Código *
+               <input value={form.code} onChange={(event) => setForm({ ...form, code: event.target.value })} placeholder="Ej. LAB-01"/>
+             </label>
+          </div>
+          
+          <label>Dirección
+            <input value={form.address} onChange={(event) => setForm({ ...form, address: event.target.value })} placeholder="Calle, Plaza, Local..." />
           </label>
-          <label>
-            Código
-            <input value={form.code} onChange={(event) => setForm({ ...form, code: event.target.value })} />
-          </label>
-          <label>
-            Dirección
-            <input value={form.address} onChange={(event) => setForm({ ...form, address: event.target.value })} />
-          </label>
-          <label>
-            Ciudad
-            <input value={form.city} onChange={(event) => setForm({ ...form, city: event.target.value })} />
-          </label>
-          <label>
-            Estado
-            <input value={form.state} onChange={(event) => setForm({ ...form, state: event.target.value })} />
-          </label>
-          <label>
-            Teléfono
+          
+          <div className="grid-cols-2">
+             <label>Ciudad<input value={form.city} onChange={(event) => setForm({ ...form, city: event.target.value })} /></label>
+             <label>Estado<input value={form.state} onChange={(event) => setForm({ ...form, state: event.target.value })} /></label>
+          </div>
+          
+          <label>Teléfono
             <input value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} />
           </label>
-          <button type="submit" disabled={loading}>Guardar sucursal</button>
+          
+          <button type="submit" disabled={loading} >Guardar Sucursal</button>
         </form>
 
-        <article className="card">
-          <h3>Sucursales registradas</h3>
-          <ul className="data-list">
+        <article className="sdmx-card-premium" style={{display: 'flex', flexDirection: 'column'}}>
+           <div className="flex-row-between">
+              <h3>Directorio de Sucursales</h3>
+           </div>
+          <ul className="data-list scrollable-list">
             {branches.length === 0 ? (
-              <li>
-                <strong>Sin sucursales todavía</strong>
-                <span>La primera sucursal nueva que des de alta aparecerá aquí.</span>
-              </li>
+               <li className="empty-state">
+                  <strong>No hay sucursales registradas.</strong>
+                  <span>Agrega tu primera sucursal usando el formulario.</span>
+               </li>
             ) : (
               branches.map((branch) => (
-                <li key={branch.id}>
-                  <strong>{branch.name}{branch.code ? ` · ${branch.code}` : ""}</strong>
-                  <span>
-                    {branch.city || "Sin ciudad"}
-                    {branch.state ? `, ${branch.state}` : ""}
-                    {branch.phone ? ` · ${branch.phone}` : ""}
-                  </span>
+                <li key={branch.id} className="list-item-grid">
+                  <div style={{ background: '#3b82f6', color: 'white', padding: '6px 14px', borderRadius: '8px', fontWeight: 'bold', fontSize: '0.85rem' }}>
+                    {branch.code || "NA"}
+                  </div>
+                  <div className="flex-col">
+                    <strong style={{ fontSize: '1.05rem', color: '#0f172a' }}>{branch.name}</strong>
+                    <span style={{ fontSize: '0.85rem', color: '#64748b' }}>
+                      {branch.city || "Sin ciudad"}, {branch.state || "NA"} 
+                      {branch.phone ? ` · Contacto: ${branch.phone}` : ""}
+                    </span>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <span className={`status-pill ${branch.isActive ? 'is-success' : 'is-warning'}`} style={{minWidth: '50px', textAlign: 'center'}}>
+                       {branch.isActive ? 'Activa' : 'Inactiva'}
+                    </span>
+                  </div>
                 </li>
               ))
             )}
