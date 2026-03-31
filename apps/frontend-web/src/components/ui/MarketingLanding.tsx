@@ -374,57 +374,38 @@ export function MarketingLanding() {
           min-height: 100vh;
           position: relative;
         }
-        .sdmx-nav-brand {
-          color: white !important;
-          font-weight: 900;
+        .sdmx-nav-fixed {
+          top: 0 !important;
+          padding: 0 !important;
         }
-        .sdmx-nav-brand span {
-          color: #0066FF !important;
+        .sdmx-nav-container {
+          max-width: 100% !important;
+          border-radius: 0 !important;
+          height: 4.5rem !important;
+          background-color: rgba(15, 23, 42, 0.9) !important;
+        }
+        .sdmx-hero {
+          padding-top: 8rem !important;
+          padding-bottom: 5rem !important;
+          background-color: #0F172A !important;
         }
         .sdmx-hero-title {
-          color: white !important;
-          line-height: 1.1 !important;
-        }
-        .sdmx-watermark-huge, .sdmx-pricing-watermark {
-          color: rgba(255, 255, 255, 0.03) !important;
-          z-index: 0 !important;
-          pointer-events: none;
-        }
-        .sdmx-pricing-card, .sdmx-pricing-card-featured {
-          background-color: rgba(255, 255, 255, 0.03) !important;
-          border: 1px solid rgba(255, 255, 255, 0.1) !important;
-          backdrop-filter: blur(24px);
+          font-size: 3rem !important;
+          line-height: 1.2 !important;
+          margin-bottom: 1.5rem !important;
           color: white !important;
         }
-        .sdmx-pricing-desc, .sdmx-pricing-period, .sdmx-pricing-list li {
-          color: rgba(255, 255, 255, 0.7) !important;
+        @media (min-width: 768px) {
+          .sdmx-hero-title { font-size: 5rem !important; }
         }
-        .sdmx-pricing-title, .sdmx-pricing-value {
-          color: white !important;
+        .sdmx-hero-subtitle {
+          margin-bottom: 3rem !important;
+          font-size: 1.25rem !important;
         }
-        .sdmx-stats-section {
-          background-color: #0F172A !important;
-          border-top: 1px solid rgba(255, 255, 255, 0.05);
-        }
-        .sdmx-stat-val {
-          color: white !important;
-        }
-        .sdmx-stat-label, .sdmx-stat-desc {
-          color: rgba(255, 255, 255, 0.6) !important;
-        }
-        .sdmx-stat-val.brand {
-          color: #0066FF !important;
-        }
-        .sdmx-features-lead {
-          color: rgba(255, 255, 255, 0.6) !important;
-        }
-        .sdmx-testimonial-card {
-          background-color: rgba(255, 255, 255, 0.02) !important;
-          border: 1px solid rgba(255, 255, 255, 0.05) !important;
-          color: white !important;
-        }
-        .sdmx-testimonial-body {
-          color: rgba(255, 255, 255, 0.8) !important;
+        .sdmx-central-action {
+          margin-top: 3rem !important;
+          margin-bottom: 5rem !important;
+          padding: 3rem 1.5rem !important;
         }
       `}</style>
     </div>
