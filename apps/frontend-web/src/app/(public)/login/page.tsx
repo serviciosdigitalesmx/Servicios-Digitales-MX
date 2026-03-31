@@ -132,21 +132,42 @@ export default function LoginPage() {
         </div>
       </div>
 
-      <style jsx>{`
-        @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(20px); }
-          to { opacity: 1; transform: translateY(0); }
+      <style jsx global>{`
+        body { background-color: #0F172A !important; margin: 0; }
+        .sdmx-gradient-bg {
+          background-color: #0F172A;
+          background-image: 
+            radial-gradient(circle at 0% 0%, rgba(0, 102, 255, 0.15) 0%, transparent 50%),
+            radial-gradient(circle at 100% 100%, rgba(99, 102, 241, 0.15) 0%, transparent 50%);
         }
-        @keyframes shake {
-          0%, 100% { transform: translateX(0); }
-          25% { transform: translateX(-5px); }
-          75% { transform: translateX(5px); }
+        .sdmx-auth-card {
+          background-color: rgba(255, 255, 255, 0.03);
+          backdrop-filter: blur(24px);
+          -webkit-backdrop-filter: blur(24px);
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          padding: 2.5rem;
+          border-radius: 2rem;
+          box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+          width: 100%;
         }
-        .animate-fadeIn {
-          animation: fadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        .sdmx-input {
+          width: 100%;
+          background-color: rgba(15, 23, 42, 0.5);
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          border-radius: 1rem;
+          padding: 1rem 1.25rem;
+          color: white;
+          outline: none;
         }
-        .animate-shake {
-          animation: shake 0.2s ease-in-out 0s 2;
+        .sdmx-btn-premium {
+          width: 100%;
+          padding: 1.25rem;
+          border-radius: 1rem;
+          background: linear-gradient(135deg, #0066FF, #0044CC);
+          color: white;
+          font-weight: 700;
+          border: none;
+          cursor: pointer;
         }
       `}</style>
     </div>
