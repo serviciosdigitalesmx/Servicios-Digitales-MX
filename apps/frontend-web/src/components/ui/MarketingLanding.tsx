@@ -372,6 +372,46 @@ export function MarketingLanding() {
         </button>
         <div className="sdmx-bot-tooltip">Asistente Virtual</div>
       </div>
+      <style jsx global>{`
+        html, body {
+          background-color: #0F172A !important;
+          color: white !important;
+          margin: 0;
+          padding: 0;
+          font-family: Inter, system-ui, sans-serif;
+        }
+        .sdmx-landing-page {
+          background-color: #0F172A;
+          color: white;
+          min-height: 100vh;
+          position: relative;
+        }
+        .sdmx-nav-brand {
+          color: white !important;
+          font-weight: 900;
+        }
+        .sdmx-hero-title {
+          color: white !important;
+        }
+        .sdmx-pill-button {
+          border: 1px solid rgba(255, 255, 255, 0.1) !important;
+          color: rgba(255, 255, 255, 0.6) !important;
+        }
+        .sdmx-pill-button.is-active {
+          background-color: white !important;
+          color: #0F172A !important;
+        }
+        .sdmx-central-action {
+          background-color: rgba(255, 255, 255, 0.03) !important;
+          border: 1px solid rgba(255, 255, 255, 0.1) !important;
+          backdrop-filter: blur(12px);
+        }
+        .sdmx-pricing-card, .sdmx-pricing-card-featured {
+          background-color: rgba(255, 255, 255, 0.03) !important;
+          border: 1px solid rgba(255, 255, 255, 0.1) !important;
+          backdrop-filter: blur(24px);
+        }
+      `}</style>
     </div>
   );
 }
