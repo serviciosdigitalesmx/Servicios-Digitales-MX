@@ -2,10 +2,11 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
 // Cliente de administración (bypassea RLS)
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+// Prevenir que el build falle si las keys no están en el entorno de compilación
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder.supabase.co";
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "placeholder_key";
+
+const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
 const MP_ACCESS_TOKEN = process.env.MERCADOPAGO_ACCESS_TOKEN;
 
