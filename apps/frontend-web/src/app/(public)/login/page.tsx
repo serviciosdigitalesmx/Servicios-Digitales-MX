@@ -23,8 +23,6 @@ export default function LoginPage() {
 
       if (authError) throw authError;
 
-      // Supabase handles session persistence automatically.
-      // The AuthGuard will handle redirection and context hydration.
       window.location.href = "/hub";
     } catch (err: any) {
       setError(err.message || "Error al iniciar sesión");
@@ -34,81 +32,123 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F0F2F5] flex flex-col items-center justify-center p-4">
-      <a href="/" className="absolute top-6 left-6 flex items-center gap-2 text-[#4A5568] hover:text-[#0066FF] transition font-medium">
+    <div className="sdmx-gradient-bg min-h-screen flex flex-col items-center justify-center p-4 overflow-hidden font-sans">
+      {/* Animated Background Elements */}
+      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-600/20 rounded-full blur-[120px] animate-pulse" style={{ background: 'rgba(0, 102, 255, 0.1)' }} />
+      <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-indigo-600/20 rounded-full blur-[120px] animate-pulse delay-700" style={{ background: 'rgba(99, 102, 241, 0.1)' }} />
+      
+      <a href="/" className="absolute top-8 left-8 flex items-center gap-2 text-slate-400 hover:text-white transition-all font-medium z-10">
         <IconArrowLeft width={18} height={18} />
-        Volver al inicio
+        <span className="hidden sm:inline">Volver al inicio</span>
       </a>
 
-      <div className="w-full max-w-md">
-        <div className="flex flex-col items-center justify-center mb-8">
-          <div className="w-16 h-16 bg-[#0066FF] rounded-xl flex items-center justify-center shadow-lg mb-4">
-            <IconMicrochip width={32} height={32} style={{ color: "white" }} />
+      <div className="w-full max-w-md relative z-10">
+        <div className="flex flex-col items-center justify-center mb-10">
+          <div className="w-20 h-20 bg-gradient-to-br from-[#0066FF] to-[#0052CC] rounded-[24px] flex items-center justify-center shadow-[0_8px_30px_rgb(0,102,255,0.4)] mb-6 transform hover:rotate-3 transition-transform duration-500">
+            <IconMicrochip width={40} height={40} style={{ color: "white" }} />
           </div>
-          <h1 className="text-3xl font-bold text-[#1A202C]">
-            Servicios Digitales <span className="text-[#0066FF] italic">MX</span>
+          <h1 className="text-4xl font-extrabold text-white tracking-tight text-center">
+            SR. <span className="text-[#0066FF]">FIX</span>
           </h1>
-          <p className="text-[#4A5568] mt-2">Acceso seguro al panel de tu negocio</p>
+          <p className="text-slate-400 mt-3 font-medium">Acceso seguro al ecosistema</p>
         </div>
 
-        <form onSubmit={handleLogin} className="sdmx-card-premium p-8 space-y-6">
-          <h2 className="text-xl font-bold text-[#1A202C]">Iniciar Sesión</h2>
-          
-          {error && (
-            <div className="bg-red-50 text-red-600 border border-red-200 p-4 rounded-xl text-sm flex items-start gap-2">
-              <IconLock width={18} height={18} className="shrink-0 mt-0.5" />
-              {error}
-            </div>
-          )}
-
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-semibold text-[#1A202C] mb-2">Correo Electrónico</label>
-              <div className="relative">
-                <IconUser width={18} height={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#A0AEC0]" />
-                <input 
-                  type="email" 
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full rounded-xl border border-[#E2E8F0] py-3 pl-12 pr-4 text-[#1A202C] focus:border-[#0066FF] focus:ring-2 focus:ring-[#0066FF]/20 outline-none transition"
-                  placeholder="admin@taller.com"
-                  required
-                />
-              </div>
-            </div>
-
-            <div>
-              <div className="flex justify-between items-center mb-2">
-                <label className="block text-sm font-semibold text-[#1A202C]">Contraseña</label>
-                <a href="/recovery" className="text-sm text-[#0066FF] hover:underline font-medium">¿Olvidaste tu contraseña?</a>
-              </div>
-              <div className="relative">
-                <IconLock width={18} height={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#A0AEC0]" />
-                <input 
-                  type="password" 
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full rounded-xl border border-[#E2E8F0] py-3 pl-12 pr-4 text-[#1A202C] focus:border-[#0066FF] focus:ring-2 focus:ring-[#0066FF]/20 outline-none transition"
-                  placeholder="••••••••"
-                  required
-                />
-              </div>
-            </div>
+        <div className="sdmx-auth-card space-y-8 animate-fadeIn">
+          <div className="space-y-2">
+            <h2 className="text-2xl font-bold text-white text-center">Bienvenido de nuevo</h2>
+            <p className="text-slate-500 text-sm text-center">Ingresa tus credenciales para continuar</p>
           </div>
+          
+          <form onSubmit={handleLogin} className="space-y-6">
+            {error && (
+              <div className="bg-red-500/10 text-red-400 border border-red-500/20 p-4 rounded-xl text-sm flex items-start gap-3 animate-shake">
+                <IconLock width={18} height={18} className="shrink-0 mt-0.5" />
+                <span>{error}</span>
+              </div>
+            )}
 
-          <button 
-            type="submit" 
-            disabled={loading}
-            className={`w-full py-3 rounded-xl font-bold text-white transition shadow-sm ${loading ? 'bg-[#A0AEC0] cursor-not-allowed' : 'bg-[#0066FF] hover:bg-[#0052CC]'}`}
-          >
-            {loading ? "Verificando..." : "Entrar al Panel"}
-          </button>
-        </form>
+            <div className="space-y-5">
+              <div className="group">
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2 ml-1">Correo Electrónico</label>
+                <div className="relative">
+                  <IconUser width={20} height={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-hover:text-[#0066FF] transition-colors" />
+                  <input 
+                    type="email" 
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="sdmx-input"
+                    style={{ paddingLeft: '3rem' }}
+                    placeholder="ejemplo@taller.com"
+                    required
+                  />
+                </div>
+              </div>
 
-        <p className="text-center text-[#4A5568] mt-8 text-sm">
-          ¿Aún no tienes cuenta? <a href="/register" className="text-[#0066FF] font-bold hover:underline">Registra tu Taller</a>
-        </p>
+              <div className="group">
+                <div className="flex justify-between items-center mb-2 ml-1">
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-500">Contraseña</label>
+                  <a href="/recovery" className="text-xs text-[#0066FF] hover:text-[#3385FF] font-bold transition-colors">¿Olvidaste tu contraseña?</a>
+                </div>
+                <div className="relative">
+                  <IconLock width={20} height={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-hover:text-[#0066FF] transition-colors" />
+                  <input 
+                    type="password" 
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="sdmx-input"
+                    style={{ paddingLeft: '3rem' }}
+                    placeholder="••••••••••••"
+                    required
+                  />
+                </div>
+              </div>
+            </div>
+
+            <button 
+              type="submit" 
+              disabled={loading}
+              className="sdmx-btn-premium"
+            >
+              <span className={`flex items-center justify-center gap-2 ${loading ? 'opacity-0' : 'opacity-100'}`}>
+                Entrar al Panel
+              </span>
+              {loading && (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                </div>
+              )}
+            </button>
+          </form>
+
+          <div className="pt-4 text-center">
+            <p className="text-slate-500 text-sm">
+              ¿No tienes cuenta? <a href="/register" className="text-white font-bold hover:text-[#0066FF] transition-colors decoration-[#0066FF]/30 underline underline-offset-4 decoration-2">Regístrate ahora</a>
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-12 text-center text-slate-600 text-[10px] uppercase font-bold tracking-[0.2em]">
+          Powered by Servicios Digitales MX &copy; 2026
+        </div>
       </div>
+
+      <style jsx>{`
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(20px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes shake {
+          0%, 100% { transform: translateX(0); }
+          25% { transform: translateX(-5px); }
+          75% { transform: translateX(5px); }
+        }
+        .animate-fadeIn {
+          animation: fadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        .animate-shake {
+          animation: shake 0.2s ease-in-out 0s 2;
+        }
+      `}</style>
     </div>
   );
 }

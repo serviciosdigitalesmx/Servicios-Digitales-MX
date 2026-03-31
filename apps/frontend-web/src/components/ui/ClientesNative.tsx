@@ -4,16 +4,11 @@ import { FormEvent, useEffect, useState } from "react";
 
 type Customer = { id: string; fullName: string; phone?: string; email?: string; tag: string; notes?: string; };
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:5111";
-
-async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${API_BASE_URL}${path}`, { ...init, headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) }, cache: "no-store", mode: "cors" });
-  const data = await response.json();
-  if (!response.ok) throw new Error(data?.error?.message ?? "El backend devolvió un error inesperado al procesar tu solicitud.");
-  return data as T;
-}
+import { supabase } from "../../lib/supabase";
+import { useAuth } from "./AuthGuard";
 
 export function ClientesNative() {
+  const { session } = useAuth();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(false);
   const [apiStateMessage, setApiStateMessage] = useState("");
@@ -26,39 +21,72 @@ export function ClientesNative() {
   const [form, setForm] = useState({ fullName: "", phone: "", email: "", tag: "nuevo", notes: "" });
 
   async function loadCustomers() {
+    if (!session?.shop.id) return;
     setLoading(true); setApiStateError(""); setApiStateMessage("");
     try {
-      const query = search ? `?search=${encodeURIComponent(search)}` : "";
-      const result = await fetchJson<{ data: Customer[] }>(`/api/customers${query}`);
-      setCustomers(result.data);
-    } catch (error) {
-       setApiStateError("Error de conexión con el servidor.");
+      let query = supabase
+        .from('customers')
+        .select('*')
+        .eq('tenant_id', session.shop.id)
+        .order('created_at', { ascending: false });
+
+      if (search) {
+        query = query.or(`full_name.ilike.%${search}%,phone.ilike.%${search}%,email.ilike.%${search}%`);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+
+      setCustomers((data || []).map((c: any) => ({
+        id: c.id,
+        fullName: c.full_name,
+        phone: c.phone,
+        email: c.email,
+        tag: c.tag,
+        notes: c.notes
+      })));
+    } catch (error: any) {
+       setApiStateError(error.message || "Error de conexión con el servidor.");
     } finally {
       setLoading(false);
     }
   }
 
   useEffect(() => {
-    const delayDebounceFn = setTimeout(() => {
-      void loadCustomers();
-    }, 300);
-    return () => clearTimeout(delayDebounceFn);
-  }, [search]);
+    if (session) {
+      const delayDebounceFn = setTimeout(() => {
+        void loadCustomers();
+      }, 300);
+      return () => clearTimeout(delayDebounceFn);
+    }
+  }, [search, session]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setFormError(""); setFormNotice(""); setApiStateError(""); setApiStateMessage("");
 
+    if (!session?.shop.id) return;
     if (!form.fullName.trim()) return setFormError("⚠️ Ingrese forzosamente el Nombre o Título Comercial de la ficha.");
     if (!form.phone.trim() && !form.email.trim()) setFormNotice("⚠️ Atención: El cliente se registrará sin datos de contacto.");
 
     setLoading(true);
     try {
-      await fetchJson("/api/customers", { method: "POST", body: JSON.stringify({ ...form, phone: form.phone.trim() || null, email: form.email.trim() || null }) });
+      const { error } = await supabase.from('customers').insert({
+        tenant_id: session.shop.id,
+        full_name: form.fullName.trim(),
+        phone: form.phone.trim() || null,
+        email: form.email.trim() || null,
+        tag: form.tag,
+        notes: form.notes.trim() || null,
+        created_by: session.user.id
+      });
+
+      if (error) throw error;
+
       setForm({ fullName: "", phone: "", email: "", tag: "nuevo", notes: "" });
       void loadCustomers();
       setApiStateMessage("✅ Cliente registrado exitosamente.");
-    } catch (error) {
-       setApiStateError(error instanceof Error ? error.message : "Ocurrió un error al registrar al cliente. Verifique los datos e intente de nuevo.");
+    } catch (error: any) {
+       setApiStateError(error.message || "Ocurrió un error al registrar al cliente. Verifique los datos e intente de nuevo.");
     } finally {
       setLoading(false);
     }

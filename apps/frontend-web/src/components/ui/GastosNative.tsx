@@ -10,14 +10,8 @@ type Expense = {
   expenseDate: string; supplierName?: string;
 };
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:5111";
-
-async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${API_BASE_URL}${path}`, { ...init, headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) }, cache: "no-store", mode: "cors" });
-  const data = await response.json();
-  if (!response.ok) throw new Error(data?.error?.message ?? "Error de comunicación con el servidor.");
-  return data as T;
-}
+import { supabase } from "../../lib/supabase";
+import { useAuth } from "./AuthGuard";
 
 function formatMoney(value: number) { return new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN", maximumFractionDigits: 0 }).format(value || 0); }
 
@@ -27,6 +21,7 @@ function formatDate(dateStr: string) {
 }
 
 export function GastosNative() {
+  const { session } = useAuth();
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(false);
@@ -41,17 +36,34 @@ export function GastosNative() {
   });
 
   async function loadData() {
+    if (!session?.shop.id) return;
     setLoading(true); setApiStateMessage(""); setApiStateError("");
     try {
-      const [suppliersResult, expensesResult] = await Promise.all([
-        fetchJson<{ data: Supplier[] }>("/api/suppliers").catch(()=>({data:[]})),
-        fetchJson<{ data: Expense[] }>("/api/expenses").catch(()=>({data:[]}))
+      const [suppliersRes, expensesRes] = await Promise.all([
+        supabase.from('suppliers').select('id, business_name').eq('tenant_id', session.shop.id).eq('is_active', true).order('business_name'),
+        supabase.from('expenses').select('*').eq('tenant_id', session.shop.id).order('expense_date', { ascending: false })
       ]);
-      setSuppliers(suppliersResult.data); setExpenses(expensesResult.data);
-    } catch (error) { setApiStateError("Error de conexión con el servidor."); } finally { setLoading(false); }
+
+      if (suppliersRes.error) throw suppliersRes.error;
+      if (expensesRes.error) throw expensesRes.error;
+
+      setSuppliers(suppliersRes.data.map((s: any) => ({ id: s.id, businessName: s.business_name })));
+      setExpenses(expensesRes.data.map((e: any) => ({
+        id: e.id,
+        expenseType: e.expense_type,
+        category: e.category,
+        concept: e.concept,
+        description: e.description,
+        amount: Number(e.amount || 0),
+        paymentMethod: e.payment_method,
+        expenseDate: e.expense_date
+      })));
+    } catch (error: any) { setApiStateError(error.message || "Error al cargar los datos."); } finally { setLoading(false); }
   }
 
-  useEffect(() => { void loadData(); }, []);
+  useEffect(() => { 
+    if (session) void loadData(); 
+  }, [session]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setFormError(""); setApiStateMessage(""); setApiStateError("");
@@ -62,16 +74,29 @@ export function GastosNative() {
 
     setLoading(true);
     try {
-      await fetchJson("/api/expenses", {
-        method: "POST", body: JSON.stringify({ ...form, concept: form.concept.trim(), amount: amountNum })
+      const { error } = await supabase.from('expenses').insert({
+        tenant_id: session?.shop.id,
+        supplier_id: form.supplierId || null,
+        expense_type: form.expenseType,
+        category: form.category,
+        concept: form.concept.trim(),
+        description: form.description,
+        amount: amountNum,
+        payment_method: form.paymentMethod,
+        expense_date: form.expenseDate,
+        created_by: session?.user.id,
+        updated_by: session?.user.id
       });
+
+      if (error) throw error;
+
       setForm({
         supplierId: "", expenseType: "variable", category: "insumos", concept: "", description: "",
         amount: "0", paymentMethod: "transferencia", notes: "", expenseDate: new Date().toISOString().slice(0, 10)
       });
       await loadData();
       setApiStateMessage("✅ Gasto registrado exitosamente.");
-    } catch (error) { setApiStateError(error instanceof Error ? error.message : "Ocurrió un error al guardar el registro."); } finally { setLoading(false); }
+    } catch (error: any) { setApiStateError(error.message || "Ocurrió un error al guardar el registro."); } finally { setLoading(false); }
   }
 
   const filteredExpenses = expenses.filter(e => !search || e.concept.toLowerCase().includes(search.toLowerCase()) || (e.supplierName && e.supplierName.toLowerCase().includes(search.toLowerCase())));

@@ -2520,10 +2520,131 @@ textarea {
 /* SDMX PREMIUM LANDING (TAILWIND PORT) */
 html.scroll-smooth { scroll-behavior: smooth; }
 
+/* Global Utilities (Tailwind-like fallback) */
+.flex { display: flex; }
+.flex-col { flex-direction: column; }
+.flex-row { flex-direction: row; }
+.items-center { align-items: center; }
+.justify-center { justify-content: center; }
+.justify-between { justify-content: space-between; }
+.gap-2 { gap: 0.5rem; }
+.gap-3 { gap: 0.75rem; }
+.gap-4 { gap: 1rem; }
+.gap-8 { gap: 2rem; }
+.w-full { width: 100%; }
+.max-w-md { max-width: 28rem; }
+.max-w-xl { max-width: 36rem; }
+.min-h-screen { min-height: 100vh; }
+.relative { position: relative; }
+.absolute { position: absolute; }
+.z-10 { z-index: 10; }
+.p-4 { padding: 1rem; }
+.p-10 { padding: 2.5rem; }
+.px-6 { padding-left: 1.5rem; padding-right: 1.5rem; }
+.py-4 { padding-top: 1rem; padding-bottom: 1rem; }
+.mt-3 { margin-top: 0.75rem; }
+.mt-10 { margin-top: 2.5rem; }
+.mt-12 { margin-top: 3rem; }
+.mb-6 { margin-bottom: 1.5rem; }
+.mb-8 { margin-bottom: 2rem; }
+.mb-10 { margin-bottom: 2.5rem; }
+.text-center { text-align: center; }
+.text-white { color: white; }
+.text-slate-400 { color: #94a3b8; }
+.text-slate-500 { color: #64748b; }
+.text-slate-600 { color: #475569; }
+.font-sans { font-family: Inter, system-ui, sans-serif; }
+.font-bold { font-weight: 700; }
+.font-extrabold { font-weight: 800; }
+.tracking-tight { letter-spacing: -0.025em; }
+.rounded-2xl { border-radius: 1rem; }
+.rounded-3xl { border-radius: 1.5rem; }
+.shadow-2xl { box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); }
+.overflow-hidden { overflow: hidden; }
+
+/* Premium Auth Specifics */
+.sdmx-auth-card {
+  background-color: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 2.5rem;
+  border-radius: 2rem;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  width: 100%;
+}
+
+.sdmx-gradient-bg {
+  background-color: #0F172A;
+  background-image: 
+    radial-gradient(circle at 0% 0%, rgba(0, 102, 255, 0.15) 0%, transparent 50%),
+    radial-gradient(circle at 100% 100%, rgba(99, 102, 241, 0.15) 0%, transparent 50%);
+}
+
+.sdmx-input {
+  width: 100%;
+  background-color: rgba(15, 23, 42, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 1rem;
+  padding: 1rem 1.25rem;
+  color: white;
+  transition: all 0.3s;
+  outline: none;
+}
+
+.sdmx-input:focus {
+  border-color: #0066FF;
+  box-shadow: 0 0 0 4px rgba(0, 102, 255, 0.1);
+}
+
+.sdmx-btn-premium {
+  width: 100%;
+  padding: 1.25rem;
+  border-radius: 1rem;
+  background: linear-gradient(135deg, #0066FF, #0044CC);
+  color: white;
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+  transition: all 0.4s;
+}
+
+.sdmx-btn-premium:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 25px -5px rgba(0, 102, 255, 0.4);
+}
+
 .sdmx-landing-page {
-  background-color: #F9FAFB;
-  color: #0f172a;
+  background-color: #0F172A;
+  color: white;
   min-height: 100vh;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Premium Animated Background */
+.sdmx-landing-page::before {
+  content: "";
+  position: absolute;
+  top: -10%;
+  left: -10%;
+  width: 40%;
+  height: 40%;
+  background: radial-gradient(circle, rgba(0, 102, 255, 0.15), transparent 70%);
+  filter: blur(100px);
+  z-index: 0;
+}
+
+.sdmx-landing-page::after {
+  content: "";
+  position: absolute;
+  bottom: -10%;
+  right: -10%;
+  width: 50%;
+  height: 50%;
+  background: radial-gradient(circle, rgba(99, 102, 241, 0.15), transparent 70%);
+  filter: blur(100px);
+  z-index: 0;
 }
 
 /* NAVBAR */
@@ -2537,19 +2658,19 @@ html.scroll-smooth { scroll-behavior: smooth; }
 }
 
 .sdmx-nav-container {
-  max-width: 80rem; /* 7xl */
+  max-width: 85rem;
   margin: 0 auto;
-  height: 5rem;
-  background-color: rgba(255, 255, 255, 0.9);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border-radius: 1rem;
-  box-shadow: 0 10px 40px -10px rgba(0,0,0,0.1);
-  border: 1px solid #f1f5f9;
+  height: 5.5rem;
+  background-color: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-radius: 1.5rem;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 2rem;
+  padding: 0 2.5rem;
 }
 
 .sdmx-nav-logo-box {
@@ -2621,13 +2742,13 @@ html.scroll-smooth { scroll-behavior: smooth; }
 }
 
 .sdmx-hero-title {
-  font-size: 3rem;
-  font-weight: 700;
-  letter-spacing: -0.025em;
-  color: #1e293b;
-  margin-bottom: 1.5rem;
-  line-height: 1.1;
-  margin-top:0;
+  font-size: 3.5rem;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  color: white;
+  margin-bottom: 2rem;
+  line-height: 1;
+  margin-top: 0;
 }
 
 @media (min-width: 768px) {
@@ -2635,10 +2756,13 @@ html.scroll-smooth { scroll-behavior: smooth; }
 }
 
 .sdmx-hero-subtitle {
-  font-size: 1.25rem;
+  font-size: 1.5rem;
   color: #94a3b8;
   font-weight: 500;
-  margin-bottom: 3rem;
+  margin-bottom: 4rem;
+  max-width: 800px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .sdmx-pills-row {
@@ -2714,13 +2838,14 @@ html.scroll-smooth { scroll-behavior: smooth; }
 
 /* CENTRAL ACTION BLOCK */
 .sdmx-central-action {
-  background-color: white;
-  max-width: 56rem;
+  background-color: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(12px);
+  max-width: 60rem;
   margin: 0 auto 8rem;
-  padding: 3rem;
-  border-radius: 2.5rem;
-  box-shadow: 0 10px 40px -10px rgba(0,0,0,0.1);
-  border: 1px solid #f1f5f9;
+  padding: 4rem;
+  border-radius: 3rem;
+  box-shadow: 0 40px 100px -20px rgba(0,0,0,0.4);
+  border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .sdmx-central-buttons {
@@ -2837,8 +2962,9 @@ html.scroll-smooth { scroll-behavior: smooth; }
 
 /* CARACTERISTICAS */
 .sdmx-features-section {
-  padding: 8rem 0;
-  background-color: white;
+  padding: 10rem 0;
+  background-color: #0F172A;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
 }
 .sdmx-container-7xl {
   max-width: 80rem;
@@ -2849,11 +2975,11 @@ html.scroll-smooth { scroll-behavior: smooth; }
 .sdmx-features-title {
   font-size: 3.75rem;
   font-weight: 900;
-  color: #0f172a;
+  color: white;
   margin-bottom: 1rem;
-  margin-top:0;
+  margin-top: 0;
 }
-.sdmx-features-title span { color: #64748b; }
+.sdmx-features-title span { color: #0066FF; }
 
 .sdmx-features-subtitle {
   font-size: 1.25rem;
@@ -2879,9 +3005,9 @@ html.scroll-smooth { scroll-behavior: smooth; }
 .sdmx-features-lead {
   font-size: 1.5rem;
   font-weight: 500;
-  color: #475569;
+  color: #94A3B8;
   line-height: 1.625;
-  margin:0;
+  margin: 0;
 }
 
 .sdmx-features-list {
@@ -2899,14 +3025,14 @@ html.scroll-smooth { scroll-behavior: smooth; }
   gap: 1rem;
   font-size: 1.25rem;
   font-weight: 700;
-  color: #1e293b;
+  color: white;
 }
 
 .sdmx-features-icon {
   width: 1.5rem;
   height: 1.5rem;
   border-radius: 9999px;
-  background-color: #0f172a;
+  background-color: #0066FF;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2930,10 +3056,11 @@ html.scroll-smooth { scroll-behavior: smooth; }
 
 /* PLANES */
 .sdmx-pricing-section {
-  padding: 8rem 0;
-  background-color: #F9FAFB;
+  padding: 10rem 0;
+  background-color: #0F172A;
   position: relative;
   overflow: hidden;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .sdmx-pricing-watermark {
@@ -2960,14 +3087,14 @@ html.scroll-smooth { scroll-behavior: smooth; }
 .sdmx-pricing-head h2 {
   font-size: 3.75rem;
   font-weight: 900;
-  color: #0f172a;
+  color: white;
   margin-bottom: 1.5rem;
-  margin-top:0;
+  margin-top: 0;
 }
 
 .sdmx-pricing-head p {
   font-size: 1.25rem;
-  color: #94a3b8;
+  color: #94A3B8;
   max-width: 28rem;
   font-weight: 500;
 }
@@ -2977,9 +3104,10 @@ html.scroll-smooth { scroll-behavior: smooth; }
   gap: 0;
   border-radius: 3rem;
   overflow: hidden;
-  box-shadow: 0 10px 40px -10px rgba(0,0,0,0.1);
-  border: 1px solid #e2e8f0;
-  background-color: white;
+  box-shadow: 0 40px 100px -20px rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  background-color: rgba(255, 255, 255, 0.02);
+  backdrop-filter: blur(12px);
   position: relative;
   z-index: 10;
 }
@@ -2996,16 +3124,17 @@ html.scroll-smooth { scroll-behavior: smooth; }
 .sdmx-pricing-card.right { border-left: 1px solid #f1f5f9; }
 
 .sdmx-pricing-card-featured {
-  padding: 3rem;
-  background-color: #0066FF;
+  padding: 3.5rem;
+  background: linear-gradient(180deg, #0066FF 0%, #0044CC 100%);
   color: white;
   display: flex;
   flex-direction: column;
   position: relative;
   transform: scale(1.05);
   z-index: 20;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 40px 100px -20px rgba(0, 102, 255, 0.4);
   border-radius: 3rem;
+  border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 .sdmx-pricing-badge-wrap {

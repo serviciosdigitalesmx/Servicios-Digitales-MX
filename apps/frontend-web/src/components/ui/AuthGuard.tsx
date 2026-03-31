@@ -7,7 +7,26 @@ import { IconMicrochip, IconWarning } from "./Icons";
 export type AuthMeResponse = {
   user: { id: string; fullName: string; email: string; role: string; branchId: string; };
   shop: { id: string; name: string; slug: string; };
-  subscription: { status: string; planCode: string; operationalAccess: boolean; };
+  subscription: { 
+    status: string; 
+    planCode: string; 
+    planName: string;
+    priceMxn: number;
+    billingInterval: string;
+    currentPeriodStart?: string;
+    currentPeriodEnd?: string;
+    graceUntil?: string;
+    operationalAccess: boolean; 
+  };
+  lastPayment?: {
+    id: string;
+    provider: string;
+    providerPaymentId: string;
+    providerPaymentStatus: string;
+    amount?: number;
+    paidAt: string;
+    payerEmail?: string;
+  } | null;
 };
 
 type AuthContextType = {
@@ -28,8 +47,8 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const { data: { subscription: authListener } } = supabase.auth.onAuthStateChange(
-      async (event, authSession) => {
-        if (event === "SIGNED_OUT") {
+      async (_event, authSession) => {
+        if (_event === "SIGNED_OUT") {
           setSession(null);
           setLoading(false);
           window.location.href = "/login";
@@ -38,21 +57,20 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
 
         if (authSession) {
           try {
-            // Fetch profile and subscription details from Supabase
-            // This replaces the /api/auth/me call
-            const [userRes, tenantRes, subRes] = await Promise.all([
-              supabase.from('users').select('*').eq('auth_user_id', authSession.user.id).single(),
-              // We need the tenant_id from the user to fetch the tenant
-              supabase.from('users').select('tenant_id').eq('auth_user_id', authSession.user.id).single()
-                .then((r: any) => r.data ? supabase.from('tenants').select('*').eq('id', r.data.tenant_id).single() : { data: null, error: r.error }),
-              supabase.from('subscriptions').select('*').eq('tenant_id', 
-                (await supabase.from('users').select('tenant_id').eq('auth_user_id', authSession.user.id).single()).data?.tenant_id
-              ).single()
-            ]);
+            // 1. Fetch User Profile
+            const { data: userData, error: userError } = await supabase
+              .from('users')
+              .select('*')
+              .eq('auth_user_id', authSession.user.id)
+              .single();
 
-            if (userRes.error || tenantRes.error) {
-              console.error("Error fetching user context:", userRes.error, tenantRes.error);
-            }
+            if (userError) throw userError;
+
+            // 2. Fetch Tenant and Subscription in parallel using tenant_id from user
+            const [tenantRes, subRes] = await Promise.all([
+              supabase.from('tenants').select('*').eq('id', userData.tenant_id).single(),
+              supabase.from('subscriptions').select('*').eq('tenant_id', userData.tenant_id).single()
+            ]);
 
             // Simple validation: if subscription is inactive and not in grace period
             const sub = subRes.data;
@@ -67,10 +85,10 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
             setSession({
               user: {
                 id: authSession.user.id,
-                fullName: userRes.data?.full_name || "Usuario",
+                fullName: userData?.full_name || "Usuario",
                 email: authSession.user.email || "",
-                role: userRes.data?.role || "admin",
-                branchId: userRes.data?.branch_id || ""
+                role: userData?.role || "admin",
+                branchId: userData?.branch_id || ""
               },
               shop: {
                 id: tenantRes.data?.id || "",
@@ -80,6 +98,12 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
               subscription: {
                 status: sub?.status || "active",
                 planCode: sub?.plan_code || "starter",
+                planName: sub?.plan_name || "Plan Inicial",
+                priceMxn: Number(sub?.price_mxn || 350),
+                billingInterval: sub?.billing_interval || "monthly",
+                currentPeriodStart: sub?.current_period_start,
+                currentPeriodEnd: sub?.current_period_end,
+                graceUntil: sub?.grace_until,
                 operationalAccess: sub?.status === 'active' || sub?.status === 'trialing'
               }
             });

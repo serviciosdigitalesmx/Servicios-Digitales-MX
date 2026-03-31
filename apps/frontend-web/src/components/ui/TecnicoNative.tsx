@@ -55,7 +55,7 @@ export function TecnicoNative() {
       if (ordersError) throw ordersError;
 
       // Map DB fields to TechOrder type
-      const mappedOrders: TechOrder[] = ordersData.map(o => ({
+      const mappedOrders: TechOrder[] = ordersData.map((o: any) => ({
         id: o.id,
         folio: o.folio,
         status: o.status,

@@ -9,20 +9,13 @@ type Product = {
   cost: number; salePrice: number; minimumStock: number; stockCurrent: number; supplierName?: string;
 };
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:5111";
-
-async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    ...init, headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) }, cache: "no-store", mode: "cors"
-  });
-  const data = await response.json();
-  if (!response.ok) throw new Error(data?.error?.message ?? "El backend devolvió un error inesperado al procesar tu solicitud.");
-  return data as T;
-}
+import { supabase } from "../../lib/supabase";
+import { useAuth } from "./AuthGuard";
 
 function formatMoney(value: number) { return new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN", maximumFractionDigits: 0 }).format(value || 0); }
 
 export function StockNative() {
+  const { session } = useAuth();
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(false);
@@ -39,46 +32,103 @@ export function StockNative() {
   const [productForm, setProductForm] = useState({ sku: "", name: "", category: "", brand: "", compatibleModel: "", primarySupplierId: "", cost: "0", salePrice: "0", minimumStock: "0", unit: "pieza", location: "", notes: "", initialStock: "0" });
 
   async function loadData() {
+    if (!session?.shop.id) return;
     setLoading(true); setApiStateError(""); setApiStateMessage("");
     try {
-      const [suppliersResult, productsResult] = await Promise.all([
-        fetchJson<{ data: Supplier[] }>("/api/suppliers").catch(() => ({ data: [] })),
-        fetchJson<{ data: Product[] }>("/api/products").catch(() => ({ data: [] }))
+      const [suppliersRes, productsRes] = await Promise.all([
+        supabase.from('suppliers').select('*').eq('tenant_id', session.shop.id).order('business_name'),
+        supabase.from('products').select('*, suppliers(business_name)').eq('tenant_id', session.shop.id).order('name')
       ]);
-      setSuppliers(suppliersResult.data);
-      setProducts(productsResult.data);
-    } catch (error) { setApiStateError("Error de red al conectar con el servidor."); } finally { setLoading(false); }
+
+      if (suppliersRes.error) throw suppliersRes.error;
+      if (productsRes.error) throw productsRes.error;
+
+      setSuppliers((suppliersRes.data || []).map((s: any) => ({
+        id: s.id,
+        businessName: s.business_name
+      })));
+
+      setProducts((productsRes.data || []).map((p: any) => ({
+        id: p.id,
+        sku: p.sku,
+        name: p.name,
+        category: p.category,
+        brand: p.brand,
+        cost: Number(p.cost || 0),
+        salePrice: Number(p.sale_price || 0),
+        minimumStock: Number(p.minimum_stock || 0),
+        stockCurrent: Number(p.stock_current || 0),
+        supplierName: p.suppliers?.business_name
+      })));
+    } catch (error: any) { setApiStateError(error.message || "Error de red al conectar con el servidor."); } finally { setLoading(false); }
   }
 
-  useEffect(() => { void loadData(); }, []);
+  useEffect(() => { 
+    if (session) void loadData(); 
+  }, [session]);
 
   async function handleSupplierSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setFormErrorSupplier(""); setApiStateMessage(""); setApiStateError("");
+    if (!session?.shop.id) return;
     if (!supplierForm.businessName.trim()) return setFormErrorSupplier("⚠️ El nombre del proveedor es obligatorio.");
     
     setLoading(true);
     try {
-      await fetchJson("/api/suppliers", { method: "POST", body: JSON.stringify({ ...supplierForm, businessName: supplierForm.businessName.trim() }) });
+      const { error } = await supabase.from('suppliers').insert({
+        tenant_id: session.shop.id,
+        business_name: supplierForm.businessName.trim(),
+        contact_name: supplierForm.contactName.trim() || null,
+        phone: supplierForm.phone.trim() || null,
+        email: supplierForm.email.trim() || null,
+        categories: supplierForm.categories.trim() || null,
+        notes: supplierForm.notes.trim() || null,
+        created_by: session.user.id
+      });
+      if (error) throw error;
+
       setSupplierForm({ businessName: "", contactName: "", phone: "", email: "", categories: "", notes: "" });
       await loadData();
       setApiStateMessage("✅ Nuevo proveedor integrado.");
-    } catch (error) { setApiStateError(error instanceof Error ? error.message : "El sistema rechazó al proveedor."); } finally { setLoading(false); }
+    } catch (error: any) { setApiStateError(error.message || "El sistema rechazó al proveedor."); } finally { setLoading(false); }
   }
 
   async function handleProductSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setFormErrorProduct(""); setApiStateMessage(""); setApiStateError("");
+    if (!session?.shop.id) return;
     if (!productForm.sku.trim()) return setFormErrorProduct("⚠️ SKU obligatorio para rastrear stock.");
     if (!productForm.name.trim()) return setFormErrorProduct("⚠️ Es obligatorio titular tu ficha de inventario.");
 
     setLoading(true);
     try {
-      await fetchJson("/api/products", {
-        method: "POST", body: JSON.stringify({ ...productForm, sku: productForm.sku.trim(), name: productForm.name.trim(), primarySupplierId: productForm.primarySupplierId || null, cost: Number(productForm.cost || 0), salePrice: Number(productForm.salePrice || 0), minimumStock: Number(productForm.minimumStock || 0), initialStock: Number(productForm.initialStock || 0) })
+      const cost = Number(productForm.cost || 0);
+      const salePrice = Number(productForm.salePrice || 0);
+      const minStock = Number(productForm.minimumStock || 0);
+      const initStock = Number(productForm.initialStock || 0);
+
+      const { error } = await supabase.from('products').insert({
+        tenant_id: session.shop.id,
+        sku: productForm.sku.trim(),
+        name: productForm.name.trim(),
+        category: productForm.category.trim() || null,
+        brand: productForm.brand.trim() || null,
+        compatible_model: productForm.compatibleModel.trim() || null,
+        primary_supplier_id: productForm.primarySupplierId || null,
+        cost,
+        sale_price: salePrice,
+        minimum_stock: minStock,
+        stock_current: initStock,
+        unit: productForm.unit,
+        location: productForm.location.trim() || null,
+        notes: productForm.notes.trim() || null,
+        created_by: session.user.id
       });
+
+      if (error) throw error;
+
       setProductForm({ sku: "", name: "", category: "", brand: "", compatibleModel: "", primarySupplierId: "", cost: "0", salePrice: "0", minimumStock: "0", unit: "pieza", location: "", notes: "", initialStock: "0" });
       await loadData();
       setApiStateMessage("✅ Unidad indexada al stock general.");
-    } catch (error) { setApiStateError(error instanceof Error ? error.message : "Falla al crear ficha. Posible SKU duplicado."); } finally { setLoading(false); }
+    } catch (error: any) { setApiStateError(error.message || "Falla al crear ficha. Posible SKU duplicado."); } finally { setLoading(false); }
   }
 
   const filteredProducts = products.filter(p => !searchProduct || p.name.toLowerCase().includes(searchProduct.toLowerCase()) || p.sku.toLowerCase().includes(searchProduct.toLowerCase()));

@@ -73,7 +73,7 @@ export function OperativoNative() {
       if (customersRes.error) throw customersRes.error;
       if (ordersRes.error) throw ordersRes.error;
 
-      setCustomers(customersRes.data.map(c => ({
+      setCustomers(customersRes.data.map((c: any) => ({
         id: c.id,
         fullName: c.full_name,
         phone: c.phone,
@@ -81,7 +81,7 @@ export function OperativoNative() {
         tag: c.tag || 'nuevo'
       })));
 
-      setOrders(ordersRes.data.map(o => ({
+      setOrders(ordersRes.data.map((o: any) => ({
         id: o.id,
         folio: o.folio,
         status: o.status,

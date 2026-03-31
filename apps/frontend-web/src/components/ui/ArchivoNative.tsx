@@ -7,33 +7,45 @@ type ArchivedOrder = {
   deviceType: string; priority?: string; estimatedCost: number; promisedDate?: string;
 };
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:5111";
-
-async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    ...init, headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) }, cache: "no-store", mode: "cors"
-  });
-  if (!response.ok) throw new Error("Error de conexión con el servidor.");
-  return response.json() as Promise<T>;
-}
+import { supabase } from "../../lib/supabase";
+import { useAuth } from "./AuthGuard";
 
 function formatMoney(value: number) { return new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN", maximumFractionDigits: 0 }).format(value || 0); }
 function formatDate(dateStr?: string) { return dateStr ? new Intl.DateTimeFormat("es-MX", { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(dateStr)) : "Indefinida"; }
 
 export function ArchivoNative() {
+  const { session } = useAuth();
   const [loading, setLoading] = useState(false);
   const [archived, setArchived] = useState<ArchivedOrder[]>([]);
   const [search, setSearch] = useState("");
 
   async function loadData() {
+    if (!session?.shop.id) return;
     setLoading(true);
     try {
-      const resp = await fetchJson<{ data: ArchivedOrder[] }>("/api/archive/service-orders");
-      setArchived(resp.data);
+      const { data, error } = await supabase
+        .from('service_orders')
+        .select('*')
+        .eq('tenant_id', session.shop.id)
+        .in('status', ['entregado', 'cancelado', 'archivado'])
+        .order('updated_at', { ascending: false });
+
+      if (error) throw error;
+
+      setArchived(data.map((o: any) => ({
+        id: o.id,
+        folio: o.folio,
+        status: o.status,
+        deviceType: o.device_type,
+        estimatedCost: Number(o.final_cost || o.estimated_cost || 0),
+        promisedDate: o.updated_at
+      })));
     } catch { } finally { setLoading(false); }
   }
 
-  useEffect(() => { void loadData(); }, []);
+  useEffect(() => { 
+    if (session) void loadData(); 
+  }, [session]);
 
   const filtered = archived.filter((o) => !search || o.folio.toLowerCase().includes(search.toLowerCase()) || o.deviceType.toLowerCase().includes(search.toLowerCase()) || (o.customerName && o.customerName.toLowerCase().includes(search.toLowerCase())));
 

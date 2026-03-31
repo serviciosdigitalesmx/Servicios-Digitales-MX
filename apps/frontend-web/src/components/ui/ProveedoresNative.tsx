@@ -11,28 +11,11 @@ type Supplier = {
   categories?: string;
 };
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:5111";
-
-async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    ...init,
-    headers: {
-      "Content-Type": "application/json",
-      ...(init?.headers ?? {})
-    },
-    cache: "no-store",
-    mode: "cors"
-  });
-
-  const data = await response.json();
-  if (!response.ok) {
-    throw new Error(data?.error?.message ?? "Falló el backend, comunícate con soporte.");
-  }
-
-  return data as T;
-}
+import { supabase } from "../../lib/supabase";
+import { useAuth } from "./AuthGuard";
 
 export function ProveedoresNative() {
+  const { session } = useAuth();
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [loading, setLoading] = useState(false);
   const [apiStateMessage, setApiStateMessage] = useState("");
@@ -50,22 +33,37 @@ export function ProveedoresNative() {
   });
 
   async function loadSuppliers() {
+    if (!session?.shop.id) return;
     setLoading(true);
     setApiStateMessage("");
     setApiStateError("");
     try {
-      const result = await fetchJson<{ data: Supplier[] }>("/api/suppliers");
-      setSuppliers(result.data);
-    } catch (error) {
-       setApiStateError(error instanceof Error ? error.message : "Ups, no pudimos cargar los proveedores. Revisa la red.");
+      const { data, error } = await supabase
+        .from('suppliers')
+        .select('*')
+        .eq('tenant_id', session.shop.id)
+        .eq('is_active', true)
+        .order('business_name');
+
+      if (error) throw error;
+      setSuppliers(data.map((s: any) => ({
+        id: s.id,
+        businessName: s.business_name,
+        contactName: s.contact_name,
+        phone: s.phone,
+        email: s.email,
+        categories: s.categories
+      })));
+    } catch (error: any) {
+       setApiStateError(error.message || "Error al cargar los proveedores.");
     } finally {
       setLoading(false);
     }
   }
 
   useEffect(() => {
-    void loadSuppliers();
-  }, []);
+    if (session) void loadSuppliers();
+  }, [session]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -77,23 +75,28 @@ export function ProveedoresNative() {
        setFormError("⚠️ Ingrese al menos la Razón Social o Nombre Comercial del proveedor.");
        return;
     }
-    
-    if (!form.phone && !form.email) {
-       setFormError("⚠️ Recomendamos ingresar al menos un número de teléfono o correo electrónico para contacto.");
-    }
 
     setLoading(true);
     try {
-      await fetchJson("/api/suppliers", {
-        method: "POST",
-        body: JSON.stringify(form)
+      const { error } = await supabase.from('suppliers').insert({
+        tenant_id: session?.shop.id,
+        business_name: form.businessName,
+        contact_name: form.contactName,
+        phone: form.phone,
+        email: form.email,
+        categories: form.categories,
+        notes: form.notes,
+        created_by: session?.user.id,
+        updated_by: session?.user.id
       });
-      setForm({ businessName: "", contactName: "", phone: "", email: "", categories: "", notes: "" });
+
+      if (error) throw error;
       
+      setForm({ businessName: "", contactName: "", phone: "", email: "", categories: "", notes: "" });
       await loadSuppliers();
-      setApiStateMessage("✅ Proveedor registrado exitosamente en plataforma.");
-    } catch (error) {
-      setApiStateError(error instanceof Error ? error.message : "El sistema rechazó el guardado del proveedor.");
+      setApiStateMessage("✅ Proveedor registrado exitosamente.");
+    } catch (error: any) {
+      setApiStateError(error.message || "Error al guardar el proveedor.");
     } finally {
       setLoading(false);
     }

@@ -15,50 +15,66 @@ type FinanceSummary = {
   monthlyExpenses: Array<{ label: string; expenses: number }>;
 };
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:5111";
-
-async function fetchJson<T>(path: string): Promise<T> {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    cache: "no-store",
-    mode: "cors",
-    headers: { "Content-Type": "application/json" }
-  });
-
-  const data = await response.json();
-  if (!response.ok) {
-    throw new Error(data?.error?.message ?? "Error al cargar datos financieros.");
-  }
-
-  return data as T;
-}
+import { supabase } from "../../lib/supabase";
+import { useAuth } from "./AuthGuard";
 
 function formatMoney(value: number) {
   return new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN", maximumFractionDigits: 0 }).format(value || 0);
 }
 
 export function FinanzasNative() {
+  const { session } = useAuth();
   const [summary, setSummary] = useState<FinanceSummary | null>(null);
   const [apiStateMessage, setApiStateMessage] = useState("");
   const [apiStateError, setApiStateError] = useState("");
   const [loading, setLoading] = useState(false);
 
   async function loadSummary() {
+    if (!session?.shop.id) return;
     setLoading(true);
     setApiStateMessage("");
     setApiStateError("");
     try {
-      const result = await fetchJson<{ data: FinanceSummary }>("/api/finance/summary");
-      setSummary(result.data);
-    } catch (error) {
-       setApiStateError("Error de conexión al obtener el consolidado.");
+      // Aggregate data from Supabase
+      const [ordersRes, expensesRes, purchaseRes, customersRes] = await Promise.all([
+        supabase.from('service_orders').select('final_cost, estimated_cost, status').eq('tenant_id', session.shop.id),
+        supabase.from('expenses').select('amount').eq('tenant_id', session.shop.id),
+        supabase.from('purchase_orders').select('total_amount, status').eq('tenant_id', session.shop.id).neq('status', 'cancelled'),
+        supabase.from('customers').select('id', { count: 'exact', head: true }).eq('tenant_id', session.shop.id)
+      ]);
+
+      if (ordersRes.error) throw ordersRes.error;
+      if (expensesRes.error) throw expensesRes.error;
+      if (purchaseRes.error) throw purchaseRes.error;
+      if (customersRes.error) throw customersRes.error;
+
+      const revenue = ordersRes.data.reduce((acc, o) => acc + (Number(o.final_cost || o.estimated_cost || 0)), 0);
+      const expenses = expensesRes.data.reduce((acc, e) => acc + (Number(e.amount || 0)), 0);
+      const committed = purchaseRes.data.reduce((acc, p) => acc + (Number(p.total_amount || 0)), 0);
+      const activeOrders = ordersRes.data.filter(o => !['entregado', 'cancelado'].includes(o.status)).length;
+
+      setSummary({
+        projectedRevenue: revenue,
+        expenseTotal: expenses,
+        purchaseCommitted: committed,
+        netProjected: revenue - expenses - committed,
+        activeOrders,
+        customers: customersRes.count || 0,
+        averageTicket: revenue / (ordersRes.data.length || 1),
+        monthlyRevenue: [],
+        monthlyExpenses: []
+      });
+
+    } catch (error: any) {
+       setApiStateError(error.message || "Error al obtener el consolidado.");
     } finally {
        setLoading(false);
     }
   }
 
   useEffect(() => {
-    void loadSummary();
-  }, []);
+    if (session) void loadSummary();
+  }, [session]);
 
   return (
     <div style={{display: 'flex', flexDirection: 'column', gap: '2rem'}}>

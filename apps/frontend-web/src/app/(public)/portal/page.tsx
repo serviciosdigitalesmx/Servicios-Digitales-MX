@@ -9,8 +9,10 @@ import {
   IconPaperPlane, IconMonitor, IconCheckCircular
 } from "../../../components/ui/Icons";
 
+import { supabase } from "../../../lib/supabase";
+
 const CONFIG = {
-  API_BASE_URL: process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:5111",
+  TENANT_SLUG: process.env.NEXT_PUBLIC_TENANT_SLUG ?? "taller-centro",
   TIENDA_WHATSAPP: '528117006536',
   SUGGESTIONS_KEY: 'sdmx_folios_historial'
 };
@@ -33,6 +35,7 @@ export default function ClientPortal() {
   const [historial, setHistorial] = useState<string[]>([]);
   const [lightboxImg, setLightboxImg] = useState<string | null>(null);
   const [successQuote, setSuccessQuote] = useState(false);
+  const [tenantId, setTenantId] = useState<string | null>(null);
 
   // Formulario de Cotización
   const [quoteForm, setQuoteForm] = useState({
@@ -42,17 +45,24 @@ export default function ClientPortal() {
   });
 
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(CONFIG.SUGGESTIONS_KEY);
-      if (raw) setHistorial(JSON.parse(raw));
-    } catch(e) {}
+    async function init() {
+      // Resolve TenantId by Slug
+      const { data: tenant } = await supabase.from('tenants').select('id').eq('slug', CONFIG.TENANT_SLUG).single();
+      if (tenant) setTenantId(tenant.id);
 
-    const urlParams = new URLSearchParams(window.location.search);
-    const folioParam = urlParams.get('folio');
-    if (folioParam) {
-      setFolio(folioParam.toUpperCase());
-      ejecutarBusqueda(folioParam.toUpperCase());
+      try {
+        const raw = localStorage.getItem(CONFIG.SUGGESTIONS_KEY);
+        if (raw) setHistorial(JSON.parse(raw));
+      } catch(e) {}
+
+      const urlParams = new URLSearchParams(window.location.search);
+      const folioParam = urlParams.get('folio');
+      if (folioParam) {
+        setFolio(folioParam.toUpperCase());
+        ejecutarBusqueda(folioParam.toUpperCase());
+      }
     }
+    void init();
   }, []);
 
   const agregarHistorial = (f: string) => {
@@ -71,11 +81,25 @@ export default function ClientPortal() {
     setErrorStatus(null);
 
     try {
-      const res = await fetch(`${CONFIG.API_BASE_URL}/api/portal/orders/${encodeURIComponent(folioString.trim().toUpperCase())}`);
-      const result = await res.json();
-      if (!res.ok || !result.success) throw new Error(result.error?.message || 'Folio no encontrado');
+      // Find order in Supabase
+      const { data: order, error } = await supabase
+        .from('service_orders')
+        .select('*')
+        .eq('folio', folioString.trim().toUpperCase())
+        .single();
+
+      if (error || !order) throw new Error('Folio no encontrado');
       
-      setEquipo(result.data);
+      setEquipo({
+        folio: order.folio,
+        status: order.status,
+        deviceType: order.device_type,
+        deviceModel: order.device_model,
+        reportedIssue: order.reported_issue,
+        promisedDate: order.promised_date ? formatDateYMD(order.promised_date) : 'Pendiente',
+        internalDiagnosis: order.internal_diagnosis,
+        progressPhotos: order.progress_photos || []
+      });
       setView("status");
       agregarHistorial(folioString);
     } catch (e: any) {
@@ -91,31 +115,60 @@ export default function ClientPortal() {
     ejecutarBusqueda(folio);
   };
 
+  const generateFolio = async (tid: string) => {
+    const { data: lastReq } = await supabase
+      .from('service_requests')
+      .select('folio')
+      .eq('tenant_id', tid)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single();
+
+    let nextNumber = 1;
+    if (lastReq && lastReq.folio.startsWith('COT-')) {
+      const lastNum = parseInt(lastReq.folio.split('-')[1]);
+      if (!isNaN(lastNum)) nextNumber = lastNum + 1;
+    }
+    return `COT-${String(nextNumber).padStart(6, '0')}`;
+  };
+
   const handleQuoteSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!tenantId) { setErrorStatus("⚠️ No se pudo establecer conexión con el sistema."); return; }
     setLoading(true);
     setErrorStatus(null);
 
     try {
       // Hardening Task 1.1: Capture IP
-      const ipRes = await fetch('https://api.ipify.org?format=json');
-      const ipData = await ipRes.json();
-      const userIp = ipData.ip;
+      let userIp = "0.0.0.0";
+      try {
+        const ipRes = await fetch('https://api.ipify.org?format=json');
+        const ipData = await ipRes.json();
+        userIp = ipData.ip;
+      } catch (e) {
+        console.warn("Failed to capture IP directly, using default.");
+      }
 
-      const res = await fetch(`${CONFIG.API_BASE_URL}/api/service-requests`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          ...quoteForm, 
-          solicitudOrigenIp: userIp,
-          quotedTotal: 0,
-          depositAmount: 0,
-          balanceAmount: 0
-        })
+      const folio = await generateFolio(tenantId);
+
+      const { error } = await supabase.from('service_requests').insert({
+        tenant_id: tenantId,
+        folio,
+        customer_name: quoteForm.customerName.trim(),
+        customer_phone: quoteForm.customerPhone.trim() || null,
+        customer_email: quoteForm.customerEmail.trim() || null,
+        device_type: quoteForm.deviceType.trim(),
+        device_model: quoteForm.deviceModel.trim() || null,
+        issue_description: quoteForm.issueDescription.trim(),
+        urgency: quoteForm.urgency,
+        status: "pendiente",
+        quoted_total: 0,
+        deposit_amount: 0,
+        balance_amount: 0,
+        solicitud_origen_ip: userIp
       });
 
-      const result = await res.json();
-      if (!res.ok || !result.success) throw new Error(result.error?.message || 'Error al enviar solicitud');
+      if (error) throw error;
 
       setSuccessQuote(true);
       setQuoteForm({ customerName: "", customerPhone: "", customerEmail: "", deviceType: "", deviceModel: "", issueDescription: "", urgency: "normal" });

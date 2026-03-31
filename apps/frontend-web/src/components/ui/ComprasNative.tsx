@@ -8,16 +8,8 @@ type Product = { id: string; sku: string; name: string; };
 
 type PurchaseOrder = { id: string; folio: string; status: string; expectedDate?: string; total: number; supplierName?: string; };
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:5111";
-
-async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    ...init, headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) }, cache: "no-store", mode: "cors"
-  });
-  const data = await response.json();
-  if (!response.ok) throw new Error(data?.error?.message ?? "Error de conexión con el servidor.");
-  return data as T;
-}
+import { supabase } from "../../lib/supabase";
+import { useAuth } from "./AuthGuard";
 
 function formatMoney(value: number) { return new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN", maximumFractionDigits: 0 }).format(value || 0); }
 function formatDate(dateStr?: string) {
@@ -26,6 +18,7 @@ function formatDate(dateStr?: string) {
 }
 
 export function ComprasNative() {
+  const { session } = useAuth();
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [orders, setOrders] = useState<PurchaseOrder[]>([]);
@@ -38,18 +31,51 @@ export function ComprasNative() {
   const [form, setForm] = useState({ supplierId: "", reference: "", paymentTerms: "", expectedDate: "", notes: "", productId: "", qtyOrdered: "1", unitCost: "0" });
 
   async function loadData() {
+    if (!session?.shop.id) return;
     setLoading(true); setApiStateMessage(""); setApiStateError("");
     try {
-      const [suppliersResult, productsResult, ordersResult] = await Promise.all([
-        fetchJson<{ data: Supplier[] }>("/api/suppliers").catch(() => ({ data: [] })),
-        fetchJson<{ data: Product[] }>("/api/products").catch(() => ({ data: [] })),
-        fetchJson<{ data: PurchaseOrder[] }>("/api/purchase-orders").catch(() => ({ data: [] }))
+      const [suppliersRes, productsRes, ordersRes] = await Promise.all([
+        supabase.from('suppliers').select('id, business_name').eq('tenant_id', session.shop.id).eq('is_active', true).order('business_name'),
+        supabase.from('products').select('id, sku, name').eq('tenant_id', session.shop.id).eq('is_active', true).order('name'),
+        supabase.from('purchase_orders').select('*').eq('tenant_id', session.shop.id).order('created_at', { ascending: false })
       ]);
-      setSuppliers(suppliersResult.data); setProducts(productsResult.data); setOrders(ordersResult.data);
-    } catch (error) { setApiStateError("Error al cargar los datos."); } finally { setLoading(false); }
+
+      if (suppliersRes.error) throw suppliersRes.error;
+      if (productsRes.error) throw productsRes.error;
+      if (ordersRes.error) throw ordersRes.error;
+
+      setSuppliers(suppliersRes.data.map((s: any) => ({ id: s.id, businessName: s.business_name })));
+      setProducts(productsRes.data);
+      setOrders(ordersRes.data.map((o: any) => ({
+        id: o.id,
+        folio: o.folio,
+        status: o.status,
+        expectedDate: o.expected_date,
+        total: Number(o.total_amount || 0)
+      })));
+    } catch (error: any) { setApiStateError(error.message || "Error al cargar los datos."); } finally { setLoading(false); }
   }
 
-  useEffect(() => { void loadData(); }, []);
+  useEffect(() => { 
+    if (session) void loadData(); 
+  }, [session]);
+
+  const generateFolio = async () => {
+    const { data: lastOrder } = await supabase
+      .from('purchase_orders')
+      .select('folio')
+      .eq('tenant_id', session?.shop.id)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single();
+
+    let nextNumber = 1;
+    if (lastOrder && lastOrder.folio.startsWith('PO-')) {
+      const lastNum = parseInt(lastOrder.folio.split('-')[1]);
+      if (!isNaN(lastNum)) nextNumber = lastNum + 1;
+    }
+    return `PO-${String(nextNumber).padStart(6, '0')}`;
+  };
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setFormError(""); setApiStateMessage(""); setApiStateError("");
@@ -66,16 +92,41 @@ export function ComprasNative() {
       const selectedProduct = products.find((product) => product.id === form.productId);
       if (!selectedProduct) throw new Error("Producto ausente del catálogo");
 
-      await fetchJson("/api/purchase-orders", {
-        method: "POST", body: JSON.stringify({
-          supplierId: form.supplierId || null, reference: form.reference, paymentTerms: form.paymentTerms, expectedDate: form.expectedDate || null,
-          notes: form.notes, items: [{ productId: selectedProduct.id, skuSnapshot: selectedProduct.sku, productNameSnapshot: selectedProduct.name, qtyOrdered: qty, unitCost: cost }]
-        })
+      const folio = await generateFolio();
+      const totalAmount = qty * cost;
+
+      const { error: poError, data: poData } = await supabase.from('purchase_orders').insert({
+        tenant_id: session?.shop.id,
+        supplier_id: form.supplierId,
+        folio,
+        status: 'pending',
+        expected_date: form.expectedDate || null,
+        payment_terms: form.paymentTerms,
+        notes: form.notes,
+        total_amount: totalAmount,
+        created_by: session?.user.id,
+        updated_by: session?.user.id
+      }).select().single();
+
+      if (poError) throw poError;
+
+      // Add order item
+      const { error: itemError } = await supabase.from('purchase_order_items').insert({
+        tenant_id: session?.shop.id,
+        purchase_order_id: poData.id,
+        product_id: selectedProduct.id,
+        sku_snapshot: selectedProduct.sku,
+        product_name_snapshot: selectedProduct.name,
+        qty_ordered: qty,
+        unit_cost: cost
       });
+
+      if (itemError) throw itemError;
+
       setForm({ supplierId: "", reference: "", paymentTerms: "", expectedDate: "", notes: "", productId: "", qtyOrdered: "1", unitCost: "0" });
       await loadData();
       setApiStateMessage("✅ Orden de compra generada exitosamente.");
-    } catch (error) { setApiStateError(error instanceof Error ? error.message : "Ocurrió un error al procesar la orden."); } finally { setLoading(false); }
+    } catch (error: any) { setApiStateError(error.message || "Ocurrió un error al procesar la orden."); } finally { setLoading(false); }
   }
 
   const filteredOrders = orders.filter(o => !search || o.folio.toLowerCase().includes(search.toLowerCase()) || (o.supplierName && o.supplierName.toLowerCase().includes(search.toLowerCase())));

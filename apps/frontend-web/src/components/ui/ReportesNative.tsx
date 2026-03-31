@@ -9,25 +9,67 @@ type ReportData = {
   commonIssues: Array<{ issue: string; total: number }>;
 };
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:5111";
-
-async function fetchJson<T>(path: string): Promise<T> {
-  const resp = await fetch(`${API_BASE_URL}${path}`, { cache: "no-store", mode: "cors" });
-  if (!resp.ok) throw new Error("Error al cargar los datos.");
-  return resp.json();
-}
+import { supabase } from "../../lib/supabase";
+import { useAuth } from "./AuthGuard";
 
 export function ReportesNative() {
+  const { session } = useAuth();
   const [data, setData] = useState<ReportData | null>(null);
   const [loading, setLoading] = useState(false);
 
   async function rawLoad() {
+    if (!session?.shop.id) return;
     setLoading(true);
-    try { const r = await fetchJson<{ data: ReportData }>("/api/reports/operational"); setData(r.data); } 
-    catch {} finally { setLoading(false); }
+    try {
+      const [ordersRes, tasksRes, productsRes] = await Promise.all([
+        supabase.from('service_orders').select('status, estimated_cost, final_cost').eq('tenant_id', session.shop.id),
+        supabase.from('tasks').select('status, priority').eq('tenant_id', session.shop.id),
+        supabase.from('products').select('sku, name, stock_min, stock_current').eq('tenant_id', session.shop.id).eq('is_active', true)
+      ]);
+
+      if (ordersRes.error) throw ordersRes.error;
+      if (tasksRes.error) throw tasksRes.error;
+      if (productsRes.error) throw productsRes.error;
+
+      const products = productsRes.data || [];
+      const criticalStock = products.filter((p: any) => (p.stock_current || 0) < (p.stock_min || 0));
+
+      const orders = ordersRes.data || [];
+      const tasks = tasksRes.data || [];
+      
+      const ordersOpen = orders.filter(o => !['entregado', 'cancelado', 'archivado'].includes(o.status)).length;
+      const ordersDelivered = orders.filter(o => o.status === 'entregado').length;
+      const revenue = orders.reduce((acc, o) => acc + (Number(o.final_cost || o.estimated_cost || 0)), 0);
+
+      const tasksOpen = tasks.filter(t => t.status === 'pendiente').length;
+      const tasksUrgent = tasks.filter(t => t.priority === 'urgente' && t.status === 'pendiente').length;
+
+      setData({
+        ordersTotal: orders.length,
+        ordersOpen,
+        ordersDelivered,
+        tasksOpen,
+        tasksUrgent,
+        estimatedRevenue: revenue,
+        criticalStock: criticalStock.map((p: any) => ({
+          sku: p.sku,
+          name: p.name,
+          minimumStock: p.stock_min,
+          stockCurrent: p.stock_current
+        })),
+        commonIssues: []
+      });
+
+    } catch (error: any) {
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
   }
 
-  useEffect(() => { void rawLoad(); }, []);
+  useEffect(() => { 
+    if (session) void rawLoad(); 
+  }, [session]);
 
   function formatMoney(v: number) { return new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN", maximumFractionDigits: 0 }).format(v); }
 

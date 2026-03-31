@@ -12,25 +12,11 @@ type Branch = {
   isActive: boolean;
 };
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:5111";
-
-async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    ...init,
-    headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) },
-    cache: "no-store",
-    mode: "cors"
-  });
-
-  const data = await response.json();
-  if (!response.ok) {
-    throw new Error(data?.error?.message ?? "El sistema reportó un error de procesamiento.");
-  }
-
-  return data as T;
-}
+import { supabase } from "../../lib/supabase";
+import { useAuth } from "./AuthGuard";
 
 export function SucursalesNative() {
+  const { session } = useAuth();
   const [branches, setBranches] = useState<Branch[]>([]);
   const [loading, setLoading] = useState(false);
   const [apiStateMessage, setApiStateMessage] = useState("");
@@ -47,22 +33,37 @@ export function SucursalesNative() {
   });
 
   async function loadBranches() {
+    if (!session?.shop.id) return;
     setLoading(true);
     setApiStateMessage("");
     setApiStateError("");
     try {
-      const result = await fetchJson<{ data: Branch[] }>("/api/branches");
-      setBranches(result.data);
-    } catch (error) {
-       setApiStateError(error instanceof Error ? error.message : "Error al cargar las sucursales.");
+      const { data, error } = await supabase
+        .from('branches')
+        .select('*')
+        .eq('tenant_id', session.shop.id)
+        .order('created_at', { ascending: true });
+
+      if (error) throw error;
+      setBranches((data || []).map((b: any) => ({
+        id: b.id,
+        name: b.name,
+        code: b.code,
+        city: b.city,
+        state: b.state,
+        phone: b.phone,
+        isActive: b.is_active
+      })));
+    } catch (error: any) {
+       setApiStateError(error.message || "Error al cargar las sucursales.");
     } finally {
       setLoading(false);
     }
   }
 
   useEffect(() => {
-    void loadBranches();
-  }, []);
+    if (session) void loadBranches();
+  }, [session]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -70,6 +71,7 @@ export function SucursalesNative() {
     setApiStateMessage("");
     setApiStateError("");
 
+    if (!session?.shop.id) return;
     if (!form.name.trim()) {
       setFormError("⚠️ El nombre de la sucursal es obligatorio.");
       return;
@@ -81,24 +83,27 @@ export function SucursalesNative() {
 
     setLoading(true);
     try {
-      await fetchJson("/api/branches", {
-        method: "POST",
-        body: JSON.stringify({
-          name: form.name.trim(),
-          code: form.code.trim(),
-          address: form.address,
-          city: form.city,
-          state: form.state,
-          phone: form.phone
-        })
+      const { error } = await supabase.from('branches').insert({
+        tenant_id: session.shop.id,
+        name: form.name.trim(),
+        code: form.code.trim(),
+        address: form.address,
+        city: form.city,
+        state: form.state,
+        phone: form.phone,
+        is_active: true,
+        created_by: session.user.id
       });
+
+      if (error) throw error;
+
       setForm({
         name: "", code: "", address: "", city: "", state: "", phone: ""
       });
       await loadBranches();
       setApiStateMessage("✅ Sucursal guardada exitosamente.");
-    } catch (error) {
-       setApiStateError(error instanceof Error ? error.message : "Error al guardar la sucursal.");
+    } catch (error: any) {
+       setApiStateError(error.message || "Error al guardar la sucursal.");
     } finally {
       setLoading(false);
     }

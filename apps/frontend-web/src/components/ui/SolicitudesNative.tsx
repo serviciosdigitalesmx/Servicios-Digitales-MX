@@ -14,19 +14,8 @@ type ServiceRequest = {
   solicitudOrigenIp?: string;
 };
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:5111";
-
-async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    ...init,
-    headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) },
-    cache: "no-store",
-    mode: "cors"
-  });
-  const data = await response.json();
-  if (!response.ok) throw new Error(data?.error?.message ?? "Error al conectar con el servidor.");
-  return data as T;
-}
+import { supabase } from "../../lib/supabase";
+import { useAuth } from "./AuthGuard";
 
 function formatMoney(value: number) {
   return new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN", maximumFractionDigits: 0 }).format(value || 0);
@@ -36,6 +25,7 @@ const SERVICE_REQUEST_STATUS_LABELS: Record<string, string> = { pendiente: "En D
 function getRequestStatusLabel(value?: string) { return SERVICE_REQUEST_STATUS_LABELS[(value ?? "").trim().toLowerCase()] ?? (value ? value.charAt(0).toUpperCase() + value.slice(1) : "Abierto"); }
 
 export function SolicitudesNative() {
+  const { session } = useAuth();
   const [items, setItems] = useState<ServiceRequest[]>([]);
   const [loading, setLoading] = useState(false);
   const [apiStateMessage, setApiStateMessage] = useState("");
@@ -50,22 +40,65 @@ export function SolicitudesNative() {
   });
 
   async function loadData() {
+    if (!session?.shop.id) return;
     setLoading(true); setApiStateMessage(""); setApiStateError("");
     try {
-      const result = await fetchJson<{ data: ServiceRequest[] }>("/api/service-requests");
-      setItems(result.data);
-    } catch (error) {
-       setApiStateError("Error de conexión al cargar la bandeja.");
+      const { data, error } = await supabase
+        .from('service_requests')
+        .select('*')
+        .eq('tenant_id', session.shop.id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      setItems((data || []).map((t: any) => ({
+        id: t.id,
+        folio: t.folio,
+        customerName: t.customer_name,
+        customerPhone: t.customer_phone,
+        customerEmail: t.customer_email,
+        deviceType: t.device_type,
+        deviceModel: t.device_model,
+        issueDescription: t.issue_description,
+        urgency: t.urgency,
+        status: t.status,
+        quotedTotal: Number(t.quoted_total || 0),
+        depositAmount: Number(t.deposit_amount || 0),
+        balanceAmount: Number(t.balance_amount || 0),
+        solicitudOrigenIp: t.solicitud_origen_ip
+      })));
+    } catch (error: any) {
+       setApiStateError(error.message || "Error de conexión al cargar la bandeja.");
     } finally {
       setLoading(false);
     }
   }
 
-  useEffect(() => { void loadData(); }, []);
+  useEffect(() => { 
+    if (session) void loadData(); 
+  }, [session]);
+
+  const generateFolio = async () => {
+    const { data: lastReq } = await supabase
+      .from('service_requests')
+      .select('folio')
+      .eq('tenant_id', session?.shop.id)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single();
+
+    let nextNumber = 1;
+    if (lastReq && lastReq.folio.startsWith('COT-')) {
+      const lastNum = parseInt(lastReq.folio.split('-')[1]);
+      if (!isNaN(lastNum)) nextNumber = lastNum + 1;
+    }
+    return `COT-${String(nextNumber).padStart(6, '0')}`;
+  };
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setFormError(""); setApiStateMessage(""); setApiStateError("");
 
+    if (!session?.shop.id) return;
     if (!form.customerName.trim() || !form.deviceType.trim()) return setFormError("Los campos Prospecto y Equipo son obligatorios.");
     const quoted = Number(form.quotedTotal || 0);
     const deposit = Number(form.depositAmount || 0);
@@ -73,17 +106,35 @@ export function SolicitudesNative() {
 
     setLoading(true);
     try {
-      await fetchJson("/api/service-requests", {
-        method: "POST",
-        body: JSON.stringify({ ...form, customerPhone: form.customerPhone.trim() || null, customerEmail: form.customerEmail.trim() || null, quotedTotal: quoted, depositAmount: deposit, balanceAmount: Math.max(quoted - deposit, 0) })
+      const folio = await generateFolio();
+
+      const { error } = await supabase.from('service_requests').insert({
+        tenant_id: session.shop.id,
+        branch_id: session.user.branchId,
+        folio,
+        customer_name: form.customerName.trim(),
+        customer_phone: form.customerPhone.trim() || null,
+        customer_email: form.customerEmail.trim() || null,
+        device_type: form.deviceType.trim(),
+        device_model: form.deviceModel.trim() || null,
+        issue_description: form.issueDescription.trim() || null,
+        urgency: form.urgency,
+        status: "pendiente",
+        quoted_total: quoted,
+        deposit_amount: deposit,
+        balance_amount: Math.max(quoted - deposit, 0),
+        created_by: session.user.id
       });
+
+      if (error) throw error;
+
       setForm({ customerName: "", customerPhone: "", customerEmail: "", deviceType: "", deviceModel: "", issueDescription: "", urgency: "normal", quotedTotal: "0", depositAmount: "0" });
       setIsModalOpen(false);
       await loadData();
       setApiStateMessage("Solicitud completada exitosamente.");
       setTimeout(() => setApiStateMessage(""), 4000);
-    } catch (error) {
-       setApiStateError(error instanceof Error ? error.message : "Error al registrar la cotización.");
+    } catch (error: any) {
+       setApiStateError(error.message || "Error al registrar la cotización.");
     } finally {
       setLoading(false);
     }

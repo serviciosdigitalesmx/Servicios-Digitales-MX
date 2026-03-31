@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { supabase } from "../../../lib/supabase";
-import { IconMicrochip, IconUser, IconArrowLeft, IconCheckCircular, IconStore } from "../../../components/ui/Icons";
+import { IconMicrochip, IconUser, IconArrowLeft, IconCheckCircular, IconStore, IconLock } from "../../../components/ui/Icons";
 
 export default function RegisterPage() {
   const [step, setStep] = useState(1);
@@ -57,7 +57,6 @@ export default function RegisterPage() {
       const userId = authData.user.id;
 
       // 2. Initialize Tenant, User profile, Branch and Subscription
-      // a) Create Tenant
       const { data: tenantData, error: tenantError } = await supabase.from('tenants').insert({
         name: form.shopName,
         slug: slug,
@@ -69,7 +68,6 @@ export default function RegisterPage() {
       if (tenantError) throw tenantError;
       const tenantId = tenantData.id;
 
-      // b) Create Default Branch
       const { data: branchData, error: branchError } = await supabase.from('branches').insert({
         tenant_id: tenantId,
         name: 'Matriz',
@@ -78,7 +76,6 @@ export default function RegisterPage() {
 
       if (branchError) throw branchError;
 
-      // c) Create User Profile linked to Tenant and Branch
       const { error: userError } = await supabase.from('users').insert({
         tenant_id: tenantId,
         branch_id: branchData.id,
@@ -91,7 +88,6 @@ export default function RegisterPage() {
 
       if (userError) throw userError;
 
-      // d) Create Subscription
       const { error: subError } = await supabase.from('subscriptions').insert({
         tenant_id: tenantId,
         plan_code: plan,
@@ -111,183 +107,240 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F0F2F5] flex flex-col items-center justify-center p-4">
-      <a href="/" className="absolute top-6 left-6 flex items-center gap-2 text-[#4A5568] hover:text-[#0066FF] transition font-medium">
+    <div className="sdmx-gradient-bg min-h-screen flex flex-col items-center justify-center p-4 overflow-hidden font-sans">
+      {/* Animated Background Elements */}
+      <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full blur-[140px] animate-pulse" style={{ background: 'rgba(0, 102, 255, 0.1)' }} />
+      <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full blur-[140px] animate-pulse delay-1000" style={{ background: 'rgba(99, 102, 241, 0.1)' }} />
+      
+      <a href="/" className="absolute top-8 left-8 flex items-center gap-2 text-slate-400 hover:text-white transition-all font-medium z-10">
         <IconArrowLeft width={18} height={18} />
-        Volver al inicio
+        <span className="hidden sm:inline">Volver al inicio</span>
       </a>
 
-      <div className="w-full max-w-xl">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-[#1A202C]">Crea tu cuenta empresarial</h1>
-          <p className="text-[#4A5568] mt-2">Estás a unos pasos de digitalizar tu taller</p>
+      <div className="w-full max-w-xl relative z-10">
+        <div className="text-center mb-10">
+          <h1 className="text-4xl font-extrabold text-white tracking-tight">Crea tu cuenta empresarial</h1>
+          <p className="text-slate-400 mt-3 font-medium">Digitaliza tu taller con tecnología de punta</p>
         </div>
 
-        <div className="flex gap-2 mb-6">
-          <div className={`h-2 flex-1 rounded-full ${step >= 1 ? 'bg-[#0066FF]' : 'bg-[#E2E8F0]'}`} />
-          <div className={`h-2 flex-1 rounded-full ${step >= 2 ? 'bg-[#0066FF]' : 'bg-[#E2E8F0]'}`} />
-          <div className={`h-2 flex-1 rounded-full ${step >= 3 ? 'bg-[#00A389]' : 'bg-[#E2E8F0]'}`} />
+        <div className="flex gap-3 mb-8 px-2">
+          <div className={`h-1.5 flex-1 rounded-full transition-all duration-500 ${step >= 1 ? 'bg-[#0066FF] shadow-[0_0_10px_rgb(0,102,255,0.5)]' : 'bg-slate-800'}`} />
+          <div className={`h-1.5 flex-1 rounded-full transition-all duration-500 ${step >= 2 ? 'bg-[#0066FF] shadow-[0_0_10px_rgb(0,102,255,0.5)]' : 'bg-slate-800'}`} />
+          <div className={`h-1.5 flex-1 rounded-full transition-all duration-500 ${step === 3 ? 'bg-emerald-500 shadow-[0_0_10px_rgb(16,185,129,0.5)]' : 'bg-slate-800'}`} />
         </div>
 
-        <form onSubmit={handleRegister} className="sdmx-card-premium p-8 space-y-6">
+        <div className="sdmx-auth-card relative overflow-hidden">
           
-          {step === 1 && (
-            <div className="space-y-6 animate-fadeIn">
-              <h2 className="text-xl font-bold text-[#1A202C] flex items-center gap-2">
-                <IconStore width={20} height={20} className="text-[#0066FF]" />
-                Datos del Negocio
-              </h2>
-
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-semibold text-[#1A202C] mb-2">Nombre del Taller</label>
-                  <input 
-                    type="text" 
-                    value={form.shopName}
-                    onChange={(e) => setForm({...form, shopName: e.target.value})}
-                    className="w-full rounded-xl border border-[#E2E8F0] py-3 px-4 text-[#1A202C] focus:border-[#0066FF] focus:ring-2 focus:ring-[#0066FF]/20 outline-none transition"
-                    placeholder="Ej. ElectroFix GDL"
-                    required
-                  />
-                  <p className="text-xs text-[#718096] mt-2">
-                    Tu portal público será: <span className="font-mono text-[#0066FF]">sdmx.app/{form.shopName ? form.shopName.toLowerCase().replace(/[^a-z0-9]/g, "-") : 'taller'}</span>
-                  </p>
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-semibold text-[#1A202C] mb-2">Plan Seleccionado</label>
-                  <div className="bg-[#F0F2F5] border border-[#E2E8F0] rounded-xl p-4 flex items-center justify-between">
-                    <div>
-                      <p className="font-bold text-[#1A202C] capitalize">{plan}</p>
-                      <p className="text-sm text-[#4A5568]">Prueba gratis por 14 días</p>
+          <form onSubmit={handleRegister} className="space-y-8">
+            
+            {step === 1 && (
+              <div className="space-y-8 animate-fadeIn">
+                <div className="space-y-2">
+                  <h2 className="text-2xl font-bold text-white flex items-center gap-3">
+                    <div className="p-2 bg-blue-500/10 rounded-lg">
+                      <IconStore width={24} height={24} className="text-[#0066FF]" />
                     </div>
-                    <IconCheckCircular width={24} height={24} className="text-[#00A389]" />
+                    Configuración Inicial
+                  </h2>
+                  <p className="text-slate-500 text-sm">Empecemos con la identidad de tu negocio</p>
+                </div>
+
+                <div className="space-y-6">
+                  <div className="group">
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2 ml-1">Nombre Comercial</label>
+                    <input 
+                      type="text" 
+                      value={form.shopName}
+                      onChange={(e) => setForm({...form, shopName: e.target.value})}
+                      className="sdmx-input"
+                      placeholder="Ej. ElectroFix Pro"
+                      required
+                    />
+                    <div className="mt-3 px-1">
+                      <p className="text-[11px] text-slate-500 font-medium">
+                        URL personalizada: <span className="text-[#0066FF]">sdmx.app/{form.shopName ? form.shopName.toLowerCase().replace(/[^a-z0-9]/g, "-") : 'tu-taller'}</span>
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <div className="group">
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2 ml-1">Plan de Lanzamiento</label>
+                    <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-5 flex items-center justify-between group-hover:border-slate-700 transition-colors">
+                      <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 bg-[#0066FF]/20 rounded-xl flex items-center justify-center">
+                          <IconMicrochip width={20} height={20} className="text-[#0066FF]" />
+                        </div>
+                        <div>
+                          <p className="font-bold text-white capitalize text-lg">{plan}</p>
+                          <p className="text-xs text-slate-500">Prueba gratuita activa (14 días)</p>
+                        </div>
+                      </div>
+                      <IconCheckCircular width={24} height={24} className="text-emerald-500" />
+                    </div>
                   </div>
                 </div>
+
+                <button type="submit" className="sdmx-btn-premium">
+                  Continuar al Acceso
+                </button>
               </div>
+            )}
 
-              <button type="submit" className="w-full bg-[#1A202C] text-white py-3 rounded-xl font-bold hover:bg-[#2D3748] transition shadow-sm">
-                Siguiente Paso
-              </button>
-            </div>
-          )}
-
-          {step === 2 && (
-            <div className="space-y-6 animate-fadeIn">
-              <h2 className="text-xl font-bold text-[#1A202C] flex items-center gap-2">
-                <IconUser width={20} height={20} className="text-[#0066FF]" />
-                Datos de Acceso
-              </h2>
-
-              {error && (
-                <div className="bg-red-50 text-red-600 border border-red-200 p-4 rounded-xl text-sm mb-4">
-                  {error}
+            {step === 2 && (
+              <div className="space-y-8 animate-fadeIn">
+                <div className="space-y-2">
+                  <h2 className="text-2xl font-bold text-white flex items-center gap-3">
+                    <div className="p-2 bg-blue-500/10 rounded-lg">
+                      <IconUser width={24} height={24} className="text-[#0066FF]" />
+                    </div>
+                    Información del Administrador
+                  </h2>
+                  <p className="text-slate-500 text-sm">Define quién tendrá el control total</p>
                 </div>
-              )}
 
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-semibold text-[#1A202C] mb-2">Tu Nombre Completo</label>
-                  <input 
-                    type="text" 
-                    value={form.fullName}
-                    onChange={(e) => setForm({...form, fullName: e.target.value})}
-                    className="w-full rounded-xl border border-[#E2E8F0] py-3 px-4 text-[#1A202C] focus:border-[#0066FF] focus:ring-2 focus:ring-[#0066FF]/20 outline-none transition"
-                    placeholder="Tu nombre"
-                    required
-                  />
+                {error && (
+                  <div className="bg-red-500/10 text-red-400 border border-red-500/20 p-4 rounded-xl text-sm animate-shake">
+                    {error}
+                  </div>
+                )}
+
+                <div className="space-y-5">
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2 ml-1">Nombre Completo</label>
+                    <div className="relative">
+                      <IconUser width={18} height={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" />
+                      <input 
+                        type="text" 
+                        value={form.fullName}
+                        onChange={(e) => setForm({...form, fullName: e.target.value})}
+                        className="sdmx-input"
+                        style={{ paddingLeft: '3rem' }}
+                        placeholder="Juan Pérez"
+                        required
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                    <div>
+                      <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2 ml-1">Email</label>
+                      <input 
+                        type="email" 
+                        value={form.email}
+                        onChange={(e) => setForm({...form, email: e.target.value})}
+                        className="sdmx-input"
+                        placeholder="admin@empresa.com"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2 ml-1">WhatsApp</label>
+                      <input 
+                        type="tel" 
+                        value={form.phone}
+                        onChange={(e) => setForm({...form, phone: e.target.value})}
+                        className="sdmx-input"
+                        placeholder="+52..."
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2 ml-1">Contraseña Maestra</label>
+                    <div className="relative">
+                      <IconLock width={18} height={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" />
+                      <input 
+                        type="password" 
+                        value={form.password}
+                        onChange={(e) => setForm({...form, password: e.target.value})}
+                        className="sdmx-input"
+                        style={{ paddingLeft: '3rem' }}
+                        placeholder="••••••••••••"
+                        required
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-4">
+                  <button type="button" onClick={() => setStep(1)} className="px-8 py-4 rounded-2xl font-bold text-slate-400 hover:text-white hover:bg-slate-800 transition-all">
+                    Atrás
+                  </button>
+                   <button 
+                    type="submit" 
+                    disabled={loading}
+                    className={`sdmx-btn-premium flex-1 ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  >
+                    <span className={loading ? 'opacity-0' : 'opacity-100'}>Crear mi cuenta</span>
+                    {loading && (
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                      </div>
+                    )}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {step === 3 && (
+              <div className="space-y-8 animate-fadeIn text-center py-6">
+                <div className="w-24 h-24 bg-emerald-500/10 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-8 shadow-[0_0_40px_rgb(16,185,129,0.2)]">
+                  <IconCheckCircular width={48} height={48} />
                 </div>
                 
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-semibold text-[#1A202C] mb-2">Email</label>
-                    <input 
-                      type="email" 
-                      value={form.email}
-                      onChange={(e) => setForm({...form, email: e.target.value})}
-                      className="w-full rounded-xl border border-[#E2E8F0] py-3 px-4 text-[#1A202C] focus:border-[#0066FF] focus:ring-2 focus:ring-[#0066FF]/20 outline-none transition"
-                      placeholder="admin@empresa.com"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-semibold text-[#1A202C] mb-2">Teléfono</label>
-                    <input 
-                      type="tel" 
-                      value={form.phone}
-                      onChange={(e) => setForm({...form, phone: e.target.value})}
-                      className="w-full rounded-xl border border-[#E2E8F0] py-3 px-4 text-[#1A202C] focus:border-[#0066FF] focus:ring-2 focus:ring-[#0066FF]/20 outline-none transition"
-                      placeholder="+52..."
-                      required
-                    />
-                  </div>
-                </div>
-
                 <div>
-                  <label className="block text-sm font-semibold text-[#1A202C] mb-2">Contraseña</label>
-                  <input 
-                    type="password" 
-                    value={form.password}
-                    onChange={(e) => setForm({...form, password: e.target.value})}
-                    className="w-full rounded-xl border border-[#E2E8F0] py-3 px-4 text-[#1A202C] focus:border-[#0066FF] focus:ring-2 focus:ring-[#0066FF]/20 outline-none transition"
-                    placeholder="••••••••"
-                    required
-                  />
+                  <h2 className="text-3xl font-bold text-white">¡Bienvenido a bordo!</h2>
+                  <p className="text-slate-400 mt-2">Tu infraestructura digital está lista para operar</p>
                 </div>
-              </div>
+                
+                <div className="bg-slate-900/80 p-6 rounded-3xl border border-slate-800 text-left my-8">
+                  <p className="text-xs text-slate-500 uppercase font-bold tracking-widest mb-3">Portal público de tracking:</p>
+                  <div className="flex items-center gap-3 p-3 bg-slate-950 rounded-xl border border-white/5">
+                    <IconStore width={18} height={18} className="text-[#0066FF] shrink-0" />
+                    <span className="font-mono text-slate-300 text-sm truncate">
+                      {typeof window !== 'undefined' ? `${window.location.origin}/portal?shop=${form.shopName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "")}` : `/portal?shop=...`}
+                    </span>
+                  </div>
+                </div>
 
-              <div className="flex gap-4">
-                <button type="button" onClick={() => setStep(1)} className="px-6 py-3 rounded-xl font-bold text-[#4A5568] hover:bg-[#F0F2F5] transition">
-                  Atrás
-                </button>
                 <button 
-                  type="submit" 
-                  disabled={loading}
-                  className={`flex-1 py-3 rounded-xl font-bold text-white transition shadow-sm ${loading ? 'bg-[#A0AEC0] cursor-not-allowed' : 'bg-[#0066FF] hover:bg-[#0052CC]'}`}
+                  type="button" 
+                  onClick={() => window.location.href = "/hub"}
+                  className="w-full bg-gradient-to-r from-[#0066FF] to-[#0052CC] text-white py-5 rounded-2xl font-bold hover:shadow-[0_0_30px_rgb(0,102,255,0.4)] transition-all transform active:scale-95"
                 >
-                  {loading ? "Creando plataforma..." : "Crear mi cuenta"}
+                  Ir al Panel de Control
                 </button>
               </div>
-            </div>
-          )}
+            )}
 
-          {step === 3 && (
-            <div className="space-y-6 animate-fadeIn text-center py-4">
-              <div className="w-16 h-16 bg-[#00A389]/10 text-[#00A389] rounded-full flex items-center justify-center mx-auto mb-6">
-                <IconCheckCircular width={32} height={32} />
-              </div>
-              
-              <h2 className="text-2xl font-bold text-[#1A202C]">¡Negocio Creado Exitosamente!</h2>
-              <p className="text-[#4A5568]">
-                Tu plataforma está lista. Tu panel está en el <span className="font-bold text-[#1A202C] capitalize">{resolvedPlan || plan}</span>.
-              </p>
-              
-              <div className="bg-[#F0F2F5] p-4 rounded-xl border border-[#E2E8F0] text-left mt-6 mb-8">
-                <p className="text-sm text-[#718096] mb-1">El portal público de tu empresa es:</p>
-                <div className="flex items-center gap-2 mt-1">
-                  <IconStore width={18} height={18} className="text-[#0066FF] flex-shrink-0" />
-                  <span className="font-mono text-[#1A202C] font-semibold break-all text-sm">
-                    {typeof window !== 'undefined' ? `${window.location.origin}/portal?shop=${form.shopName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "")}` : `/portal?shop=...`}
-                  </span>
-                </div>
-              </div>
+          </form>
+        </div>
 
-              <button 
-                type="button" 
-                onClick={() => window.location.href = "/hub"}
-                className="w-full bg-[#0066FF] text-white py-4 rounded-xl font-bold hover:bg-[#0052CC] transition shadow-md"
-              >
-                Entrar a mi Panel de Control
-              </button>
-            </div>
-          )}
-
-        </form>
-
-        <p className="text-center text-[#4A5568] mt-8 text-sm">
-          ¿Ya tienes cuenta? <a href="/login" className="text-[#0066FF] font-bold hover:underline">Inicia Sesión</a>
-        </p>
+        <div className="mt-10 text-center">
+          <p className="text-slate-500 text-sm">
+            ¿Ya tienes una empresa registrada? <a href="/login" className="text-white font-bold hover:text-[#0066FF] transition-colors underline underline-offset-4">Inicia Sesión</a>
+          </p>
+        </div>
       </div>
+
+      <style jsx>{`
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(20px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes shake {
+          0%, 100% { transform: translateX(0); }
+          25% { transform: translateX(-5px); }
+          75% { transform: translateX(5px); }
+        }
+        .animate-fadeIn {
+          animation: fadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        .animate-shake {
+          animation: shake 0.2s ease-in-out 0s 2;
+        }
+      `}</style>
     </div>
   );
 }

@@ -1,46 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useAuth } from "./AuthGuard";
-
-type AuthMeResponse = {
-  data: {
-    user: {
-      id: string;
-      fullName: string;
-      email: string;
-      role: string;
-    };
-    shop: {
-      id: string;
-      name: string;
-      slug: string;
-    };
-    subscription: {
-      id: string;
-      status: string;
-      planCode: string;
-      planName: string;
-      priceMxn: number;
-      billingInterval: string;
-      currentPeriodStart?: string;
-      currentPeriodEnd?: string;
-      graceUntil?: string;
-      operationalAccess: boolean;
-    };
-    lastPayment?: {
-      id: string;
-      provider: string;
-      providerPaymentId: string;
-      providerPaymentStatus: string;
-      amount?: number;
-      currencyId?: string;
-      payerEmail?: string;
-      paidAt: string;
-      createdAt: string;
-    } | null;
-  };
-};
+import { supabase } from "../../lib/supabase";
+import { useAuth, AuthMeResponse } from "./AuthGuard";
 
 type BillingPlan = {
   code: string;
@@ -74,104 +36,42 @@ const DEFAULT_BILLING_PLANS: BillingPlan[] = [
   }
 ];
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:5111";
-
-async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    ...init,
-    cache: "no-store"
-  });
-  const data = await response.json();
-
-  if (!response.ok) {
-    throw new Error(data?.error?.message ?? "No se pudo cargar la información de billing");
-  }
-
-  return data as T;
-}
-
 function formatMoney(value: number) {
-  return new Intl.NumberFormat("es-MX", {
-    style: "currency",
-    currency: "MXN",
-    maximumFractionDigits: 0
-  }).format(value);
+  return new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN", maximumFractionDigits: 0 }).format(value || 0);
 }
 
 function formatDate(value?: string) {
   if (!value) return "Sin fecha";
-
-  return new Intl.DateTimeFormat("es-MX", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric"
-  }).format(new Date(value));
+  return new Intl.DateTimeFormat("es-MX", { day: "2-digit", month: "short", year: "numeric" }).format(new Date(value));
 }
 
 function formatDateTime(value?: string) {
   if (!value) return "Sin registro";
-
-  return new Intl.DateTimeFormat("es-MX", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit"
-  }).format(new Date(value));
+  return new Intl.DateTimeFormat("es-MX", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }).format(new Date(value));
 }
 
 function getStatusCopy(status: string) {
   switch (status) {
     case "active":
-      return {
-        label: "Activa",
-        tone: "is-success",
-        description: "La operación del local está habilitada y al corriente."
-      };
+      return { label: "Activa", tone: "is-success", description: "La operación del local está habilitada y al corriente." };
     case "trialing":
-      return {
-        label: "En prueba",
-        tone: "is-info",
-        description: "El local está operativo dentro de su ventana de activación inicial."
-      };
+      return { label: "En prueba", tone: "is-info", description: "El local está operativo dentro de su ventana de activación inicial." };
     case "past_due":
-      return {
-        label: "Pago vencido",
-        tone: "is-warning",
-        description: "Hay saldo pendiente, pero aún existe una ventana corta para regularizar."
-      };
+      return { label: "Pago vencido", tone: "is-warning", description: "Hay saldo pendiente, pero aún existe una ventana corta para regularizar." };
     case "suspended":
-      return {
-        label: "Suspendida",
-        tone: "is-danger",
-        description: "La operación interna está bloqueada hasta que se regularice el pago."
-      };
+      return { label: "Suspendida", tone: "is-danger", description: "La operación interna está bloqueada hasta que se regularice el pago." };
     case "cancelled":
-      return {
-        label: "Cancelada",
-        tone: "is-danger",
-        description: "La suscripción ya no tiene continuidad comercial."
-      };
+      return { label: "Cancelada", tone: "is-danger", description: "La suscripción ya no tiene continuidad comercial." };
     default:
-      return {
-        label: status,
-        tone: "is-neutral",
-        description: "Estado comercial pendiente de revisión."
-      };
+      return { label: status, tone: "is-neutral", description: "Estado comercial pendiente de revisión." };
   }
 }
 
-type BillingConsoleProps = {
-  initialPlanCode?: string;
-};
-
 export function BillingConsole({ initialPlanCode }: { initialPlanCode?: string }) {
   const { session } = useAuth();
-  const auth = session as AuthMeResponse["data"] | null;
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const auth = session as AuthMeResponse | null;
+  const [loading, setLoading] = useState(false);
   const [targetPlan, setTargetPlan] = useState<BillingPlan | null>(null);
-  const [isProcessing, setIsProcessing] = useState(false);
   const [view, setView] = useState<"overview" | "checkout">("overview");
   
   const [plans, setPlans] = useState<BillingPlan[]>(DEFAULT_BILLING_PLANS);
@@ -180,35 +80,14 @@ export function BillingConsole({ initialPlanCode }: { initialPlanCode?: string }
   const [paying, setPaying] = useState(false);
 
   useEffect(() => {
-    if (initialPlanCode && auth && !loading) {
+    if (initialPlanCode && auth) {
       const planToBuy = DEFAULT_BILLING_PLANS.find(p => p.code === initialPlanCode);
       if (planToBuy && auth.subscription.planCode !== planToBuy.code) {
         setTargetPlan(planToBuy);
         setView("checkout");
       }
     }
-  }, [initialPlanCode, auth, loading]);
-
-  useEffect(() => {
-    async function loadPlans() {
-      try {
-        setLoading(true);
-        const planResponse = await fetchJson<{ data: BillingPlan[] }>("/api/billing/plans");
-        setPlans(planResponse.data);
-      } catch (err: any) {
-        setPlans(DEFAULT_BILLING_PLANS);
-        setMessage(
-          err instanceof Error
-            ? "Error al contactar con el servidor. Se muestran los planes base."
-            : "No se pudieron cargar los planes comerciales."
-        );
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    void loadPlans();
-  }, []);
+  }, [initialPlanCode, auth]);
 
   useEffect(() => {
     if (initialPlanCode) {
@@ -226,25 +105,8 @@ export function BillingConsole({ initialPlanCode }: { initialPlanCode?: string }
   }, [plans, selectedPlanCode]);
 
   async function handleCheckout() {
-    setMessage("");
-
-    setPaying(true);
-
-    try {
-      const response = await fetchJson<{ data: { checkoutUrl: string } }>("/api/billing/checkout-preference", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          planCode: selectedPlanCode
-        })
-      });
-      window.location.href = response.data.checkoutUrl;
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "No se pudo iniciar el checkout");
-      setPaying(false);
-    }
+    setMessage("⚠️ La pasarela de pagos nativa de Supabase está en configuración. Por favor, contacta a soporte vía WhatsApp para renovar tu suscripción.");
+    setPaying(false);
   }
 
   if (auth && !["owner", "admin"].includes(auth.user.role.toLowerCase())) {

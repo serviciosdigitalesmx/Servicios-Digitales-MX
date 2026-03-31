@@ -12,23 +12,8 @@ type Task = {
   assignedUserName?: string;
 };
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:5111";
-
-async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    ...init,
-    headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) },
-    cache: "no-store",
-    mode: "cors"
-  });
-
-  const data = await response.json();
-  if (!response.ok) {
-    throw new Error(data?.error?.message ?? "El sistema reportó un error de procesamiento.");
-  }
-
-  return data as T;
-}
+import { supabase } from "../../lib/supabase";
+import { useAuth } from "./AuthGuard";
 
 function formatDate(dateStr: string) {
   if (!dateStr) return "";
@@ -36,6 +21,7 @@ function formatDate(dateStr: string) {
 }
 
 export function TareasNative() {
+  const { session } = useAuth();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(false);
   const [apiStateMessage, setApiStateMessage] = useState("");
@@ -52,22 +38,29 @@ export function TareasNative() {
   });
 
   async function loadTasks() {
+    if (!session?.shop.id) return;
     setLoading(true);
     setApiStateMessage("");
     setApiStateError("");
     try {
-      const result = await fetchJson<{ data: Task[] }>("/api/tasks");
-      setTasks(result.data);
-    } catch (error) {
-       setApiStateError(error instanceof Error ? error.message : "Error al cargar las tareas.");
+      const { data, error } = await supabase
+        .from('tasks')
+        .select('*')
+        .eq('tenant_id', session.shop.id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setTasks(data || []);
+    } catch (error: any) {
+       setApiStateError(error.message || "Error al cargar las tareas.");
     } finally {
       setLoading(false);
     }
   }
 
   useEffect(() => {
-    void loadTasks();
-  }, []);
+    if (session) void loadTasks();
+  }, [session]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -82,16 +75,19 @@ export function TareasNative() {
 
     setLoading(true);
     try {
-      await fetchJson("/api/tasks", {
-        method: "POST",
-        body: JSON.stringify({
-          title: form.title,
-          description: form.description,
-          status: form.status,
-          priority: form.priority,
-          dueDate: form.dueDate ? new Date(`${form.dueDate}T18:00:00Z`).toISOString() : null
-        })
+      const { error } = await supabase.from('tasks').insert({
+        tenant_id: session?.shop.id,
+        title: form.title,
+        description: form.description,
+        status: form.status,
+        priority: form.priority,
+        due_date: form.dueDate ? new Date(`${form.dueDate}T18:00:00Z`).toISOString() : null,
+        created_by: session?.user.id,
+        updated_by: session?.user.id
       });
+
+      if (error) throw error;
+
       setForm({
         title: "",
         description: "",
@@ -101,8 +97,8 @@ export function TareasNative() {
       });
       await loadTasks();
       setApiStateMessage("✅ Tarea asignada exitosamente.");
-    } catch (error) {
-       setApiStateError(error instanceof Error ? error.message : "Error al guardar la tarea.");
+    } catch (error: any) {
+       setApiStateError(error.message || "Error al guardar la tarea.");
     } finally {
       setLoading(false);
     }
