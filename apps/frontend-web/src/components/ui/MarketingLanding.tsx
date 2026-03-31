@@ -137,7 +137,7 @@ export function MarketingLanding() {
             <a href="#caracteristicas">Características</a>
             <a href="#planes">Planes</a>
             <a href="#contacto">Contacto</a>
-            <a href="/login" className="sdmx-nav-cta">Iniciar sesión</a>
+            <a href="/login" className="sdmx-nav-cta">Comenzar</a>
           </div>
         </div>
       </nav>
@@ -147,8 +147,8 @@ export function MarketingLanding() {
         <div className="sdmx-container-6xl">
           <h1 className="sdmx-hero-title">
             Te presentamos el mejor software <br className="hidden md:block" />
-            para administrar tu <span style={{color: '#0f172a'}}>taller de reparación</span>{' '}
-            <span style={{display: 'inline-block', transform: 'translateY(8px)'}}>🔨</span>
+            para administrar tu <span style={{color: '#0066FF'}}>taller de reparación</span>{' '}<br className="hidden md:block" />
+            <span style={{display: 'inline-block', transform: 'translateY(12px)'}}>🔨</span>
           </h1>
           <p className="sdmx-hero-subtitle">Toma el control de tu negocio con una sola aplicación.</p>
 
@@ -390,26 +390,53 @@ export function MarketingLanding() {
           color: white !important;
           font-weight: 900;
         }
+        .sdmx-nav-brand span {
+          color: #0066FF !important;
+        }
         .sdmx-hero-title {
           color: white !important;
+          line-height: 1.1 !important;
         }
-        .sdmx-pill-button {
-          border: 1px solid rgba(255, 255, 255, 0.1) !important;
-          color: rgba(255, 255, 255, 0.6) !important;
-        }
-        .sdmx-pill-button.is-active {
-          background-color: white !important;
-          color: #0F172A !important;
-        }
-        .sdmx-central-action {
-          background-color: rgba(255, 255, 255, 0.03) !important;
-          border: 1px solid rgba(255, 255, 255, 0.1) !important;
-          backdrop-filter: blur(12px);
+        .sdmx-watermark-huge, .sdmx-pricing-watermark {
+          color: rgba(255, 255, 255, 0.03) !important;
+          z-index: 0 !important;
+          pointer-events: none;
         }
         .sdmx-pricing-card, .sdmx-pricing-card-featured {
           background-color: rgba(255, 255, 255, 0.03) !important;
           border: 1px solid rgba(255, 255, 255, 0.1) !important;
           backdrop-filter: blur(24px);
+          color: white !important;
+        }
+        .sdmx-pricing-desc, .sdmx-pricing-period, .sdmx-pricing-list li {
+          color: rgba(255, 255, 255, 0.7) !important;
+        }
+        .sdmx-pricing-title, .sdmx-pricing-value {
+          color: white !important;
+        }
+        .sdmx-stats-section {
+          background-color: #0F172A !important;
+          border-top: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        .sdmx-stat-val {
+          color: white !important;
+        }
+        .sdmx-stat-label, .sdmx-stat-desc {
+          color: rgba(255, 255, 255, 0.6) !important;
+        }
+        .sdmx-stat-val.brand {
+          color: #0066FF !important;
+        }
+        .sdmx-features-lead {
+          color: rgba(255, 255, 255, 0.6) !important;
+        }
+        .sdmx-testimonial-card {
+          background-color: rgba(255, 255, 255, 0.02) !important;
+          border: 1px solid rgba(255, 255, 255, 0.05) !important;
+          color: white !important;
+        }
+        .sdmx-testimonial-body {
+          color: rgba(255, 255, 255, 0.8) !important;
         }
       `}</style>
     </div>
