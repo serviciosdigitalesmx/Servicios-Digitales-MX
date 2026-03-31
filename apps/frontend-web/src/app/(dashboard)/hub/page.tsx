@@ -40,23 +40,23 @@ function HubDashboardContent() {
   const auth = session as AuthMeResponse;
 
   return (
-    <div className="min-h-screen bg-[#F0F2F5]">
+    <div className="sdmx-dashboard-container">
       {/* Top Navbar */}
-      <header className="bg-white border-b border-[#E2E8F0] sticky top-0 z-40">
+      <header className="sdmx-glass-header sticky top-0 z-40">
         <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 bg-[#0066FF] rounded-lg flex items-center justify-center">
               <IconMicrochip width={16} height={16} style={{ color: "white" }} />
             </div>
-            <span className="font-bold text-[#1A202C]">Servicios Digitales MX</span>
+            <span className="font-bold text-white">Servicios Digitales MX</span>
           </div>
 
           <div className="flex items-center gap-4">
             <div className="text-right hidden sm:block">
-              <p className="text-sm font-bold text-[#1A202C]">{auth.shop.name}</p>
-              <p className="text-xs text-[#718096]">{auth.user.fullName}</p>
+              <p className="text-sm font-bold text-white">{auth.shop.name}</p>
+              <p className="text-xs text-slate-400">{auth.user.fullName}</p>
             </div>
-            <button onClick={handleLogout} className="w-10 h-10 rounded-full bg-[#F0F2F5] flex items-center justify-center hover:bg-[#E2E8F0] transition text-[#4A5568]">
+            <button onClick={handleLogout} className="w-10 h-10 rounded-full sdmx-btn-nav flex items-center justify-center transition">
               <IconLogOut width={18} height={18} />
             </button>
           </div>
@@ -65,8 +65,8 @@ function HubDashboardContent() {
 
       <main className="max-w-6xl mx-auto px-4 py-8">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-[#1A202C] mb-2">Panel del Negocio</h1>
-          <p className="text-[#4A5568]">Gestiona tu suscripción y accede a las herramientas de tu taller.</p>
+          <h1 className="text-3xl font-bold text-white mb-2">Panel del Negocio</h1>
+          <p className="text-slate-400">Gestiona tu suscripción y accede a las herramientas de tu taller.</p>
         </div>
 
         <div className="grid md:grid-cols-3 gap-6 mb-8">
@@ -80,8 +80,8 @@ function HubDashboardContent() {
                 {getStatusCopy(auth.subscription.status).label.toUpperCase()}
               </span>
             </div>
-            <h3 className="text-xl font-bold text-[#1A202C] capitalize">{auth.subscription.planCode}</h3>
-            <p className="text-[#718096] text-sm mt-1">Suscripción actual</p>
+            <h3 className="text-xl font-bold text-white capitalize">{auth.subscription.planCode}</h3>
+            <p className="text-slate-400 text-sm mt-1">Suscripción actual</p>
           </div>
 
           {/* Portal Link */}
@@ -89,9 +89,9 @@ function HubDashboardContent() {
             <div>
               <div className="flex items-center gap-2 mb-2">
                 <IconStore width={20} height={20} className="text-[#0066FF]" />
-                <h3 className="font-bold text-[#1A202C]">Portal Público del Taller</h3>
+                <h3 className="font-bold text-white">Portal Público del Taller</h3>
               </div>
-              <p className="text-[#4A5568] text-sm">Este es el enlace que debes compartir con tus clientes para que revisen el estado de sus equipos usando su folio.</p>
+              <p className="text-slate-400 text-sm">Este es el enlace que debes compartir con tus clientes para que revisen el estado de sus equipos usando su folio.</p>
             </div>
             <div className="mt-4 flex flex-col sm:flex-row gap-3">
               <input 
@@ -110,7 +110,7 @@ function HubDashboardContent() {
           </div>
         </div>
 
-        <h2 className="text-xl font-bold text-[#1A202C] mb-4">Plataforma</h2>
+        <h2 className="text-xl font-bold text-white mb-4">Plataforma</h2>
         <div className="grid sm:grid-cols-2 gap-6">
           
           {auth.subscription.operationalAccess ? (
@@ -124,8 +124,8 @@ function HubDashboardContent() {
                 </div>
               </div>
               <div>
-                <h3 className="text-lg font-bold text-[#1A202C]">Operativo Interno</h3>
-                <p className="text-[#4A5568] text-sm mt-1">Abre tu sistema central: Folios, Clientes, Compras, Stock, Inventario y Finanzas.</p>
+                <h3 className="text-lg font-bold text-white">Operativo Interno</h3>
+                <p className="text-slate-400 text-sm mt-1">Abre tu sistema central: Folios, Clientes, Compras, Stock, Inventario y Finanzas.</p>
               </div>
             </a>
           ) : (
@@ -139,7 +139,7 @@ function HubDashboardContent() {
                 </span>
               </div>
               <div>
-                <h3 className="text-lg font-bold text-[#1A202C]">Operativo Interno</h3>
+                <h3 className="text-lg font-bold text-white">Operativo Interno</h3>
                 <p className="text-[#E53E3E] text-sm mt-1">El acceso está temporalmente inhabilitado. Por favor resuelve tu situación de facturación.</p>
               </div>
             </div>
@@ -156,8 +156,8 @@ function HubDashboardContent() {
                 </div>
               </div>
               <div>
-                <h3 className="text-lg font-bold text-[#1A202C]">Facturación y Planes</h3>
-                <p className="text-[#4A5568] text-sm mt-1">Administra tu método de pago, visualiza tus facturas y ajusta tu suscripción.</p>
+                <h3 className="text-lg font-bold text-white">Facturación y Planes</h3>
+                <p className="text-slate-400 text-sm mt-1">Administra tu método de pago, visualiza tus facturas y ajusta tu suscripción.</p>
               </div>
             </a>
           )}
@@ -165,6 +165,39 @@ function HubDashboardContent() {
         </div>
 
       </main>
+
+      <style jsx global>{`
+        body { background-color: #0F172A !important; margin: 0; }
+        .sdmx-dashboard-container {
+          min-height: 100vh;
+          background-color: #0F172A;
+          background-image: 
+            radial-gradient(circle at 0% 0%, rgba(0, 102, 255, 0.1) 0%, transparent 40%),
+            radial-gradient(circle at 100% 100%, rgba(99, 102, 241, 0.1) 0%, transparent 40%);
+          color: white;
+        }
+        .sdmx-glass-header {
+          background-color: rgba(15, 23, 42, 0.6) !important;
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
+          border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
+        }
+        .sdmx-card-premium {
+          background-color: rgba(255, 255, 255, 0.03) !important;
+          backdrop-filter: blur(24px);
+          border: 1px solid rgba(255, 255, 255, 0.1) !important;
+          border-radius: 1.5rem !important;
+          box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.3) !important;
+        }
+        .sdmx-btn-nav {
+          background-color: rgba(255, 255, 255, 0.05) !important;
+          color: white !important;
+          border: 1px solid rgba(255, 255, 255, 0.1) !important;
+        }
+        .sdmx-btn-nav:hover {
+          background-color: rgba(255, 255, 255, 0.1) !important;
+        }
+      `}</style>
     </div>
   );
 }
