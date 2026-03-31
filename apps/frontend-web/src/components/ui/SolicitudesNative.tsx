@@ -11,6 +11,7 @@ type ServiceRequest = {
   id: string; folio: string; customerName: string; customerPhone?: string; customerEmail?: string;
   deviceType?: string; deviceModel?: string; issueDescription?: string; urgency?: string;
   status: string; quotedTotal: number; depositAmount: number; balanceAmount: number;
+  solicitudOrigenIp?: string;
 };
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:5111";
@@ -198,6 +199,12 @@ export function SolicitudesNative() {
                                 <span style={{display: 'flex', alignItems: 'center', gap: '0.25rem'}}><IconMonitor width={12} height={12} style={{opacity:0.7}} /> {item.deviceType || "Genérico"}</span>
                                 <span style={{color: '#cbd5e1'}}>•</span>
                                 <span>{item.issueDescription?.slice(0, 60) || "Sin historial vinculado"}...</span>
+                                {item.solicitudOrigenIp && (
+                                  <>
+                                    <span style={{color: '#cbd5e1'}}>•</span>
+                                    <span style={{fontSize: '0.625rem', background: '#f1f5f9', padding: '2px 6px', borderRadius: '4px', fontFamily: 'monospace'}}>IP: {item.solicitudOrigenIp}</span>
+                                  </>
+                                )}
                              </div>
                           </div>
                        </div>

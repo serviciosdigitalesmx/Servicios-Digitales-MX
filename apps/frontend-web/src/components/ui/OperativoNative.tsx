@@ -16,19 +16,10 @@ type Customer = { id: string; fullName: string; phone?: string; email?: string; 
 type Order = {
   id: string; folio: string; status: string; deviceType: string; deviceModel?: string;
   priority?: string; customerName?: string; assignedTechnician?: string; estimatedCost?: number;
-  promisedDate?: string;
+  promisedDate?: string; createdAt: string;
 };
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:5111";
-
-async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    ...init, headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) }, cache: "no-store", mode: "cors"
-  });
-  const data = await response.json();
-  if (!response.ok) throw new Error(data?.error?.message ?? "El backend devolvió un error inesperado al procesar tu solicitud.");
-  return data as T;
-}
+import { supabase } from "../../lib/supabase";
 
 function formatDate(value?: string) {
   if (!value) return "Sin promesa";
@@ -54,17 +45,12 @@ function getServiceOrderStatusLabel(value?: string) { return SERVICE_ORDER_STATU
 
 export function OperativoNative() {
   const { session } = useAuth();
-  const auth = session as AuthResponse["data"] | null;
-  
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(false);
-
   const [apiStateMessage, setApiStateMessage] = useState("");
   const [apiStateError, setApiStateError] = useState("");
-  
   const [formErrorOrder, setFormErrorOrder] = useState("");
-
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
 
@@ -74,47 +60,106 @@ export function OperativoNative() {
   });
 
   async function loadData() {
+    if (!session?.shop.id) return;
     setLoading(true); setApiStateError(""); setApiStateMessage("");
     try {
-      if (!auth || !auth.subscription.operationalAccess) { setCustomers([]); setOrders([]); return; }
-      const [customersData, ordersData] = await Promise.all([
-        fetchJson<{ data: Customer[] }>("/api/customers"), fetchJson<{ data: Order[] }>("/api/service-orders")
+      if (!session.subscription.operationalAccess) { setCustomers([]); setOrders([]); return; }
+      
+      const [customersRes, ordersRes] = await Promise.all([
+        supabase.from('customers').select('*').eq('tenant_id', session.shop.id).eq('is_active', true).order('full_name'),
+        supabase.from('service_orders').select('*').eq('tenant_id', session.shop.id).order('created_at', { ascending: false })
       ]);
-      setCustomers(customersData.data); setOrders(ordersData.data);
-    } catch (error) {
-       setApiStateError("Error de red al conectar con el servidor.");
+
+      if (customersRes.error) throw customersRes.error;
+      if (ordersRes.error) throw ordersRes.error;
+
+      setCustomers(customersRes.data.map(c => ({
+        id: c.id,
+        fullName: c.full_name,
+        phone: c.phone,
+        email: c.email,
+        tag: c.tag || 'nuevo'
+      })));
+
+      setOrders(ordersRes.data.map(o => ({
+        id: o.id,
+        folio: o.folio,
+        status: o.status,
+        deviceType: o.device_type,
+        deviceModel: o.device_model,
+        priority: o.priority,
+        estimatedCost: Number(o.estimated_cost || 0),
+        promisedDate: o.promised_date,
+        createdAt: o.created_at
+      })));
+
+    } catch (error: any) {
+       setApiStateError(error.message || "Error al conectar con Supabase.");
     } finally {
       setLoading(false);
     }
   }
 
   useEffect(() => { 
-    if (auth) {
-      void loadData(); 
+    if (session) void loadData(); 
+  }, [session]);
+
+  const generateFolio = async () => {
+    // Basic folio generation: find last and increment
+    const { data: lastOrder } = await supabase
+      .from('service_orders')
+      .select('folio')
+      .eq('tenant_id', session?.shop.id)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single();
+
+    let nextNumber = 1;
+    if (lastOrder && lastOrder.folio.startsWith('ORD-')) {
+      const lastNum = parseInt(lastOrder.folio.split('-')[1]);
+      if (!isNaN(lastNum)) nextNumber = lastNum + 1;
     }
-  }, [auth]);
+    return `ORD-${String(nextNumber).padStart(6, '0')}`;
+  };
 
   async function handleCreateOrder(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setFormErrorOrder(""); setApiStateError(""); setApiStateMessage("");
 
-    if (!auth?.user.branchId) return setFormErrorOrder("⚠️ Tu usuario no tiene asignada una sucursal.");
+    if (!session?.user.branchId) return setFormErrorOrder("⚠️ Tu usuario no tiene asignada una sucursal.");
     if (!orderForm.customerId) return setFormErrorOrder("⚠️ Selecciona a qué cliente se le asignará el equipo.");
     if (!orderForm.deviceType.trim()) return setFormErrorOrder("⚠️ Indica el tipo de equipo a recibir.");
     if (!orderForm.reportedIssue.trim()) return setFormErrorOrder("⚠️ Describe cuál es el desgaste físico o falla.");
 
     setLoading(true);
     try {
-      await fetchJson("/api/service-orders", {
-        method: "POST", body: JSON.stringify({
-          branchId: auth.user.branchId, serviceRequestId: null,
-          ...orderForm, estimatedCost: Number(orderForm.estimatedCost || 0)
-        })
+      const folio = await generateFolio();
+      
+      const { error } = await supabase.from('service_orders').insert({
+        tenant_id: session.shop.id,
+        branch_id: session.user.branchId,
+        customer_id: orderForm.customerId,
+        folio,
+        status: 'recibido',
+        priority: orderForm.priority,
+        device_type: orderForm.deviceType,
+        device_brand: orderForm.deviceBrand,
+        device_model: orderForm.deviceModel,
+        serial_number: orderForm.serialNumber,
+        reported_issue: orderForm.reportedIssue,
+        promised_date: orderForm.promisedDate || null,
+        estimated_cost: Number(orderForm.estimatedCost || 0),
+        received_at: new Date().toISOString(),
+        created_by: session.user.id,
+        updated_by: session.user.id
       });
+
+      if (error) throw error;
+
       setOrderForm({ customerId: "", deviceType: "", deviceBrand: "", deviceModel: "", serialNumber: "", reportedIssue: "", priority: "normal", promisedDate: "", estimatedCost: "0" });
       await loadData();
       setApiStateMessage("✅ Orden de servicio creada exitosamente.");
-    } catch (error) {
-      setApiStateError(error instanceof Error ? error.message : "Error al procesar la orden.");
+    } catch (error: any) {
+      setApiStateError(error.message || "Error al procesar la orden.");
     } finally {
       setLoading(false);
     }
@@ -221,20 +266,34 @@ export function OperativoNative() {
                 <span>Genera las primeras recepciones de mostrador para poblar la tabla.</span>
               </li>
             ) : (
-              filteredOrders.map((order) => (
-                <li key={order.id} className="list-item-grid" style={{background: order.status === 'entregado' ? '#f0fdf4' : '#fff'}}>
-                   <div style={{ background: '#0f172a', color: 'white', padding: '8px 12px', borderRadius: '8px', fontWeight: 'bold', fontSize: '0.9rem' }}>
-                    Folio: {order.folio}
-                   </div>
-                   <div className="flex-col">
-                     <strong style={{fontSize: '1.05rem', color: '#1e3a8a'}}>{order.deviceType} {order.deviceModel ?? ""}</strong>
-                     <span style={{color: '#64748b', fontSize: '0.85rem'}}>Nivel Carga: {order.priority?.toUpperCase() || "NORMAL"} · Entrega: {formatDate(order.promisedDate)}</span>
-                   </div>
-                   <div style={{ textAlign: 'right' }}>
-                     <span className={`badge-${order.status === 'entregado' ? 'success' : order.status === 'reparacion' ? 'warning' : 'info'}`}>{getServiceOrderStatusLabel(order.status)}</span>
-                   </div>
-                </li>
-              ))
+              filteredOrders.map((order) => {
+                const created = new Date(order.createdAt);
+                const now = new Date();
+                const diffHours = (now.getTime() - created.getTime()) / (1000 * 60 * 60);
+                const delayed = diffHours > 48 && !['entregado', 'listo'].includes(normalizeServiceOrderStatus(order.status));
+
+                return (
+                  <li key={order.id} className="list-item-grid" style={{
+                    background: order.status === 'entregado' ? '#f0fdf4' : '#fff',
+                    borderLeft: delayed ? '4px solid #ef4444' : '4px solid transparent',
+                    paddingLeft: delayed ? '8px' : '12px'
+                  }}>
+                    <div style={{ background: delayed ? '#ef4444' : '#0f172a', color: 'white', padding: '8px 12px', borderRadius: '8px', fontWeight: 'bold', fontSize: '0.9rem' }}>
+                      Folio: {order.folio}
+                    </div>
+                    <div className="flex-col">
+                      <strong style={{fontSize: '1.05rem', color: '#1e3a8a'}}>{order.deviceType} {order.deviceModel ?? ""}</strong>
+                      <div style={{display: 'flex', gap: '8px', alignItems: 'center'}}>
+                        <span style={{color: '#64748b', fontSize: '0.85rem'}}>Nivel Carga: {order.priority?.toUpperCase() || "NORMAL"} · Entrega: {formatDate(order.promisedDate)}</span>
+                        {delayed && <span style={{fontSize: '0.625rem', fontWeight: 900, color: '#dc2626', background: '#fee2e2', padding: '2px 6px', borderRadius: '4px'}}>⚠️ SIN AVANCE (+48H)</span>}
+                      </div>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <span className={`badge-${order.status === 'entregado' ? 'success' : order.status === 'reparacion' ? 'warning' : 'info'}`}>{getServiceOrderStatusLabel(order.status)}</span>
+                    </div>
+                  </li>
+                );
+              })
             )}
           </ul>
         </article>

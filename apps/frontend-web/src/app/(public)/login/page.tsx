@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { supabase } from "../../../lib/supabase";
 import { IconMicrochip, IconLock, IconUser, IconArrowLeft } from "../../../components/ui/Icons";
 
 export default function LoginPage() {
@@ -15,26 +16,15 @@ export default function LoginPage() {
     setError("");
 
     try {
-      const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5111';
-      const res = await fetch(`${baseUrl}/api/auth/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password })
+      const { data, error: authError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
       });
 
-      const data = await res.json();
+      if (authError) throw authError;
 
-      if (!res.ok || !data.success) {
-        throw new Error(data.error?.message || "Credenciales inválidas");
-      }
-      
-      localStorage.setItem("sdmx_session", JSON.stringify({
-        role: data.data.user.Role,
-        slug: data.data.shop.Slug,
-        name: data.data.shop.Name,
-        plan: data.data.subscription?.PlanCode || "profesional",
-        token: data.data.accessToken
-      }));
+      // Supabase handles session persistence automatically.
+      // The AuthGuard will handle redirection and context hydration.
       window.location.href = "/hub";
     } catch (err: any) {
       setError(err.message || "Error al iniciar sesión");

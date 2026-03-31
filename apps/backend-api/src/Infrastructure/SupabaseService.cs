@@ -603,8 +603,10 @@ public sealed class SupabaseService
             status = "pendiente",
             quoted_total = request.QuotedTotal ?? 0,
             deposit_amount = request.DepositAmount ?? 0,
-            balance_amount = request.BalanceAmount ?? Math.Max((request.QuotedTotal ?? 0) - (request.DepositAmount ?? 0), 0)
-        }, cancellationToken, "id,folio,customer_name,customer_phone,customer_email,device_type,device_model,issue_description,urgency,status,quoted_total,deposit_amount,balance_amount,created_at");
+            deposit_amount = request.DepositAmount ?? 0,
+            balance_amount = request.BalanceAmount ?? Math.Max((request.QuotedTotal ?? 0) - (request.DepositAmount ?? 0), 0),
+            solicitud_origen_ip = request.SolicitudOrigenIp
+        }, cancellationToken, "id,folio,customer_name,customer_phone,customer_email,device_type,device_model,issue_description,urgency,status,quoted_total,deposit_amount,balance_amount,created_at,solicitud_origen_ip");
 
         return new
         {
@@ -679,11 +681,12 @@ public sealed class SupabaseService
                 status = nextStatus,
                 internal_diagnosis = string.IsNullOrWhiteSpace(request.InternalDiagnosis) ? order.InternalDiagnosis : request.InternalDiagnosis.Trim(),
                 final_cost = request.FinalCost ?? order.FinalCost,
+                caso_resolucion_tecnica = request.CasoResolucionTecnica ?? null,
                 completed_at = nextStatus == "listo" ? DateTimeOffset.UtcNow : (DateTimeOffset?)null,
                 updated_by = _bootstrap.UserId
             },
             cancellationToken,
-            "id,folio,status,device_type,device_brand,device_model,reported_issue,internal_diagnosis,final_cost,priority,promised_date,created_at");
+            "id,folio,status,device_type,device_brand,device_model,reported_issue,internal_diagnosis,final_cost,priority,promised_date,created_at,caso_resolucion_tecnica");
 
         return updated is null ? null : new
         {
@@ -1492,9 +1495,9 @@ public sealed class SupabaseService
     public sealed record DbReferralStatus(Guid Id, string Status, decimal CommissionAmount, string? PaymentProvider, string? ProviderPaymentId, DateTimeOffset? ConfirmedAt);
     public sealed record DbReferralListItem(Guid Id, Guid? ReferredTenantId, string ReferralCodeUsed, string Status, decimal CommissionAmount, string? PaymentProvider, string? ProviderPaymentId, DateTimeOffset? ConfirmedAt, DateTimeOffset CreatedAt);
     public sealed record DbCustomer(Guid Id, Guid TenantId, string FullName, string? Phone, string? Email, string Tag, string? Notes, DateTimeOffset CreatedAt);
-    public sealed record DbServiceRequest(Guid Id, Guid? BranchId, string Folio, string CustomerName, string? CustomerPhone, string? CustomerEmail, string? DeviceType, string? DeviceModel, string? IssueDescription, string? Urgency, string Status, decimal QuotedTotal, decimal DepositAmount, decimal BalanceAmount, DateTimeOffset CreatedAt);
-    public sealed record DbServiceOrder(Guid Id, Guid TenantId, Guid BranchId, Guid CustomerId, string Folio, string Status, string DeviceType, string? DeviceBrand, string? DeviceModel, string ReportedIssue, string Priority, DateOnly? PromisedDate, decimal EstimatedCost, DateTimeOffset CreatedAt);
-    public sealed record DbTechnicianOrder(Guid Id, string Folio, string Status, string? DeviceType, string? DeviceBrand, string? DeviceModel, string? ReportedIssue, string? InternalDiagnosis, decimal FinalCost, string? Priority, DateOnly? PromisedDate, DateTimeOffset CreatedAt);
+    public sealed record DbServiceRequest(Guid Id, Guid? BranchId, string Folio, string CustomerName, string? CustomerPhone, string? CustomerEmail, string? DeviceType, string? DeviceModel, string? IssueDescription, string? Urgency, string Status, decimal QuotedTotal, decimal DepositAmount, decimal BalanceAmount, DateTimeOffset CreatedAt, string? SolicitudOrigenIp = null);
+    public sealed record DbServiceOrder(Guid Id, Guid TenantId, Guid BranchId, Guid CustomerId, string Folio, string Status, string DeviceType, string? DeviceBrand, string? DeviceModel, string ReportedIssue, string Priority, DateOnly? PromisedDate, decimal EstimatedCost, DateTimeOffset CreatedAt, string? CasoResolucionTecnica = null);
+    public sealed record DbTechnicianOrder(Guid Id, string Folio, string Status, string? DeviceType, string? DeviceBrand, string? DeviceModel, string? ReportedIssue, string? InternalDiagnosis, decimal FinalCost, string? Priority, DateOnly? PromisedDate, DateTimeOffset CreatedAt, string? CasoResolucionTecnica = null);
     public sealed record DbArchivedOrder(Guid Id, string Folio, string Status, string? DeviceType, string? DeviceBrand, string? DeviceModel, string? ReportedIssue, decimal FinalCost, DateTimeOffset? ArchivedAt, DateTimeOffset? DeliveredAt, DateTimeOffset UpdatedAt);
     public sealed record DbTask(Guid Id, Guid? BranchId, Guid? ServiceOrderId, Guid? ServiceRequestId, string Title, string? Description, string Status, string Priority, Guid? AssignedUserId, DateTimeOffset? DueDate, DateTimeOffset CreatedAt);
     public sealed record DbTaskHistory(Guid Id, Guid TaskId);

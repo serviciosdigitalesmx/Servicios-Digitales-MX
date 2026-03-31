@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { supabase } from "../../../lib/supabase";
 import { IconMicrochip, IconUser, IconArrowLeft, IconCheckCircular, IconStore } from "../../../components/ui/Icons";
 
 export default function RegisterPage() {
@@ -37,53 +38,70 @@ export default function RegisterPage() {
     setError("");
     
     try {
-      const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5111';
       const slug = form.shopName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
 
-      const payload = {
-        ShopName: form.shopName,
-        ShopSlug: slug,
-        FullName: form.fullName,
-        Email: form.email,
-        Phone: form.phone || null,
-        Password: form.password,
-        PlanCode: plan
-      };
-
-      const res = await fetch(`${baseUrl}/api/auth/register`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
+      // 1. Sign up user
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: form.email,
+        password: form.password,
+        options: {
+          data: {
+            full_name: form.fullName,
+          }
+        }
       });
-      
-      const data = await res.json();
 
-      if (!res.ok || !data.success) {
-        throw new Error(data.error?.message || "Error al registrar el negocio");
-      }
+      if (authError) throw authError;
+      if (!authData.user) throw new Error("No se pudo crear el usuario");
 
-      // Auto-Login for real token
-      const loginRes = await fetch(`${baseUrl}/api/auth/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: form.email, password: form.password })
+      const userId = authData.user.id;
+
+      // 2. Initialize Tenant, User profile, Branch and Subscription
+      // a) Create Tenant
+      const { data: tenantData, error: tenantError } = await supabase.from('tenants').insert({
+        name: form.shopName,
+        slug: slug,
+        contact_name: form.fullName,
+        contact_email: form.email,
+        contact_phone: form.phone
+      }).select().single();
+
+      if (tenantError) throw tenantError;
+      const tenantId = tenantData.id;
+
+      // b) Create Default Branch
+      const { data: branchData, error: branchError } = await supabase.from('branches').insert({
+        tenant_id: tenantId,
+        name: 'Matriz',
+        code: 'MTZ'
+      }).select().single();
+
+      if (branchError) throw branchError;
+
+      // c) Create User Profile linked to Tenant and Branch
+      const { error: userError } = await supabase.from('users').insert({
+        tenant_id: tenantId,
+        branch_id: branchData.id,
+        auth_user_id: userId,
+        full_name: form.fullName,
+        email: form.email,
+        phone: form.phone,
+        role: 'admin'
       });
-      const loginData = await loginRes.json();
-      
-      if (!loginRes.ok || !loginData.success) {
-        // Redirigir a login si falla el auto-login por alguna razón extraña
-        window.location.href = "/login";
-        return;
-      }
 
-      localStorage.setItem("sdmx_session", JSON.stringify({ 
-        role: loginData.data.user.Role || "admin", 
-        slug: loginData.data.shop.Slug || slug,
-        name: loginData.data.shop.Name || form.shopName,
-        plan: loginData.data.subscription?.PlanCode || plan,
-        token: loginData.data.accessToken
-      }));
-      setResolvedPlan(loginData.data.subscription?.PlanCode || plan);
+      if (userError) throw userError;
+
+      // d) Create Subscription
+      const { error: subError } = await supabase.from('subscriptions').insert({
+        tenant_id: tenantId,
+        plan_code: plan,
+        status: 'trialing',
+        current_period_end: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString()
+      });
+
+      if (subError) throw subError;
+
+      setResolvedPlan(plan);
       setStep(3);
     } catch (err: any) {
       setError(err.message || "Error de registro");

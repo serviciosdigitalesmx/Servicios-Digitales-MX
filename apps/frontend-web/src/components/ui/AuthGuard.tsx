@@ -1,31 +1,17 @@
 "use client";
 
 import React, { useEffect, useState, createContext, useContext } from "react";
-import { IconMicrochip } from "./Icons";
+import { supabase } from "../../lib/supabase";
+import { IconMicrochip, IconWarning } from "./Icons";
 
 export type AuthMeResponse = {
-  data: {
-    user: {
-      id: string;
-      fullName: string;
-      email: string;
-      role: string;
-    };
-    shop: {
-      id: string;
-      name: string;
-      slug: string;
-    };
-    subscription: {
-      status: string;
-      planCode: string;
-      operationalAccess: boolean;
-    };
-  };
+  user: { id: string; fullName: string; email: string; role: string; branchId: string; };
+  shop: { id: string; name: string; slug: string; };
+  subscription: { status: string; planCode: string; operationalAccess: boolean; };
 };
 
 type AuthContextType = {
-  session: AuthMeResponse["data"] | null;
+  session: AuthMeResponse | null;
   loading: boolean;
 };
 
@@ -36,92 +22,83 @@ export function useAuth() {
 }
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
-  const [session, setSession] = useState<AuthMeResponse["data"] | null>(null);
+  const [session, setSession] = useState<AuthMeResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [subscriptionError, setSubscriptionError] = useState<string | null>(null);
 
   useEffect(() => {
-    const originalFetch = window.fetch;
-    window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
-      if (typeof input === "string" && input.includes("/api/")) {
-        let token = "";
-        try {
-          const localData = localStorage.getItem("sdmx_session");
-          if (localData) {
-            const parsed = JSON.parse(localData);
-            token = parsed?.token || parsed?.accessToken || "";
-          }
-        } catch {}
-        
-        if (token) {
-          init = init || {};
-          init.headers = {
-            ...init.headers,
-            "Authorization": `Bearer ${token}`
-          };
-        }
-      }
-      return originalFetch(input, init);
-    };
-
-    async function verifySession() {
-      try {
-        const localData = localStorage.getItem("sdmx_session");
-        if (!localData) {
-          window.location.href = "/login";
-          return;
-        }
-
-        let parsedToken;
-        try {
-          const parsed = JSON.parse(localData);
-          parsedToken = parsed?.token || parsed?.accessToken;
-          if (!parsedToken) throw new Error("Token vacío");
-        } catch {
-          window.location.href = "/login";
-          return;
-        }
-
-        const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:5111";
-        
-        // Timeout para evitar que se quede colgado si el API local no responde
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 6000);
-
-        const res = await fetch(`${API_BASE_URL}/api/auth/me`, {
-          cache: "no-store",
-          headers: { 
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${parsedToken}`
-          },
-          signal: controller.signal
-        });
-
-        clearTimeout(timeoutId);
-
-        if (!res.ok) {
-          throw new Error("HTTP " + res.status);
-        }
-        
-        const json = await res.json();
-        
-        if (json.success && json.data) {
-          setSession(json.data);
+    const { data: { subscription: authListener } } = supabase.auth.onAuthStateChange(
+      async (event, authSession) => {
+        if (event === "SIGNED_OUT") {
+          setSession(null);
           setLoading(false);
-        } else {
-          throw new Error("Formato de sesión inválido");
+          window.location.href = "/login";
+          return;
         }
-      } catch (err) {
-        console.error("Fallo de hidratación de sesión, redirigiendo a login:", err);
-        // Des-autenticamos proactivamente en caso de corrupción
-        localStorage.removeItem("sdmx_session");
-        window.location.href = "/login";
-      }
-    }
 
-    verifySession();
+        if (authSession) {
+          try {
+            // Fetch profile and subscription details from Supabase
+            // This replaces the /api/auth/me call
+            const [userRes, tenantRes, subRes] = await Promise.all([
+              supabase.from('users').select('*').eq('auth_user_id', authSession.user.id).single(),
+              // We need the tenant_id from the user to fetch the tenant
+              supabase.from('users').select('tenant_id').eq('auth_user_id', authSession.user.id).single()
+                .then((r: any) => r.data ? supabase.from('tenants').select('*').eq('id', r.data.tenant_id).single() : { data: null, error: r.error }),
+              supabase.from('subscriptions').select('*').eq('tenant_id', 
+                (await supabase.from('users').select('tenant_id').eq('auth_user_id', authSession.user.id).single()).data?.tenant_id
+              ).single()
+            ]);
+
+            if (userRes.error || tenantRes.error) {
+              console.error("Error fetching user context:", userRes.error, tenantRes.error);
+            }
+
+            // Simple validation: if subscription is inactive and not in grace period
+            const sub = subRes.data;
+            const isInactive = sub?.status === 'inactive' || sub?.status === 'past_due';
+            
+            if (isInactive) {
+               setSubscriptionError("⚠️ Tu suscripción ha vencido. Por favor, realiza tu pago para continuar.");
+            } else {
+               setSubscriptionError(null);
+            }
+
+            setSession({
+              user: {
+                id: authSession.user.id,
+                fullName: userRes.data?.full_name || "Usuario",
+                email: authSession.user.email || "",
+                role: userRes.data?.role || "admin",
+                branchId: userRes.data?.branch_id || ""
+              },
+              shop: {
+                id: tenantRes.data?.id || "",
+                name: tenantRes.data?.name || "Mi Negocio",
+                slug: tenantRes.data?.slug || "mi-negocio"
+              },
+              subscription: {
+                status: sub?.status || "active",
+                planCode: sub?.plan_code || "starter",
+                operationalAccess: sub?.status === 'active' || sub?.status === 'trialing'
+              }
+            });
+          } catch (err) {
+            console.error("Context hydration failed:", err);
+          } finally {
+            setLoading(false);
+          }
+        } else {
+          setLoading(false);
+          if (window.location.pathname !== "/login" && window.location.pathname !== "/register") {
+            window.location.href = "/login";
+          }
+        }
+      }
+    );
 
     return () => {
-      window.fetch = originalFetch;
+      authListener.unsubscribe();
     };
   }, []);
 
@@ -133,9 +110,30 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     );
   }
 
+  if (subscriptionError) {
+    return (
+      <div className="min-h-screen bg-[#F0F2F5] flex items-center justify-center p-4">
+        <div className="sdmx-card-premium max-w-md w-full p-8 text-center flex flex-col items-center gap-4">
+           <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center text-red-600">
+              <IconWarning width={32} height={32} />
+           </div>
+           <h2 className="text-xl font-bold text-[#1A202C]">Servicio Suspendido</h2>
+           <p className="text-[#4A5568]">{subscriptionError}</p>
+           <button 
+             onClick={() => window.location.href = "/billing"}
+             className="product-button is-primary w-full mt-4"
+           >
+             Ir a Facturación
+           </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <AuthContext.Provider value={{ session, loading }}>
       {children}
     </AuthContext.Provider>
   );
 }
+

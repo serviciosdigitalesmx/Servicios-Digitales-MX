@@ -41,7 +41,8 @@ public sealed record DemoServiceOrder(
     string Priority,
     DateOnly? PromisedDate,
     decimal EstimatedCost,
-    DateTimeOffset CreatedAt
+    DateTimeOffset CreatedAt,
+    string? CasoResolucionTecnica = null
 );
 
 public sealed record LoginRequest(
@@ -97,13 +98,15 @@ public sealed record CreateServiceRequestRequest(
     string? Urgency,
     decimal? QuotedTotal,
     decimal? DepositAmount,
-    decimal? BalanceAmount
+    decimal? BalanceAmount,
+    string? SolicitudOrigenIp = null
 );
 
 public sealed record UpdateTechnicianOrderRequest(
     string? Status,
     string? InternalDiagnosis,
-    decimal? FinalCost
+    decimal? FinalCost,
+    string? CasoResolucionTecnica = null
 );
 
 public sealed record CreateSupplierRequest(
