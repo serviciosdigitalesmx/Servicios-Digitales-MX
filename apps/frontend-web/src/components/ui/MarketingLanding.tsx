@@ -197,16 +197,12 @@ export function MarketingLanding() {
           <div className="sdmx-central-action">
             <div className="sdmx-central-buttons">
               <a href="#planes" className="sdmx-btn-primary">Comenzar ahora</a>
-              <a href="#" className="sdmx-btn-secondary">
-                <IconRobot width={16} height={16} style={{marginRight: '0.5rem'}} /> Consultar con el Bot
-              </a>
             </div>
             <p className="sdmx-central-disclaimer">Suscríbete mensualmente de forma segura con Mercado Pago.</p>
           </div>
 
           {/* Dashboard Preview */}
           <div className="sdmx-mockups-wrapper">
-            <h2 className="sdmx-watermark-huge">TODO EL CONTROL</h2>
             <div className="sdmx-mockup-desktop">
               <img src="https://images.unsplash.com/photo-1551288049-bbbda5366391?auto=format&fit=crop&q=80&w=2000" alt="Dashboard" />
             </div>
@@ -244,7 +240,6 @@ export function MarketingLanding() {
 
       {/* PLANES */}
       <section id="planes" className="sdmx-pricing-section">
-        <h2 className="sdmx-pricing-watermark">COMIENZA HOY MISMO</h2>
         <div className="sdmx-container-7xl" style={{position: 'relative', zIndex: 10}}>
           <div className="sdmx-pricing-head">
             <h2>Planes de Pago</h2>
@@ -365,13 +360,6 @@ export function MarketingLanding() {
         </div>
       </footer>
 
-      {/* FLOAT BOT */}
-      <div className="sdmx-bot-wrap">
-        <button className="sdmx-bot-btn">
-          <IconRobot width={24} height={24} />
-        </button>
-        <div className="sdmx-bot-tooltip">Asistente Virtual</div>
-      </div>
       <style jsx global>{`
         html, body {
           background-color: #0F172A !important;
