@@ -37,7 +37,7 @@ function HubDashboardContent() {
 
   if (!session) return null;
 
-  const auth = session as AuthMeResponse["data"];
+  const auth = session as AuthMeResponse;
 
   return (
     <div className="min-h-screen bg-[#F0F2F5]">
