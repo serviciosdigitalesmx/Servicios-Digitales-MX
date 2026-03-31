@@ -1,5 +1,6 @@
 "use client";
 
+// Versión 2.0.1 - Activando entorno de producción real 🛡️
 import React from "react";
 import { 
   IconStore, 
