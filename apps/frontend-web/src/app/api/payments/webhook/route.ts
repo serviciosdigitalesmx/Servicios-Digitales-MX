@@ -1,86 +1,57 @@
+import { supabaseServiceRole } from '@/lib/supabaseService';
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-
-// Cliente de administración (bypassea RLS)
-// Prevenir que el build falle si las keys no están en el entorno de compilación
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder.supabase.co";
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "placeholder_key";
-
-const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
-
-const MP_ACCESS_TOKEN = process.env.MERCADOPAGO_ACCESS_TOKEN;
 
 export async function POST(req: Request) {
   try {
-    const { searchParams } = new URL(req.url);
-    const type = searchParams.get('type') || (await req.json()).type;
-    const dataId = (await req.json())?.data?.id || searchParams.get('data.id');
+    const body = await req.json();
+    const { type, data } = body;
 
-    console.log("🔔 Webhook received:", { type, dataId });
+    // 1. Solo procesamos eventos de suscripción (preapproval)
+    if (type === 'preapproval') {
+      const preapprovalId = data.id;
+      console.log(`Procesando Webhook para Preapproval: ${preapprovalId}`);
 
-    // Solo nos interesan los pagos confirmados
-    if (type === 'payment' && dataId) {
-      // 1. Verificar el pago con la API de Mercado Pago para mayor seguridad
-      const response = await fetch(`https://api.mercadopago.com/v1/payments/${dataId}`, {
-        headers: {
-          'Authorization': `Bearer ${MP_ACCESS_TOKEN}`
-        }
+      // 2. Consultar fuente real a Mercado Pago
+      const mpRes = await fetch(`https://api.mercadopago.com/preapproval/${preapprovalId}`, {
+        headers: { Authorization: `Bearer ${process.env.MERCADOPAGO_ACCESS_TOKEN}` }
       });
-
-      if (!response.ok) throw new Error('Error al verificar pago en Mercado Pago');
       
-      const paymentData = await response.json();
-      const status = paymentData.status; // 'approved', 'pending', etc.
-      const externalReference = paymentData.external_reference; // Aquí guardamos el tenant_id o subscription_id
+      const mpData = await mpRes.json();
+      if (!mpData.id) throw new Error('ID de suscripción no encontrado en MP');
 
-      console.log(`💳 Mercado Pago: Payment ${dataId} is ${status}`);
+      const tenantId = mpData.external_reference;
+      
+      // 3. Mapeo de estados profesional
+      const statusMap: Record<string, string> = {
+        'authorized': 'active',
+        'paused': 'past_due',
+        'cancelled': 'cancelled',
+        'pending': 'trialing'
+      };
 
-      if (status === 'approved') {
-        // 2. Buscar al tenant o suscripción asociada
-        // Usamos external_reference como tenant_id o buscamos en la tabla de pagos
-        const { data: payRecord } = await supabaseAdmin
-          .from('subscription_payments')
-          .select('tenant_id, subscription_id')
-          .eq('provider_payment_id', dataId.toString())
-          .maybeSingle();
+      const newStatus = statusMap[mpData.status] || 'suspended';
+      const expiryDate = mpData.next_payment_date || mpData.date_created;
 
-        const tenantId = externalReference || payRecord?.tenant_id;
+      console.log(`Actualizando Tenant ${tenantId} a estado ${newStatus}, vence: ${expiryDate}`);
 
-        if (tenantId) {
-          // 3. Activar la suscripción y extender por 30 días
-          const nextExpiration = new Date();
-          nextExpiration.setDate(nextExpiration.getDate() + 30);
+      // 4. Actualizar base de datos
+      const { error: updateError } = await supabaseServiceRole
+        .from('subscriptions')
+        .update({ 
+          status: newStatus,
+          current_period_end: expiryDate,
+          mp_payer_id: mpData.payer_id?.toString()
+        })
+        .eq('tenant_id', tenantId);
 
-          await supabaseAdmin
-            .from('subscriptions')
-            .update({ 
-              status: 'active', 
-              current_period_end: nextExpiration.toISOString(),
-              updated_at: new Date().toISOString()
-            })
-            .eq('tenant_id', tenantId);
-
-          // 4. Marcar el pago como aprobado localmente
-          await supabaseAdmin
-            .from('subscription_payments')
-            .upsert({ 
-              tenant_id: tenantId,
-              provider_payment_id: dataId.toString(),
-              amount: paymentData.transaction_amount,
-              status: 'approved',
-              paid_at: new Date().toISOString()
-            }, { onConflict: 'provider_payment_id' });
-
-          console.log(`✅ Tenant ${tenantId} activated via Webhook`);
-        }
-      }
+      if (updateError) throw updateError;
+      
+      return NextResponse.json({ success: true });
     }
 
     return NextResponse.json({ received: true });
-  } catch (err: any) {
-    console.error("❌ Webhook error:", err.message);
-    // Vercel/MP necesitan un 200 aunque falle la lógica interna para no reintentar infinitamente
-    // si es un error de código, pero aquí devolvemos 200 para confirmar recepción.
-    return NextResponse.json({ error: err.message }, { status: 200 });
+  } catch (error: any) {
+    console.error("Webhook Error:", error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

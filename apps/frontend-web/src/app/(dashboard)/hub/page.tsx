@@ -1,202 +1,204 @@
 "use client";
 
-// Versión 2.0.1 - Activando entorno de producción real 🛡️
-import React from "react";
+import React, { useState } from "react";
 import { 
   IconStore, 
   IconDashboard, 
   IconWallet, 
   IconLogOut, 
   IconMicrochip,
-  IconCheckCircular
+  IconCheckCircular,
+  IconStar
 } from "../../../components/ui/Icons";
 import { AuthGuard, useAuth, AuthMeResponse } from "../../../components/ui/AuthGuard";
 
-function getStatusCopy(status: string) {
+function getStatusStyle(status: string) {
   switch (status) {
     case "active":
-      return { label: "Activa", bg: "bg-[#00A389]/10", text: "text-[#00A389]", border: "border-[#00A389]/20" };
+      return { label: "Activa", bg: "bg-emerald-500/10", text: "text-emerald-500", border: "border-emerald-500/20" };
     case "trialing":
-      return { label: "En prueba", bg: "bg-[#0066FF]/10", text: "text-[#0066FF]", border: "border-[#0066FF]/20" };
+      return { label: "En Prueba", bg: "bg-blue-500/10", text: "text-blue-500", border: "border-blue-500/20" };
     case "past_due":
-      return { label: "Pago vencido", bg: "bg-[#FF6A2A]/10", text: "text-[#FF6A2A]", border: "border-[#FF6A2A]/20" };
-    case "suspended":
-    case "cancelled":
-      return { label: "Suspendida", bg: "bg-[#E53E3E]/10", text: "text-[#E53E3E]", border: "border-[#E53E3E]/20" };
+      return { label: "Acceso Limitado", bg: "bg-amber-500/10", text: "text-amber-500", border: "border-amber-500/20" };
     default:
-      return { label: status, bg: "bg-[#E2E8F0]", text: "text-[#4A5568]", border: "border-transparent" };
+      return { label: "Inactiva", bg: "bg-red-500/10", text: "text-red-500", border: "border-red-500/20" };
   }
 }
 
 function HubDashboardContent() {
   const { session } = useAuth();
+  const [upgrading, setUpgrading] = useState(false);
+
+  if (!session) return null;
+  const auth = session as AuthMeResponse;
+  const subStatus = auth.subscription.status;
+  const styles = getStatusStyle(subStatus);
 
   const handleLogout = () => {
     localStorage.removeItem("sdmx_session");
     window.location.href = "/login";
   };
 
-  if (!session) return null;
-
-  const auth = session as AuthMeResponse;
+  const handleUpgrade = async () => {
+    setUpgrading(true);
+    try {
+      const res = await fetch("/api/payments/subscribe", {
+        method: "POST",
+        body: JSON.stringify({
+          planCode: "profesional-650", // Upgrade sugerido
+          tenantId: auth.shop.id,
+          email: auth.user.email
+        })
+      });
+      const data = await res.json();
+      if (data.init_point) {
+        window.location.href = data.init_point;
+      }
+    } catch (e) {
+      console.error(e);
+      alert("Error al conectar con Mercado Pago");
+    } finally {
+      setUpgrading(false);
+    }
+  };
 
   return (
-    <div className="sdmx-dashboard-container">
-      {/* Top Navbar */}
+    <div className="sdmx-dashboard-container min-h-screen">
+      {/* Header Premium */}
       <header className="sdmx-glass-header sticky top-0 z-40">
-        <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-[#0066FF] rounded-lg flex items-center justify-center">
-              <IconMicrochip width={16} height={16} style={{ color: "white" }} />
+        <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-gradient-to-br from-[#0066FF] to-[#0044CC] rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20">
+              <IconMicrochip width={20} height={20} className="text-white" />
             </div>
-            <span className="font-bold text-white">Servicios Digitales MX</span>
+            <span className="font-black text-white text-xl tracking-tight">Sr-Fix <span className="text-[#0066FF] italic text-sm">PRO</span></span>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-6">
             <div className="text-right hidden sm:block">
-              <p className="text-sm font-bold text-white">{auth.shop.name}</p>
-              <p className="text-xs text-slate-400">{auth.user.fullName}</p>
+              <p className="text-sm font-bold text-white leading-none">{auth.shop.name}</p>
+              <p className="text-[11px] text-slate-500 mt-1 uppercase tracking-widest font-black">{auth.user.fullName}</p>
             </div>
-            <button onClick={handleLogout} className="w-10 h-10 rounded-full sdmx-btn-nav flex items-center justify-center transition">
+            <button onClick={handleLogout} className="w-10 h-10 rounded-full bg-slate-800/50 border border-white/5 flex items-center justify-center text-slate-400 hover:text-white hover:bg-red-500/20 transition-all">
               <IconLogOut width={18} height={18} />
             </button>
           </div>
         </div>
       </header>
 
-      <main className="max-w-6xl mx-auto px-4 py-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-white mb-2">Panel del Negocio</h1>
-          <p className="text-slate-400">Gestiona tu suscripción y accede a las herramientas de tu taller.</p>
+      <main className="max-w-7xl mx-auto px-6 py-12">
+        <div className="mb-12">
+          <h1 className="text-4xl font-black text-white mb-3">Panel de Control</h1>
+          <p className="text-slate-500 font-medium">Gestiona tu taller y domina el mercado con herramientas de élite.</p>
         </div>
 
-        <div className="grid md:grid-cols-3 gap-6 mb-8">
-          {/* Status Card */}
-          <div className={`sdmx-card-premium p-6 border ${getStatusCopy(auth.subscription.status).border}`}>
-            <div className="flex items-center justify-between mb-4">
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${getStatusCopy(auth.subscription.status).bg}`}>
-                <IconCheckCircular width={20} height={20} className={getStatusCopy(auth.subscription.status).text} />
+        <div className="grid lg:grid-cols-3 gap-8">
+          {/* Subscription Status Card */}
+          <div className={`sdmx-card-premium p-8 border ${styles.border} flex flex-col justify-between relative overflow-hidden group`}>
+            <div className="absolute top-0 right-0 w-32 h-32 bg-blue-600/5 blur-[60px] rounded-full pointer-events-none group-hover:bg-blue-600/10 transition-all"></div>
+            <div>
+              <div className="flex items-center justify-between mb-8">
+                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${styles.bg}`}>
+                  <IconCheckCircular width={24} height={24} className={styles.text} />
+                </div>
+                <span className={`text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest border ${styles.border} ${styles.text}`}>
+                  {styles.label}
+                </span>
               </div>
-              <span className={`text-xs font-bold px-2 py-1 rounded ${getStatusCopy(auth.subscription.status).bg} ${getStatusCopy(auth.subscription.status).text}`}>
-                {getStatusCopy(auth.subscription.status).label.toUpperCase()}
-              </span>
+              <h3 className="text-2xl font-black text-white uppercase tracking-tight">{auth.subscription.planCode}</h3>
+              <p className="text-slate-500 text-sm mt-2 font-medium">Suscripción SaaS Activa</p>
             </div>
-            <h3 className="text-xl font-bold text-white capitalize">{auth.subscription.planCode}</h3>
-            <p className="text-slate-400 text-sm mt-1">Suscripción actual</p>
+
+            {subStatus === "trialing" && (
+              <button 
+                onClick={handleUpgrade}
+                disabled={upgrading}
+                className="mt-10 w-full bg-white text-black py-4 rounded-2xl font-black text-sm uppercase tracking-wider hover:bg-[#0066FF] hover:text-white transition-all transform active:scale-95 shadow-xl shadow-blue-500/10 border-none flex items-center justify-center gap-2"
+              >
+                {upgrading ? "Conectando..." : "Mejorar a Profesional"}
+                <IconStar width={16} height={16} />
+              </button>
+            )}
           </div>
 
-          {/* Portal Link */}
-          <div className="sdmx-card-premium p-6 md:col-span-2 flex flex-col justify-between">
+          {/* Portal Widget */}
+          <div className="sdmx-card-premium p-8 lg:col-span-2 flex flex-col justify-between border-white/5">
             <div>
-              <div className="flex items-center gap-2 mb-2">
-                <IconStore width={20} height={20} className="text-[#0066FF]" />
-                <h3 className="font-bold text-white">Portal Público del Taller</h3>
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-2 bg-blue-500/10 rounded-lg">
+                  <IconStore width={20} height={20} className="text-[#0066FF]" />
+                </div>
+                <h3 className="font-black text-white text-lg uppercase tracking-tight">Portal Público</h3>
               </div>
-              <p className="text-slate-400 text-sm">Este es el enlace que debes compartir con tus clientes para que revisen el estado de sus equipos usando su folio.</p>
+              <p className="text-slate-500 text-sm max-w-xl font-medium">
+                Comparte este enlace a tus clientes. Podrán rastrear el estado de sus reparaciones en tiempo real usando su folio único.
+              </p>
             </div>
-            <div className="mt-4 flex flex-col sm:flex-row gap-3">
+            
+            <div className="mt-8 flex flex-col sm:flex-row gap-4">
               <input 
                 type="text" 
                 readOnly 
-                value={typeof window !== 'undefined' ? `${window.location.origin}/portal?shop=${auth.shop.slug}` : `/portal?shop=${auth.shop.slug}`} 
-                className="flex-1 rounded-lg border border-[#E2E8F0] bg-[#F0F2F5] px-4 py-2 text-[#4A5568] font-mono text-sm"
+                value={`${typeof window !== 'undefined' ? window.location.origin : ''}/portal?shop=${auth.shop.slug}`} 
+                className="flex-1 rounded-2xl border border-white/10 bg-slate-900/50 px-6 py-4 text-slate-300 font-mono text-xs focus:border-[#0066FF] outline-none transition-all"
               />
               <button 
                 onClick={() => window.open(`/portal?shop=${auth.shop.slug}`, '_blank')}
-                className="px-4 py-2 bg-[#0066FF] text-white rounded-lg font-bold hover:bg-[#0052CC] transition whitespace-nowrap"
+                className="px-8 py-4 bg-slate-800 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-700 transition-all border border-white/5"
               >
-                Ver Portal Público
+                Abrir Portal
               </button>
             </div>
           </div>
-        </div>
 
-        <h2 className="text-xl font-bold text-white mb-4">Plataforma</h2>
-        <div className="grid sm:grid-cols-2 gap-6">
-          
-          {auth.subscription.operationalAccess ? (
-            <a href={`/interno?shop=${auth.shop.slug}`} className="group sdmx-card-premium p-6 hover:border-[#0066FF] transition flex flex-col justify-between" style={{ minHeight: "200px" }}>
-              <div className="flex items-start justify-between">
-                <div className="w-12 h-12 bg-[#0066FF]/10 text-[#0066FF] rounded-xl flex items-center justify-center mb-4">
-                  <IconDashboard width={24} height={24} />
-                </div>
-                <div className="w-8 h-8 rounded-full border border-[#E2E8F0] flex items-center justify-center text-[#A0AEC0] group-hover:bg-[#0066FF] group-hover:border-[#0066FF] group-hover:text-white transition">
-                   →
-                </div>
+          {/* Action Grid */}
+          <div className="lg:col-span-3 grid md:grid-cols-2 gap-8 pt-8">
+            <a href={`/interno?shop=${auth.shop.slug}`} className="group sdmx-card-premium p-10 hover:border-[#0066FF]/50 transition-all border-white/5">
+              <div className="w-14 h-14 bg-gradient-to-br from-[#0066FF] to-[#0044CC] text-white rounded-2xl flex items-center justify-center mb-8 shadow-lg shadow-blue-500/20 group-hover:scale-110 transition-transform">
+                <IconDashboard width={28} height={28} />
               </div>
-              <div>
-                <h3 className="text-lg font-bold text-white">Operativo Interno</h3>
-                <p className="text-slate-400 text-sm mt-1">Abre tu sistema central: Folios, Clientes, Compras, Stock, Inventario y Finanzas.</p>
-              </div>
+              <h3 className="text-xl font-black text-white uppercase tracking-tight">Sistema Central</h3>
+              <p className="text-slate-500 text-sm mt-3 font-medium leading-relaxed">
+                Panel Técnico completo: Inventarios, Folios automáticos, Finanzas y Control de Gastos. Tu taller en la palma de tu mano.
+              </p>
             </a>
-          ) : (
-            <div className="sdmx-card-premium p-6 border border-[#E53E3E]/30 bg-[#FFF5F5] flex flex-col justify-between" style={{ minHeight: "200px" }}>
-              <div className="flex items-start justify-between">
-                <div className="w-12 h-12 bg-[#E53E3E]/10 text-[#E53E3E] rounded-xl flex items-center justify-center mb-4">
-                  🔒
-                </div>
-                <span className="text-xs font-bold bg-[#E53E3E]/10 text-[#E53E3E] px-2 py-1 rounded">
-                  BLOQUEADO
-                </span>
-              </div>
-              <div>
-                <h3 className="text-lg font-bold text-white">Operativo Interno</h3>
-                <p className="text-[#E53E3E] text-sm mt-1">El acceso está temporalmente inhabilitado. Por favor resuelve tu situación de facturación.</p>
-              </div>
-            </div>
-          )}
 
-          {["owner", "admin"].includes(auth.user.role.toLowerCase()) && (
-            <a href="/billing" className="group sdmx-card-premium p-6 hover:border-[#0066FF] transition flex flex-col justify-between" style={{ minHeight: "200px" }}>
-              <div className="flex items-start justify-between">
-                <div className="w-12 h-12 bg-[#A0AEC0]/10 text-[#4A5568] rounded-xl flex items-center justify-center mb-4">
-                  <IconWallet width={24} height={24} />
-                </div>
-                <div className="w-8 h-8 rounded-full border border-[#E2E8F0] flex items-center justify-center text-[#A0AEC0] group-hover:bg-[#0066FF] group-hover:border-[#0066FF] group-hover:text-white transition">
-                   →
-                </div>
+            <a href="/billing" className="group sdmx-card-premium p-10 hover:border-slate-500 transition-all border-white/5">
+              <div className="w-14 h-14 bg-slate-800 text-slate-300 rounded-2xl flex items-center justify-center mb-8 border border-white/10 group-hover:bg-slate-700 transition-all">
+                <IconWallet width={28} height={28} />
               </div>
-              <div>
-                <h3 className="text-lg font-bold text-white">Facturación y Planes</h3>
-                <p className="text-slate-400 text-sm mt-1">Administra tu método de pago, visualiza tus facturas y ajusta tu suscripción.</p>
-              </div>
+              <h3 className="text-xl font-black text-white uppercase tracking-tight">Facturación</h3>
+              <p className="text-slate-500 text-sm mt-3 font-medium leading-relaxed">
+                Historial de pagos, administración de tarjetas y cambio de planes. Transparencia total en tu suscripción SaaS.
+              </p>
             </a>
-          )}
-
+          </div>
         </div>
-
       </main>
 
       <style jsx global>{`
-        body { background-color: #0F172A !important; margin: 0; }
+        body { background-color: #0F172A; margin: 0; font-family: 'Inter', sans-serif; }
         .sdmx-dashboard-container {
-          min-height: 100vh;
           background-color: #0F172A;
           background-image: 
-            radial-gradient(circle at 0% 0%, rgba(0, 102, 255, 0.1) 0%, transparent 40%),
-            radial-gradient(circle at 100% 100%, rgba(99, 102, 241, 0.1) 0%, transparent 40%);
-          color: white;
+            radial-gradient(circle at 0% 0%, rgba(0, 102, 255, 0.08) 0%, transparent 40%),
+            radial-gradient(circle at 100% 100%, rgba(99, 102, 241, 0.08) 0%, transparent 40%);
         }
         .sdmx-glass-header {
-          background-color: rgba(15, 23, 42, 0.6) !important;
-          backdrop-filter: blur(12px);
-          -webkit-backdrop-filter: blur(12px);
-          border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
+          background-color: rgba(15, 23, 42, 0.7);
+          backdrop-filter: blur(16px);
+          -webkit-backdrop-filter: blur(16px);
+          border-bottom: 1px solid rgba(255, 255, 255, 0.05);
         }
         .sdmx-card-premium {
-          background-color: rgba(255, 255, 255, 0.03) !important;
+          background-color: rgba(30, 41, 59, 0.5);
           backdrop-filter: blur(24px);
-          border: 1px solid rgba(255, 255, 255, 0.1) !important;
-          border-radius: 1.5rem !important;
-          box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.3) !important;
+          border-radius: 2.5rem;
+          transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
         }
-        .sdmx-btn-nav {
-          background-color: rgba(255, 255, 255, 0.05) !important;
-          color: white !important;
-          border: 1px solid rgba(255, 255, 255, 0.1) !important;
-        }
-        .sdmx-btn-nav:hover {
-          background-color: rgba(255, 255, 255, 0.1) !important;
+        .sdmx-card-premium:hover {
+          background-color: rgba(30, 41, 59, 0.8);
+          transform: translateY(-4px);
         }
       `}</style>
     </div>
