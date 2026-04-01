@@ -145,9 +145,9 @@ export function MarketingLanding() {
       {/* HERO SECTION */}
       <section id="inicio" className="sdmx-hero">
         <div className="sdmx-container-6xl">
-          <h1 className="sdmx-hero-title">
+          <h1 className="sdmx-hero-title" style={{ position: 'relative', zIndex: 10 }}>
             Te presentamos el mejor software <br className="hidden md:block" />
-            para administrar tu <span style={{color: '#0066FF'}}>taller de reparación</span>{' '}<br className="hidden md:block" />
+            para administrar tu <span style={{color: '#0066FF'}}>taller de reparación</span>{' '}
             <span style={{display: 'inline-block', transform: 'translateY(12px)'}}>🔨</span>
           </h1>
           <p className="sdmx-hero-subtitle">Toma el control de tu negocio con una sola aplicación.</p>
@@ -204,10 +204,10 @@ export function MarketingLanding() {
           {/* Dashboard Preview */}
           <div className="sdmx-mockups-wrapper">
             <div className="sdmx-mockup-desktop">
-              <img src="https://images.unsplash.com/photo-1551288049-bbbda5366391?auto=format&fit=crop&q=80&w=2000" alt="Dashboard" />
+              <img src="/saas_dashboard_premium_1775008077938.png" alt="Dashboard Premium" />
             </div>
             <div className="sdmx-mockup-mobile">
-              <img src="https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?auto=format&fit=crop&q=80&w=800" alt="Mobile" />
+              <img src="/mobile_app_mockup_1775008092391.png" alt="Mobile Tracking" />
             </div>
           </div>
         </div>
