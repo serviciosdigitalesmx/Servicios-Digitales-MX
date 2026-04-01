@@ -128,26 +128,35 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#F0F2F5] flex items-center justify-center">
-        <IconMicrochip className="animate-pulse text-[#0066FF]" width={32} height={32}/>
+      <div className="min-h-screen bg-[#0F172A] flex flex-col items-center justify-center gap-6">
+        <div className="relative">
+          <div className="absolute inset-0 bg-[#0066FF] blur-[40px] opacity-20 animate-pulse"></div>
+          <IconMicrochip className="relative animate-spin-slow text-[#0066FF]" width={64} height={64}/>
+        </div>
+        <div className="text-center">
+          <p className="text-white font-black text-xl tracking-widest uppercase animate-pulse">Sincronizando</p>
+          <p className="text-slate-500 text-xs mt-2 font-medium">Preparando tu entorno de trabajo...</p>
+        </div>
       </div>
     );
   }
 
   if (subscriptionError) {
     return (
-      <div className="min-h-screen bg-[#F0F2F5] flex items-center justify-center p-4">
-        <div className="sdmx-card-premium max-w-md w-full p-8 text-center flex flex-col items-center gap-4">
-           <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center text-red-600">
-              <IconWarning width={32} height={32} />
+      <div className="min-h-screen bg-[#0F172A] flex items-center justify-center p-6">
+        <div className="sdmx-card-premium max-w-md w-full p-10 text-center flex flex-col items-center gap-6 border-red-500/20 bg-red-500/5">
+           <div className="w-20 h-20 bg-red-500/10 rounded-full flex items-center justify-center text-red-500 shadow-[0_0_30px_rgba(239,68,68,0.2)]">
+              <IconWarning width={40} height={40} />
            </div>
-           <h2 className="text-xl font-bold text-[#1A202C]">Servicio Suspendido</h2>
-           <p className="text-[#4A5568]">{subscriptionError}</p>
+           <div>
+             <h2 className="text-2xl font-black text-white uppercase tracking-tight">Acceso Restringido</h2>
+             <p className="text-slate-400 mt-2 font-medium">{subscriptionError}</p>
+           </div>
            <button 
              onClick={() => window.location.href = "/billing"}
-             className="product-button is-primary w-full mt-4"
+             className="w-full bg-red-600 text-white py-4 rounded-2xl font-black text-sm uppercase tracking-widest hover:bg-red-500 transition-all shadow-lg shadow-red-900/20"
            >
-             Ir a Facturación
+             Resolver Facturación
            </button>
         </div>
       </div>
