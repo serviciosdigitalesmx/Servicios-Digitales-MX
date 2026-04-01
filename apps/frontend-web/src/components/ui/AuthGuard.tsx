@@ -44,89 +44,121 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<AuthMeResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [subscriptionError, setSubscriptionError] = useState<string | null>(null);
+  const [showRetry, setShowRetry] = useState(false);
 
   useEffect(() => {
-    // Red de seguridad: si tarda más de 5 segundos
-    const timer = setTimeout(() => {
-      if (loading) setLoading(false);
-    }, 5000);
+    let mounted = true;
 
+    async function initializeAuth() {
+      console.log("🔐 AuthGuard: Iniciando verificación...");
+      
+      // 1. Verificar sesión actual DE INMEDIATO
+      const { data: { session: initialSession }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError) {
+        console.error("❌ AuthGuard Error:", sessionError);
+        if (mounted) setLoading(false);
+        return;
+      }
+
+      if (initialSession) {
+        console.log("✅ AuthGuard: Sesión detectada, hidratando perfil...");
+        await hydrateProfile(initialSession);
+      } else {
+        console.log("ℹ️ AuthGuard: Sin sesión activa.");
+        if (mounted) setLoading(false);
+      }
+    }
+
+    async function hydrateProfile(authSession: any) {
+      try {
+        // 1. Fetch User Profile
+        const { data: userData, error: userError } = await supabase
+          .from('users')
+          .select('*')
+          .eq('auth_user_id', authSession.user.id)
+          .limit(1) // Aseguramos que solo venga uno
+          .maybeSingle(); // No tira error si hay cero, solo regresa null
+
+        if (userError) throw userError;
+
+        if (!userData) {
+          console.warn("⚠️ AuthGuard: No se encontró perfil de usuario para ID:", authSession.user.id);
+          // Redirigir a setup si el perfil no existe, pero hay sesión auth?
+          if (mounted) setLoading(false);
+          return;
+        }
+
+        // 2. Fetch Tenant and Subscription
+        const [tenantRes, subRes] = await Promise.all([
+          supabase.from('tenants').select('*').eq('id', userData.tenant_id).single(),
+          supabase.from('subscriptions').select('*').eq('tenant_id', userData.tenant_id).single()
+        ]);
+
+        const sub = subRes.data;
+        if (sub?.status === 'inactive' || sub?.status === 'past_due') {
+           setSubscriptionError("⚠️ Tu suscripción requiere atención. Por favor, realiza tu pago.");
+        } else {
+           setSubscriptionError(null);
+        }
+
+        if (mounted) {
+          setSession({
+            user: {
+              id: authSession.user.id,
+              fullName: userData?.full_name || "Usuario",
+              email: authSession.user.email || "",
+              role: userData?.role || "admin",
+              branchId: userData?.branch_id || ""
+            },
+            shop: {
+              id: tenantRes.data?.id || "",
+              name: tenantRes.data?.name || "Mi Negocio",
+              slug: tenantRes.data?.slug || "mi-negocio"
+            },
+            subscription: {
+              status: sub?.status || "active",
+              planCode: sub?.plan_code || "starter",
+              planName: sub?.plan_name || "Plan Inicial",
+              priceMxn: Number(sub?.price_mxn || 350),
+              billingInterval: sub?.billing_interval || "monthly",
+              currentPeriodStart: sub?.current_period_start,
+              currentPeriodEnd: sub?.current_period_end,
+              graceUntil: sub?.grace_until,
+              operationalAccess: sub?.status === 'active' || sub?.status === 'trialing'
+            }
+          });
+          setLoading(false);
+        }
+      } catch (err) {
+        console.error("❌ AuthGuard Critical Error:", err);
+        if (mounted) setLoading(false);
+      }
+    }
+
+    // Listener para cambios de estado (Login/Logout)
     const { data: { subscription: authListener } } = supabase.auth.onAuthStateChange(
       async (_event, authSession) => {
+        console.log(`🔄 AuthGuard Evento: ${_event}`);
         if (_event === "SIGNED_OUT") {
           setSession(null);
           setLoading(false);
           window.location.href = "/login";
-          return;
-        }
-
-        if (authSession) {
-          try {
-            // 1. Fetch User Profile
-            const { data: userData, error: userError } = await supabase
-              .from('users')
-              .select('*')
-              .eq('auth_user_id', authSession.user.id)
-              .single();
-
-            if (userError) throw userError;
-
-            // 2. Fetch Tenant and Subscription in parallel using tenant_id from user
-            const [tenantRes, subRes] = await Promise.all([
-              supabase.from('tenants').select('*').eq('id', userData.tenant_id).single(),
-              supabase.from('subscriptions').select('*').eq('tenant_id', userData.tenant_id).single()
-            ]);
-
-            // Simple validation: if subscription is inactive and not in grace period
-            const sub = subRes.data;
-            const isInactive = sub?.status === 'inactive' || sub?.status === 'past_due';
-            
-            if (isInactive) {
-               setSubscriptionError("⚠️ Tu suscripción ha vencido. Por favor, realiza tu pago para continuar.");
-            } else {
-               setSubscriptionError(null);
-            }
-
-            setSession({
-              user: {
-                id: authSession.user.id,
-                fullName: userData?.full_name || "Usuario",
-                email: authSession.user.email || "",
-                role: userData?.role || "admin",
-                branchId: userData?.branch_id || ""
-              },
-              shop: {
-                id: tenantRes.data?.id || "",
-                name: tenantRes.data?.name || "Mi Negocio",
-                slug: tenantRes.data?.slug || "mi-negocio"
-              },
-              subscription: {
-                status: sub?.status || "active",
-                planCode: sub?.plan_code || "starter",
-                planName: sub?.plan_name || "Plan Inicial",
-                priceMxn: Number(sub?.price_mxn || 350),
-                billingInterval: sub?.billing_interval || "monthly",
-                currentPeriodStart: sub?.current_period_start,
-                currentPeriodEnd: sub?.current_period_end,
-                graceUntil: sub?.grace_until,
-                operationalAccess: sub?.status === 'active' || sub?.status === 'trialing'
-              }
-            });
-          } catch (err) {
-            console.error("Context hydration failed:", err);
-          } finally {
-            setLoading(false);
-          }
-        } else {
-          setLoading(false);
-          if (window.location.pathname !== "/login" && window.location.pathname !== "/register") {
-            window.location.href = "/login";
-          }
+        } else if (_event === "SIGNED_IN" || _event === "TOKEN_REFRESHED") {
+          if (authSession) await hydrateProfile(authSession);
         }
       }
     );
 
+    initializeAuth();
+
+    // Red de seguridad si se queda pegado
+    const timer = setTimeout(() => {
+      if (mounted) setShowRetry(true);
+    }, 7000);
+
     return () => {
+      mounted = false;
       clearTimeout(timer);
       authListener.unsubscribe();
     };
@@ -134,15 +166,28 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#0F172A] flex flex-col items-center justify-center gap-6">
+      <div className="min-h-screen bg-[#0F172A] flex flex-col items-center justify-center gap-8 p-6 text-center">
         <div className="relative">
-          <div className="absolute inset-0 bg-[#0066FF] blur-[40px] opacity-20 animate-pulse"></div>
-          <IconMicrochip className="relative animate-spin-slow text-[#0066FF]" width={64} height={64}/>
+          <div className="absolute inset-0 bg-[#0066FF]/20 blur-[60px] rounded-full animate-pulse"></div>
+          <IconMicrochip className="relative animate-spin-slow text-[#0066FF] shadow-[0_0_30px_rgba(0,102,255,0.3)]" width={80} height={80}/>
         </div>
-        <div className="text-center">
-          <p className="text-white font-black text-xl tracking-widest uppercase animate-pulse">Sincronizando</p>
-          <p className="text-slate-500 text-xs mt-2 font-medium">Preparando tu entorno de trabajo...</p>
+        
+        <div className="space-y-4 animate-fadeIn">
+          <h2 className="text-white text-xl font-black uppercase tracking-[0.2em] opacity-80">Sincronizando Acceso</h2>
+          <p className="text-[#0066FF] text-sm font-bold animate-pulse">Verificando credenciales de seguridad...</p>
         </div>
+
+        {showRetry && (
+          <div className="mt-8 animate-fadeIn delay-700">
+            <p className="text-slate-500 text-xs mb-4 max-w-xs mx-auto">Si la carga demora demasiado, es posible que tu sesión necesite un empujón.</p>
+            <button 
+              onClick={() => window.location.reload()}
+              className="px-8 py-3 rounded-xl bg-white/5 border border-white/10 text-white text-xs font-bold uppercase tracking-widest hover:bg-white/10 transition-all hover:border-[#0066FF]/50"
+            >
+              Refrescar Sistema
+            </button>
+          </div>
+        )}
       </div>
     );
   }
