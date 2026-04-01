@@ -46,6 +46,11 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   const [subscriptionError, setSubscriptionError] = useState<string | null>(null);
 
   useEffect(() => {
+    // Red de seguridad: si tarda más de 5 segundos
+    const timer = setTimeout(() => {
+      if (loading) setLoading(false);
+    }, 5000);
+
     const { data: { subscription: authListener } } = supabase.auth.onAuthStateChange(
       async (_event, authSession) => {
         if (_event === "SIGNED_OUT") {
@@ -122,6 +127,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     );
 
     return () => {
+      clearTimeout(timer);
       authListener.unsubscribe();
     };
   }, []);
