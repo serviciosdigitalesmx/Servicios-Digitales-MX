@@ -72,62 +72,24 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
 
     async function hydrateProfile(authSession: any) {
       try {
-        // 1. Fetch User Profile
-        const { data: userData, error: userError } = await supabase
-          .from('users')
-          .select('*')
-          .eq('auth_user_id', authSession.user.id)
-          .limit(1) // Aseguramos que solo venga uno
-          .maybeSingle(); // No tira error si hay cero, solo regresa null
-
-        if (userError) throw userError;
-
-        if (!userData) {
-          console.warn("⚠️ AuthGuard: No se encontró perfil de usuario para ID:", authSession.user.id);
-          // Redirigir a setup si el perfil no existe, pero hay sesión auth?
-          if (mounted) setLoading(false);
-          return;
+        const { fetchWithAuth } = await import("../../lib/apiClient");
+        const response = await fetchWithAuth("/api/auth/me");
+        
+        if (!response.ok) {
+          throw new Error(`Error en validación backend: ${response.status}`);
         }
 
-        // 2. Fetch Tenant and Subscription
-        const [tenantRes, subRes] = await Promise.all([
-          supabase.from('tenants').select('*').eq('id', userData.tenant_id).single(),
-          supabase.from('subscriptions').select('*').eq('tenant_id', userData.tenant_id).single()
-        ]);
-
-        const sub = subRes.data;
-        if (sub?.status === 'inactive' || sub?.status === 'past_due') {
-           setSubscriptionError("⚠️ Tu suscripción requiere atención. Por favor, realiza tu pago.");
-        } else {
-           setSubscriptionError(null);
-        }
-
+        const { data } = await response.json();
+        
         if (mounted) {
-          setSession({
-            user: {
-              id: authSession.user.id,
-              fullName: userData?.full_name || "Usuario",
-              email: authSession.user.email || "",
-              role: userData?.role || "admin",
-              branchId: userData?.branch_id || ""
-            },
-            shop: {
-              id: tenantRes.data?.id || "",
-              name: tenantRes.data?.name || "Mi Negocio",
-              slug: tenantRes.data?.slug || "mi-negocio"
-            },
-            subscription: {
-              status: sub?.status || "active",
-              planCode: sub?.plan_code || "starter",
-              planName: sub?.plan_name || "Plan Inicial",
-              priceMxn: Number(sub?.price_mxn || 350),
-              billingInterval: sub?.billing_interval || "monthly",
-              currentPeriodStart: sub?.current_period_start,
-              currentPeriodEnd: sub?.current_period_end,
-              graceUntil: sub?.grace_until,
-              operationalAccess: sub?.status === 'active' || sub?.status === 'trialing'
-            }
-          });
+          setSession(data);
+          
+          if (data.subscription?.status === 'inactive' || data.subscription?.status === 'past_due') {
+            setSubscriptionError("⚠️ Tu suscripción requiere atención. Por favor, realiza tu pago.");
+          } else {
+            setSubscriptionError(null);
+          }
+          
           setLoading(false);
         }
       } catch (err) {
