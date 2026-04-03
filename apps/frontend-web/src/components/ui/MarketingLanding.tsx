@@ -53,12 +53,13 @@ const PLANS = [
     tone: "featured",
     badge: "El más popular",
     features: [
-      "Todo lo del Esencial",
-      "Stock e inventario",
-      "Compras y proveedores",
-      "Gastos y finanzas",
-      "Reportes operativos",
-      "Sistema de referidos"
+      "Todo lo del Esencial + Seguridad y bitácora de acciones críticas: control total de quién cambia precios o borra registros",
+      "Gestión de stock e inventario real: control de refacciones con alertas de existencias",
+      "Compras, gastos y proveedores: registra cada peso que sale para conocer tu utilidad neta",
+      "Roles y permisos avanzados: define qué puede hacer tu técnico y qué solo tú como administrador",
+      "PDF de cotización con fotos: vende más enviando presupuestos visuales automáticos por WhatsApp",
+      "Panel del cliente en vivo: tu cliente ve el avance y fotos de su reparación sin llamarte",
+      "Sistema de referidos: herramientas para que tus clientes te traigan más clientes"
     ]
   },
   {
