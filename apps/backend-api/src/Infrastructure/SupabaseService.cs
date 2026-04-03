@@ -26,15 +26,18 @@ public sealed class SupabaseService
         _options = options.Value;
         _bootstrap = bootstrap;
 
-        if (!string.IsNullOrWhiteSpace(_options.Url))
+        var normalizedUrl = _options.Url?.Trim();
+        var normalizedServiceKey = _options.ServiceKey?.Trim();
+
+        if (!string.IsNullOrWhiteSpace(normalizedUrl))
         {
-            _httpClient.BaseAddress = new Uri($"{_options.Url.TrimEnd('/')}/rest/v1/");
+            _httpClient.BaseAddress = new Uri($"{normalizedUrl!.TrimEnd('/')}/rest/v1/");
         }
-        if (!string.IsNullOrWhiteSpace(_options.ServiceKey))
+        if (!string.IsNullOrWhiteSpace(normalizedServiceKey))
         {
-            _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _options.ServiceKey);
+            _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", normalizedServiceKey);
             _httpClient.DefaultRequestHeaders.Remove("apikey");
-            _httpClient.DefaultRequestHeaders.Add("apikey", _options.ServiceKey);
+            _httpClient.DefaultRequestHeaders.Add("apikey", normalizedServiceKey);
         }
     }
 
