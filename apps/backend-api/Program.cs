@@ -1249,34 +1249,61 @@ app.MapPost("/api/billing/checkout-preference", async (BillingCheckoutRequest? r
         ? bootstrap.UserEmail
         : request!.PayerEmail!.Trim();
 
-    var preference = await mercadoPago.CreateSubscriptionPreferenceAsync(
-        new MercadoPagoPreferenceRequest(
-            tenantId,
-            selectedPlan.Code,
-            $"Servicios Digitales MX - {selectedPlan.Name}",
-            $"Suscripcion mensual {selectedPlan.Name} para acceso operativo del shop",
-            selectedPlan.PriceMxn,
-            "MXN",
-            $"shop:{tenantId}:subscription:{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}",
-            payerName,
-            payerEmail
-        ),
-        cancellationToken
-    );
-
-    var checkoutUrl = !string.IsNullOrWhiteSpace(preference.SandboxInitPoint)
-        ? preference.SandboxInitPoint
-        : preference.InitPoint;
-
-    return Results.Ok(new
+    try
     {
-        success = true,
-        data = new
+        var preference = await mercadoPago.CreateSubscriptionPreferenceAsync(
+            new MercadoPagoPreferenceRequest(
+                tenantId,
+                selectedPlan.Code,
+                $"Servicios Digitales MX - {selectedPlan.Name}",
+                $"Suscripcion mensual {selectedPlan.Name} para acceso operativo del shop",
+                selectedPlan.PriceMxn,
+                "MXN",
+                $"shop:{tenantId}:subscription:{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}",
+                payerName,
+                payerEmail
+            ),
+            cancellationToken
+        );
+
+        var checkoutUrl = !string.IsNullOrWhiteSpace(preference.SandboxInitPoint)
+            ? preference.SandboxInitPoint
+            : preference.InitPoint;
+
+        return Results.Ok(new
         {
-            preferenceId = preference.PreferenceId,
-            checkoutUrl
-        }
-    });
+            success = true,
+            data = new
+            {
+                preferenceId = preference.PreferenceId,
+                checkoutUrl
+            }
+        });
+    }
+    catch (HttpRequestException ex)
+    {
+        return Results.Json(new
+        {
+            success = false,
+            error = new
+            {
+                code = "MERCADOPAGO_CHECKOUT_FAILED",
+                message = ex.Message
+            }
+        }, statusCode: StatusCodes.Status502BadGateway);
+    }
+    catch (Exception ex)
+    {
+        return Results.Json(new
+        {
+            success = false,
+            error = new
+            {
+                code = "BILLING_CHECKOUT_UNEXPECTED_ERROR",
+                message = ex.Message
+            }
+        }, statusCode: StatusCodes.Status500InternalServerError);
+    }
 })
 .WithName("CreateBillingCheckoutPreference");
 
