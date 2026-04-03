@@ -32,7 +32,6 @@ builder.Services.AddCors(options =>
             .AllowAnyMethod();
     });
 });
-builder.Services.AddOpenApi();
 builder.Services.AddSingleton<SupabaseBootstrapContext>();
 builder.Services.AddHttpClient<SupabaseService>();
 builder.Services.AddHttpClient<MercadoPagoService>();
@@ -98,11 +97,6 @@ await using (var scope = app.Services.CreateAsyncScope())
             logger.LogError(ex, "No se pudo completar el bootstrap de Supabase durante el arranque. La API seguira activa sin datos sembrados.");
         }
     }
-}
-
-if (app.Environment.IsDevelopment())
-{
-    app.MapOpenApi();
 }
 
 app.UseCors("frontend-dev");
