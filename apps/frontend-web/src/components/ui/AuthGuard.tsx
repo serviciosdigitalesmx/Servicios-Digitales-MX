@@ -1,8 +1,8 @@
 "use client";
 
 import React, { useEffect, useState, createContext, useContext } from "react";
-import { supabase } from "../../lib/supabase";
 import { getBackendApiBaseUrl } from "../../lib/backendApi";
+import { clearStoredSession, getStoredSession } from "../../lib/apiClient";
 import { IconMicrochip, IconWarning } from "./Icons";
 
 export type AuthMeResponse = {
@@ -55,19 +55,10 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
       if (mounted) {
         setLoading(true);
       }
-      
-      const { data: { session: initialSession }, error: sessionError } = await supabase.auth.getSession();
-      
-      if (sessionError) {
-        if (mounted) {
-          setSession(null);
-          setLoading(false);
-        }
-        return;
-      }
 
-      if (initialSession) {
-        await hydrateProfile(initialSession);
+      const storedSession = getStoredSession();
+      if (storedSession?.accessToken) {
+        await hydrateProfile(storedSession.accessToken);
       } else {
         if (mounted) {
           setSession(null);
@@ -76,7 +67,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
       }
     }
 
-    async function hydrateProfile(authSession: { access_token: string }) {
+    async function hydrateProfile(accessToken: string) {
       if (!mounted) return;
       
       try {
@@ -84,7 +75,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
         const baseUrl = getBackendApiBaseUrl();
         const response = await fetch(`${baseUrl}/api/auth/me`, {
           headers: {
-            'Authorization': `Bearer ${authSession.access_token}`,
+            'Authorization': `Bearer ${accessToken}`,
             'Content-Type': 'application/json'
           }
         });
@@ -108,24 +99,12 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
         }
       } catch (err) {
         if (mounted) {
+          clearStoredSession();
           setSession(null);
           setLoading(false);
         }
       }
     }
-
-    // Listener para cambios de estado (Login/Logout)
-    const { data: { subscription: authListener } } = supabase.auth.onAuthStateChange(
-      async (_event, authSession) => {
-        if (_event === "SIGNED_OUT") {
-          setSession(null);
-          setLoading(false);
-          window.location.href = "/login";
-        } else if (_event === "SIGNED_IN" || _event === "TOKEN_REFRESHED") {
-          if (authSession) await hydrateProfile(authSession);
-        }
-      }
-    );
 
     initializeAuth();
 
@@ -137,7 +116,6 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     return () => {
       mounted = false;
       clearTimeout(timer);
-      authListener.unsubscribe();
     };
   }, []);
 

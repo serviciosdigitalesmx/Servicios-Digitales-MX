@@ -76,6 +76,14 @@ public sealed record CreateCustomerRequest(
     string? Notes
 );
 
+public sealed record UpdateCustomerRequest(
+    string? FullName,
+    string? Phone,
+    string? Email,
+    string? Tag,
+    string? Notes
+);
+
 public sealed record CreateServiceOrderRequest(
     Guid BranchId,
     Guid CustomerId,
@@ -88,6 +96,13 @@ public sealed record CreateServiceOrderRequest(
     string? Priority,
     DateOnly? PromisedDate,
     decimal? EstimatedCost
+);
+
+public sealed record UploadServiceOrderAssetRequest(
+    string FileName,
+    string ContentType,
+    string Base64Data,
+    string FileType
 );
 
 public sealed record CreateServiceRequestRequest(
@@ -177,6 +192,15 @@ public sealed record CreateTaskRequest(
     Guid? ServiceOrderId,
     Guid? ServiceRequestId,
     string Title,
+    string? Description,
+    string? Status,
+    string? Priority,
+    Guid? AssignedUserId,
+    DateTimeOffset? DueDate
+);
+
+public sealed record UpdateTaskRequest(
+    string? Title,
     string? Description,
     string? Status,
     string? Priority,

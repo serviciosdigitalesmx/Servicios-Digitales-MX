@@ -1,21 +1,44 @@
-import { supabase } from "./supabase";
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "https://sr-fix-backend.onrender.com";
+const SESSION_STORAGE_KEY = "sdmx_session";
 
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://sr-fix-backend.onrender.com';
+type StoredSession = {
+  accessToken: string;
+  user?: unknown;
+  shop?: unknown;
+  subscription?: unknown;
+};
 
-export async function getAuthToken(): Promise<string | null> {
-  if (typeof window === "undefined" || !supabase) return null;
-  
+export function getStoredSession(): StoredSession | null {
+  if (typeof window === "undefined") return null;
+
   try {
-    const { data: { session } } = await supabase.auth.getSession();
-    return session?.access_token || null;
+    const raw = window.localStorage.getItem(SESSION_STORAGE_KEY);
+    if (!raw) return null;
+
+    const parsed = JSON.parse(raw) as StoredSession;
+    return typeof parsed?.accessToken === "string" && parsed.accessToken.length > 0 ? parsed : null;
   } catch {
     return null;
   }
 }
 
+export function saveStoredSession(session: StoredSession) {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session));
+}
+
+export function clearStoredSession() {
+  if (typeof window === "undefined") return;
+  window.localStorage.removeItem(SESSION_STORAGE_KEY);
+}
+
+export async function getAuthToken(): Promise<string | null> {
+  return getStoredSession()?.accessToken ?? null;
+}
+
 export async function clearSessionAndRedirect() {
   if (typeof window !== "undefined") {
-    if (supabase) await supabase.auth.signOut();
+    clearStoredSession();
     window.location.href = "/login";
   }
 }

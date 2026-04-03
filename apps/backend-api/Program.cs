@@ -56,6 +56,35 @@ static IResult? RequireOperationalAccess(SupabaseBootstrapContext bootstrap)
     }, statusCode: StatusCodes.Status403Forbidden);
 }
 
+static string NormalizeRole(string? role)
+{
+    var normalized = (role ?? string.Empty).Trim().ToLowerInvariant();
+    return normalized switch
+    {
+        "admin" => "owner",
+        _ => normalized
+    };
+}
+
+static bool IsPrivilegedRole(string normalizedRole) =>
+    normalizedRole is "owner" or "manager";
+
+static bool CanUploadAsset(string normalizedRole, string? fileType)
+{
+    if (IsPrivilegedRole(normalizedRole))
+    {
+        return true;
+    }
+
+    var normalizedFileType = (fileType ?? string.Empty).Trim().ToLowerInvariant();
+    return normalizedRole switch
+    {
+        "receptionist" => normalizedFileType is "reception_photo" or "delivery_photo" or "evidence",
+        "technician" => normalizedFileType is "progress_photo" or "delivery_photo" or "evidence",
+        _ => false
+    };
+}
+
 static Guid? ResolveShopId(string? externalReference, MercadoPagoPaymentMetadata? metadata)
 {
     if (!string.IsNullOrWhiteSpace(metadata?.ShopId) && Guid.TryParse(metadata.ShopId, out var metadataShopId))
@@ -534,6 +563,47 @@ app.MapPost("/api/customers", async (CreateCustomerRequest request, SupabaseServ
 })
 .WithName("CreateCustomer");
 
+app.MapPatch("/api/customers/{id:guid}", async (Guid id, UpdateCustomerRequest request, SupabaseService supabase, CancellationToken cancellationToken) =>
+{
+    await supabase.RefreshSubscriptionContextAsync(cancellationToken);
+    var blocked = RequireOperationalAccess(supabase.Bootstrap);
+    if (blocked is not null) return blocked;
+
+    if (request.FullName is not null && string.IsNullOrWhiteSpace(request.FullName))
+    {
+        return Results.BadRequest(new
+        {
+            success = false,
+            error = new
+            {
+                code = "VALIDATION_ERROR",
+                message = "El nombre del cliente no puede quedar vacio"
+            }
+        });
+    }
+
+    var customer = await supabase.UpdateCustomerAsync(id, request, cancellationToken);
+    if (customer is null)
+    {
+        return Results.NotFound(new
+        {
+            success = false,
+            error = new
+            {
+                code = "NOT_FOUND",
+                message = "Cliente no encontrado"
+            }
+        });
+    }
+
+    return Results.Ok(new
+    {
+        success = true,
+        data = customer
+    });
+})
+.WithName("UpdateCustomer");
+
 app.MapPost("/api/service-orders", async (CreateServiceOrderRequest request, SupabaseService supabase, CancellationToken cancellationToken) =>
 {
     await supabase.RefreshSubscriptionContextAsync(cancellationToken);
@@ -655,6 +725,121 @@ app.MapGet("/api/service-orders/{id:guid}", async (Guid id, SupabaseService supa
     });
 })
 .WithName("GetServiceOrder");
+
+app.MapGet("/api/service-orders/{id:guid}/assets", async (Guid id, SupabaseService supabase, CancellationToken cancellationToken) =>
+{
+    await supabase.RefreshSubscriptionContextAsync(cancellationToken);
+    var blocked = RequireOperationalAccess(supabase.Bootstrap);
+    if (blocked is not null) return blocked;
+
+    var serviceOrder = await supabase.GetServiceOrderByIdAsync(id, cancellationToken);
+    if (serviceOrder is null)
+    {
+        return Results.NotFound(new
+        {
+            success = false,
+            error = new
+            {
+                code = "SERVICE_ORDER_NOT_FOUND",
+                message = "La orden de servicio no existe"
+            }
+        });
+    }
+
+    var assets = await supabase.GetFileAssetsByServiceOrderIdAsync(id, cancellationToken);
+    return Results.Ok(new
+    {
+        success = true,
+        data = assets.Select(asset => new
+        {
+            asset.Id,
+            asset.ServiceOrderId,
+            asset.FileType,
+            asset.BucketName,
+            asset.StoragePath,
+            asset.PublicUrl,
+            asset.CreatedAt
+        })
+    });
+})
+.WithName("ListServiceOrderAssets");
+
+app.MapPost("/api/service-orders/{id:guid}/assets", async (Guid id, UploadServiceOrderAssetRequest request, SupabaseService supabase, CancellationToken cancellationToken) =>
+{
+    await supabase.RefreshSubscriptionContextAsync(cancellationToken);
+    var blocked = RequireOperationalAccess(supabase.Bootstrap);
+    if (blocked is not null) return blocked;
+
+    var normalizedRole = NormalizeRole(supabase.Bootstrap.UserRole);
+    if (!CanUploadAsset(normalizedRole, request.FileType))
+    {
+        return Results.Json(new
+        {
+            success = false,
+            error = new
+            {
+                code = "ASSET_UPLOAD_FORBIDDEN",
+                message = "Tu rol actual no tiene permisos para subir este tipo de evidencia"
+            }
+        }, statusCode: StatusCodes.Status403Forbidden);
+    }
+
+    try
+    {
+        var asset = await supabase.UploadServiceOrderAssetAsync(id, request, cancellationToken);
+        return Results.Ok(new
+        {
+            success = true,
+            data = new
+            {
+                asset.Id,
+                asset.ServiceOrderId,
+                asset.FileType,
+                asset.BucketName,
+                asset.StoragePath,
+                asset.PublicUrl,
+                asset.CreatedAt
+            }
+        });
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new
+        {
+            success = false,
+            error = new
+            {
+                code = "ASSET_UPLOAD_INVALID",
+                message = ex.Message
+            }
+        });
+    }
+    catch (FormatException)
+    {
+        return Results.BadRequest(new
+        {
+            success = false,
+            error = new
+            {
+                code = "ASSET_UPLOAD_INVALID_BASE64",
+                message = "El archivo enviado no tiene un contenido base64 valido"
+            }
+        });
+    }
+    catch (HttpRequestException ex)
+    {
+        return Results.Json(new
+        {
+            success = false,
+            error = new
+            {
+                code = "ASSET_UPLOAD_STORAGE_FAILED",
+                message = ex.Message
+            }
+        }, statusCode: StatusCodes.Status502BadGateway);
+    }
+})
+.WithName("UploadServiceOrderAsset");
 
 app.MapGet("/api/service-orders/by-folio/{folio}", async (string folio, SupabaseService supabase, CancellationToken cancellationToken) =>
 {
@@ -817,7 +1002,7 @@ app.MapPatch("/api/service-orders/{id:guid}/technician", async (Guid id, UpdateT
 })
 .WithName("UpdateTechnicianOrder");
 
-app.MapGet("/api/archive/service-orders", async (int? page, int? pageSize, SupabaseService supabase, CancellationToken cancellationToken) =>
+app.MapGet("/api/archive/service-orders", async (string? status, string? search, DateOnly? from, DateOnly? to, int? page, int? pageSize, SupabaseService supabase, CancellationToken cancellationToken) =>
 {
     await supabase.RefreshSubscriptionContextAsync(cancellationToken);
     var blocked = RequireOperationalAccess(supabase.Bootstrap);
@@ -825,7 +1010,7 @@ app.MapGet("/api/archive/service-orders", async (int? page, int? pageSize, Supab
 
     var currentPage = page.GetValueOrDefault(1);
     var currentPageSize = pageSize.GetValueOrDefault(20);
-    var (items, total) = await supabase.ListArchivedOrdersAsync(currentPage, currentPageSize, cancellationToken);
+    var (items, total) = await supabase.ListArchivedOrdersAsync(status, search, from, to, currentPage, currentPageSize, cancellationToken);
 
     return Results.Ok(new
     {
@@ -1197,6 +1382,47 @@ app.MapPost("/api/tasks", async (CreateTaskRequest request, SupabaseService supa
     });
 })
 .WithName("CreateTask");
+
+app.MapPatch("/api/tasks/{id:guid}", async (Guid id, UpdateTaskRequest request, SupabaseService supabase, CancellationToken cancellationToken) =>
+{
+    await supabase.RefreshSubscriptionContextAsync(cancellationToken);
+    var blocked = RequireOperationalAccess(supabase.Bootstrap);
+    if (blocked is not null) return blocked;
+
+    if (request.Title is not null && string.IsNullOrWhiteSpace(request.Title))
+    {
+        return Results.BadRequest(new
+        {
+            success = false,
+            error = new
+            {
+                code = "VALIDATION_ERROR",
+                message = "El titulo de la tarea no puede quedar vacio"
+            }
+        });
+    }
+
+    var task = await supabase.UpdateTaskAsync(id, request, cancellationToken);
+    if (task is null)
+    {
+        return Results.NotFound(new
+        {
+            success = false,
+            error = new
+            {
+                code = "NOT_FOUND",
+                message = "Tarea no encontrada"
+            }
+        });
+    }
+
+    return Results.Ok(new
+    {
+        success = true,
+        data = task
+    });
+})
+.WithName("UpdateTask");
 
 app.MapGet("/api/reports/operational", async (SupabaseService supabase, CancellationToken cancellationToken) =>
 {

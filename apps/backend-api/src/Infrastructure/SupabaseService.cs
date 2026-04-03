@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Security.Cryptography;
+using System.Text.RegularExpressions;
 using System.Text;
 using System.Text.Json;
 using BackendApi.Domain;
@@ -554,6 +555,31 @@ public sealed class SupabaseService
             notes = string.IsNullOrWhiteSpace(request.Notes) ? null : request.Notes.Trim()
         }, cancellationToken, "id,tenant_id,full_name,phone,email,tag,notes,created_at");
 
+    public async Task<DbCustomer?> UpdateCustomerAsync(Guid customerId, UpdateCustomerRequest request, CancellationToken cancellationToken = default)
+    {
+        var current = await GetCustomerByIdAsync(customerId, cancellationToken);
+        if (current is null) return null;
+
+        var nextFullName = string.IsNullOrWhiteSpace(request.FullName) ? current.FullName : request.FullName.Trim();
+        var nextPhone = request.Phone is null ? current.Phone : string.IsNullOrWhiteSpace(request.Phone) ? null : request.Phone.Trim();
+        var nextEmail = request.Email is null ? current.Email : string.IsNullOrWhiteSpace(request.Email) ? null : request.Email.Trim();
+        var nextTag = request.Tag is null ? current.Tag : string.IsNullOrWhiteSpace(request.Tag) ? "nuevo" : request.Tag.Trim().ToLowerInvariant();
+        var nextNotes = request.Notes is null ? current.Notes : string.IsNullOrWhiteSpace(request.Notes) ? null : request.Notes.Trim();
+
+        return await PatchSingleAsync<DbCustomer>(
+            $"customers?id=eq.{customerId}&tenant_id=eq.{_bootstrap.TenantId}",
+            new
+            {
+                full_name = nextFullName,
+                phone = nextPhone,
+                email = nextEmail,
+                tag = nextTag,
+                notes = nextNotes
+            },
+            cancellationToken,
+            "id,tenant_id,full_name,phone,email,tag,notes,created_at");
+    }
+
     public async Task<(IReadOnlyList<object> Items, int Total)> ListServiceOrdersAsync(string? status, Guid? branchId, string? search, int page, int pageSize, CancellationToken cancellationToken = default)
     {
         var rows = await GetManyAsync<DbServiceOrder>($"service_orders?tenant_id=eq.{_bootstrap.TenantId}&order=created_at.desc&select=id,folio,status,device_type,device_model,promised_date,branch_id", cancellationToken);
@@ -670,6 +696,61 @@ public sealed class SupabaseService
     public Task<DbServiceOrder?> GetServiceOrderByIdAsync(Guid id, CancellationToken cancellationToken = default) =>
         GetSingleAsync<DbServiceOrder>($"service_orders?id=eq.{id}&tenant_id=eq.{_bootstrap.TenantId}&select=id,tenant_id,branch_id,customer_id,folio,status,device_type,device_brand,device_model,reported_issue,priority,promised_date,estimated_cost,created_at", cancellationToken);
 
+    public Task<IReadOnlyList<DbFileAsset>> GetFileAssetsByServiceOrderIdAsync(Guid serviceOrderId, CancellationToken cancellationToken = default) =>
+        GetManyAsync<DbFileAsset>($"file_assets?tenant_id=eq.{_bootstrap.TenantId}&service_order_id=eq.{serviceOrderId}&order=created_at.desc&select=id,tenant_id,branch_id,service_order_id,service_request_id,file_type,bucket_name,storage_path,public_url,uploaded_by,created_at", cancellationToken);
+
+    public async Task<DbFileAsset> UploadServiceOrderAssetAsync(Guid serviceOrderId, UploadServiceOrderAssetRequest request, CancellationToken cancellationToken = default)
+    {
+        var serviceOrder = await GetServiceOrderByIdAsync(serviceOrderId, cancellationToken);
+        if (serviceOrder is null)
+        {
+            throw new InvalidOperationException("La orden de servicio no existe o no pertenece al tenant actual");
+        }
+
+        if (string.IsNullOrWhiteSpace(request.FileName))
+        {
+            throw new InvalidOperationException("El archivo debe tener nombre");
+        }
+
+        if (string.IsNullOrWhiteSpace(request.Base64Data))
+        {
+            throw new InvalidOperationException("El archivo debe contener datos");
+        }
+
+        var bucketName = string.IsNullOrWhiteSpace(_options.EvidenceBucket) ? "sdmx-evidence" : _options.EvidenceBucket.Trim();
+        var normalizedFileType = NormalizeFileType(request.FileType);
+        var bytes = Convert.FromBase64String(request.Base64Data);
+        var safeFileName = SanitizeFileName(request.FileName);
+        var storagePath = $"{_bootstrap.TenantId}/{serviceOrderId}/{normalizedFileType}/{DateTimeOffset.UtcNow:yyyyMMddHHmmss}-{safeFileName}";
+        var storageUrl = $"{_options.Url.TrimEnd('/')}/storage/v1/object/{bucketName}/{storagePath}";
+
+        using var uploadRequest = new HttpRequestMessage(HttpMethod.Post, storageUrl);
+        uploadRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _options.ServiceKey.Trim());
+        uploadRequest.Headers.Remove("apikey");
+        uploadRequest.Headers.Add("apikey", _options.ServiceKey.Trim());
+        uploadRequest.Headers.Add("x-upsert", "false");
+        uploadRequest.Content = new ByteArrayContent(bytes);
+        uploadRequest.Content.Headers.ContentType = new MediaTypeHeaderValue(string.IsNullOrWhiteSpace(request.ContentType) ? "application/octet-stream" : request.ContentType.Trim());
+
+        using var uploadResponse = await _httpClient.SendAsync(uploadRequest, cancellationToken);
+        await EnsureSuccessAsync(uploadResponse);
+
+        var publicUrl = $"{_options.Url.TrimEnd('/')}/storage/v1/object/public/{bucketName}/{storagePath}";
+        var asset = await InsertSingleAsync<DbFileAsset>("file_assets", new
+        {
+            tenant_id = _bootstrap.TenantId,
+            branch_id = _bootstrap.BranchId == Guid.Empty ? (Guid?)null : _bootstrap.BranchId,
+            service_order_id = serviceOrderId,
+            file_type = normalizedFileType,
+            bucket_name = bucketName,
+            storage_path = storagePath,
+            public_url = publicUrl,
+            uploaded_by = _bootstrap.UserId == Guid.Empty ? (Guid?)null : _bootstrap.UserId
+        }, cancellationToken, "id,tenant_id,branch_id,service_order_id,service_request_id,file_type,bucket_name,storage_path,public_url,uploaded_by,created_at");
+
+        return asset ?? throw new InvalidOperationException("No se pudo registrar el asset en file_assets");
+    }
+
     public Task<DbServiceOrder?> GetServiceOrderByFolioAsync(string folio, CancellationToken cancellationToken = default) =>
         GetSingleAsync<DbServiceOrder>($"service_orders?folio=eq.{Uri.EscapeDataString(folio)}&tenant_id=eq.{_bootstrap.TenantId}&select=id,tenant_id,branch_id,customer_id,folio,status,device_type,device_brand,device_model,reported_issue,priority,promised_date,estimated_cost,created_at", cancellationToken);
 
@@ -742,14 +823,73 @@ public sealed class SupabaseService
         };
     }
 
-    public async Task<(IReadOnlyList<object> Items, int Total)> ListArchivedOrdersAsync(int page, int pageSize, CancellationToken cancellationToken = default)
+    public async Task<(IReadOnlyList<object> Items, int Total)> ListArchivedOrdersAsync(string? status, string? search, DateOnly? from, DateOnly? to, int page, int pageSize, CancellationToken cancellationToken = default)
     {
         var rows = await GetManyAsync<DbArchivedOrder>(
-            $"service_orders?tenant_id=eq.{_bootstrap.TenantId}&status=in.(archivado,entregado,cancelado)&order=updated_at.desc&select=id,folio,status,device_type,device_brand,device_model,reported_issue,final_cost,archived_at,delivered_at,updated_at",
+            $"service_orders?tenant_id=eq.{_bootstrap.TenantId}&status=in.(archivado,entregado,cancelado)&order=updated_at.desc&select=id,folio,status,customer_id,device_type,device_brand,device_model,reported_issue,priority,estimated_cost,final_cost,archived_at,delivered_at,updated_at",
             cancellationToken);
+        var customerIds = rows
+            .Where(x => x.CustomerId.HasValue)
+            .Select(x => x.CustomerId!.Value)
+            .Distinct()
+            .ToArray();
+        var customerMap = customerIds.Length == 0
+            ? new Dictionary<Guid, string>()
+            : (await GetManyAsync<DbCustomer>(
+                $"customers?id=in.({string.Join(",", customerIds)})&tenant_id=eq.{_bootstrap.TenantId}&select=id,tenant_id,full_name,phone,email,tag,notes,created_at",
+                cancellationToken))
+                .ToDictionary(x => x.Id, x => x.FullName);
 
-        var total = rows.Count;
-        var items = rows
+        var normalizedStatus = string.IsNullOrWhiteSpace(status) ? null : status.Trim().ToLowerInvariant();
+        var normalizedSearch = string.IsNullOrWhiteSpace(search) ? null : search.Trim().ToLowerInvariant();
+
+        IEnumerable<DbArchivedOrder> query = rows;
+        if (!string.IsNullOrWhiteSpace(normalizedStatus) && normalizedStatus != "all")
+        {
+            query = query.Where(x => string.Equals(x.Status, normalizedStatus, StringComparison.OrdinalIgnoreCase));
+        }
+
+        if (!string.IsNullOrWhiteSpace(normalizedSearch))
+        {
+            query = query.Where(x =>
+            {
+                var customerName = x.CustomerId.HasValue && customerMap.TryGetValue(x.CustomerId.Value, out var mappedCustomerName)
+                    ? mappedCustomerName
+                    : string.Empty;
+                var haystack = string.Join(" ", new[]
+                {
+                    x.Folio,
+                    x.DeviceType ?? string.Empty,
+                    x.DeviceBrand ?? string.Empty,
+                    x.DeviceModel ?? string.Empty,
+                    x.ReportedIssue ?? string.Empty,
+                    customerName
+                }).ToLowerInvariant();
+                return haystack.Contains(normalizedSearch);
+            });
+        }
+
+        if (from.HasValue)
+        {
+            query = query.Where(x =>
+            {
+                var activityDate = x.ArchivedAt?.UtcDateTime.Date ?? x.DeliveredAt?.UtcDateTime.Date ?? x.UpdatedAt.UtcDateTime.Date;
+                return activityDate >= from.Value.ToDateTime(TimeOnly.MinValue).Date;
+            });
+        }
+
+        if (to.HasValue)
+        {
+            query = query.Where(x =>
+            {
+                var activityDate = x.ArchivedAt?.UtcDateTime.Date ?? x.DeliveredAt?.UtcDateTime.Date ?? x.UpdatedAt.UtcDateTime.Date;
+                return activityDate <= to.Value.ToDateTime(TimeOnly.MinValue).Date;
+            });
+        }
+
+        var filteredRows = query.ToArray();
+        var total = filteredRows.Length;
+        var items = filteredRows
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .Select(x => (object)new
@@ -757,10 +897,15 @@ public sealed class SupabaseService
                 x.Id,
                 x.Folio,
                 x.Status,
+                CustomerName = x.CustomerId.HasValue && customerMap.TryGetValue(x.CustomerId.Value, out var customerName)
+                    ? customerName
+                    : null,
                 x.DeviceType,
                 x.DeviceBrand,
                 x.DeviceModel,
                 x.ReportedIssue,
+                x.Priority,
+                x.EstimatedCost,
                 x.FinalCost,
                 x.ArchivedAt,
                 x.DeliveredAt,
@@ -1255,6 +1400,56 @@ public sealed class SupabaseService
         };
     }
 
+    public async Task<object?> UpdateTaskAsync(Guid taskId, UpdateTaskRequest request, CancellationToken cancellationToken = default)
+    {
+        var current = await GetSingleAsync<DbTask>(
+            $"tasks?id=eq.{taskId}&tenant_id=eq.{_bootstrap.TenantId}&select=id,branch_id,service_order_id,service_request_id,title,description,status,priority,assigned_user_id,due_date,created_at",
+            cancellationToken);
+        if (current is null) return null;
+
+        var nextTitle = string.IsNullOrWhiteSpace(request.Title) ? current.Title : request.Title.Trim();
+        var nextDescription = request.Description is null
+            ? current.Description
+            : string.IsNullOrWhiteSpace(request.Description) ? null : request.Description.Trim();
+        var nextStatus = string.IsNullOrWhiteSpace(request.Status) ? current.Status : request.Status.Trim().ToLowerInvariant();
+        var nextPriority = string.IsNullOrWhiteSpace(request.Priority) ? current.Priority : request.Priority.Trim().ToLowerInvariant();
+
+        var updated = await PatchSingleAsync<DbTask>(
+            $"tasks?id=eq.{taskId}&tenant_id=eq.{_bootstrap.TenantId}",
+            new
+            {
+                title = nextTitle,
+                description = nextDescription,
+                status = nextStatus,
+                priority = nextPriority,
+                assigned_user_id = request.AssignedUserId,
+                due_date = request.DueDate,
+                updated_by = _bootstrap.UserId
+            },
+            cancellationToken,
+            "id,branch_id,service_order_id,service_request_id,title,description,status,priority,assigned_user_id,due_date,created_at");
+
+        await InsertSingleAsync<DbTaskHistory>("task_history", new
+        {
+            tenant_id = _bootstrap.TenantId,
+            task_id = taskId,
+            event_type = "updated",
+            comment = "Tarea actualizada desde API",
+            changed_by = _bootstrap.UserId
+        }, cancellationToken, "id,task_id");
+
+        return updated is null ? null : new
+        {
+            updated.Id,
+            updated.Title,
+            updated.Description,
+            updated.Status,
+            updated.Priority,
+            updated.DueDate,
+            updated.CreatedAt
+        };
+    }
+
     public async Task<object> GetOperationalReportAsync(CancellationToken cancellationToken = default)
     {
         var serviceOrders = await GetManyAsync<DbServiceOrder>(
@@ -1469,6 +1664,24 @@ public sealed class SupabaseService
         return new string(code);
     }
 
+    private static string NormalizeFileType(string? fileType)
+    {
+        return (fileType ?? string.Empty).Trim().ToLowerInvariant() switch
+        {
+            "reception_photo" => "reception_photo",
+            "progress_photo" => "progress_photo",
+            "delivery_photo" => "delivery_photo",
+            "receipt" => "receipt",
+            _ => "evidence"
+        };
+    }
+
+    private static string SanitizeFileName(string fileName)
+    {
+        var safe = Regex.Replace(fileName.Trim(), @"[^a-zA-Z0-9\.\-_]+", "-").Trim('-');
+        return string.IsNullOrWhiteSpace(safe) ? "asset.bin" : safe;
+    }
+
     private async Task UpsertSubscriptionPaymentAsync(
         Guid tenantId,
         Guid subscriptionId,
@@ -1542,7 +1755,8 @@ public sealed class SupabaseService
     public sealed record DbServiceRequest(Guid Id, Guid? BranchId, string Folio, string CustomerName, string? CustomerPhone, string? CustomerEmail, string? DeviceType, string? DeviceModel, string? IssueDescription, string? Urgency, string Status, decimal QuotedTotal, decimal DepositAmount, decimal BalanceAmount, DateTimeOffset CreatedAt, string? SolicitudOrigenIp = null);
     public sealed record DbServiceOrder(Guid Id, Guid TenantId, Guid BranchId, Guid CustomerId, string Folio, string Status, string DeviceType, string? DeviceBrand, string? DeviceModel, string ReportedIssue, string Priority, DateOnly? PromisedDate, decimal EstimatedCost, DateTimeOffset CreatedAt, string? CasoResolucionTecnica = null);
     public sealed record DbTechnicianOrder(Guid Id, string Folio, string Status, string? DeviceType, string? DeviceBrand, string? DeviceModel, string? ReportedIssue, string? InternalDiagnosis, decimal FinalCost, string? Priority, DateOnly? PromisedDate, DateTimeOffset CreatedAt, string? CasoResolucionTecnica = null);
-    public sealed record DbArchivedOrder(Guid Id, string Folio, string Status, string? DeviceType, string? DeviceBrand, string? DeviceModel, string? ReportedIssue, decimal FinalCost, DateTimeOffset? ArchivedAt, DateTimeOffset? DeliveredAt, DateTimeOffset UpdatedAt);
+    public sealed record DbArchivedOrder(Guid Id, string Folio, string Status, Guid? CustomerId, string? DeviceType, string? DeviceBrand, string? DeviceModel, string? ReportedIssue, string? Priority, decimal EstimatedCost, decimal FinalCost, DateTimeOffset? ArchivedAt, DateTimeOffset? DeliveredAt, DateTimeOffset UpdatedAt);
+    public sealed record DbFileAsset(Guid Id, Guid TenantId, Guid? BranchId, Guid? ServiceOrderId, Guid? ServiceRequestId, string FileType, string BucketName, string StoragePath, string? PublicUrl, Guid? UploadedBy, DateTimeOffset CreatedAt);
     public sealed record DbTask(Guid Id, Guid? BranchId, Guid? ServiceOrderId, Guid? ServiceRequestId, string Title, string? Description, string Status, string Priority, Guid? AssignedUserId, DateTimeOffset? DueDate, DateTimeOffset CreatedAt);
     public sealed record DbTaskHistory(Guid Id, Guid TaskId);
     public sealed record DbSupplier(Guid Id, string BusinessName, string? ContactName, string? Phone, string? Email, string? Categories);

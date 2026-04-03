@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { fetchWithAuth } from "../../lib/apiClient";
 import { IconMoneyUp, IconMoneyDown, IconReceipt, IconVault, IconChart, IconUsers, IconSync, IconDownload, IconWarning } from "./Icons";
 
 type FinanceSummary = {
@@ -14,8 +15,6 @@ type FinanceSummary = {
   monthlyRevenue: Array<{ label: string; revenue: number }>;
   monthlyExpenses: Array<{ label: string; expenses: number }>;
 };
-
-import { supabase } from "../../lib/supabase";
 import { useAuth } from "./AuthGuard";
 
 function formatMoney(value: number) {
@@ -35,38 +34,34 @@ export function FinanzasNative() {
     setApiStateMessage("");
     setApiStateError("");
     try {
-      // Aggregate data from Supabase
-      const [ordersRes, expensesRes, purchaseRes, customersRes] = await Promise.all([
-        supabase.from('service_orders').select('final_cost, estimated_cost, status').eq('tenant_id', session.shop.id),
-        supabase.from('expenses').select('amount').eq('tenant_id', session.shop.id),
-        supabase.from('purchase_orders').select('total_amount, status').eq('tenant_id', session.shop.id).neq('status', 'cancelled'),
-        supabase.from('customers').select('id', { count: 'exact', head: true }).eq('tenant_id', session.shop.id)
-      ]);
+      const response = await fetchWithAuth("/api/finance/summary");
+      const payload = await response.json();
 
-      if (ordersRes.error) throw ordersRes.error;
-      if (expensesRes.error) throw expensesRes.error;
-      if (purchaseRes.error) throw purchaseRes.error;
-      if (customersRes.error) throw customersRes.error;
+      if (!response.ok) {
+        throw new Error(payload?.error?.message || "Error al obtener el consolidado.");
+      }
 
-      const revenue = ordersRes.data.reduce((acc, o) => acc + (Number(o.final_cost || o.estimated_cost || 0)), 0);
-      const expenses = expensesRes.data.reduce((acc, e) => acc + (Number(e.amount || 0)), 0);
-      const committed = purchaseRes.data.reduce((acc, p) => acc + (Number(p.total_amount || 0)), 0);
-      const activeOrders = ordersRes.data.filter(o => !['entregado', 'cancelado'].includes(o.status)).length;
-
+      const data = payload?.data;
       setSummary({
-        projectedRevenue: revenue,
-        expenseTotal: expenses,
-        purchaseCommitted: committed,
-        netProjected: revenue - expenses - committed,
-        activeOrders,
-        customers: customersRes.count || 0,
-        averageTicket: revenue / (ordersRes.data.length || 1),
-        monthlyRevenue: [],
-        monthlyExpenses: []
+        projectedRevenue: Number(data?.projectedRevenue || 0),
+        expenseTotal: Number(data?.expenseTotal || 0),
+        purchaseCommitted: Number(data?.purchaseCommitted || 0),
+        netProjected: Number(data?.netProjected || 0),
+        activeOrders: Number(data?.activeOrders || 0),
+        customers: Number(data?.customers || 0),
+        averageTicket: Number(data?.averageTicket || 0),
+        monthlyRevenue: Array.isArray(data?.monthlyRevenue) ? data.monthlyRevenue.map((item: any) => ({
+          label: item.label,
+          revenue: Number(item.revenue || 0)
+        })) : [],
+        monthlyExpenses: Array.isArray(data?.monthlyExpenses) ? data.monthlyExpenses.map((item: any) => ({
+          label: item.label,
+          expenses: Number(item.expenses || 0)
+        })) : []
       });
 
-    } catch (error: any) {
-       setApiStateError(error.message || "Error al obtener el consolidado.");
+    } catch (error: unknown) {
+       setApiStateError(error instanceof Error ? error.message : "Error al obtener el consolidado.");
     } finally {
        setLoading(false);
     }

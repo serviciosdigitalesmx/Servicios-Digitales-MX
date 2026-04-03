@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
+import { fetchWithAuth } from "../../lib/apiClient";
 
 type Supplier = {
   id: string;
@@ -10,8 +11,6 @@ type Supplier = {
   email?: string;
   categories?: string;
 };
-
-import { supabase } from "../../lib/supabase";
 import { useAuth } from "./AuthGuard";
 
 export function ProveedoresNative() {
@@ -38,24 +37,24 @@ export function ProveedoresNative() {
     setApiStateMessage("");
     setApiStateError("");
     try {
-      const { data, error } = await supabase
-        .from('suppliers')
-        .select('*')
-        .eq('tenant_id', session.shop.id)
-        .eq('is_active', true)
-        .order('business_name');
+      const response = await fetchWithAuth("/api/suppliers");
+      const payload = await response.json();
 
-      if (error) throw error;
+      if (!response.ok) {
+        throw new Error(payload?.error?.message || "Error al cargar los proveedores.");
+      }
+
+      const data = Array.isArray(payload?.data) ? payload.data : [];
       setSuppliers(data.map((s: any) => ({
         id: s.id,
-        businessName: s.business_name,
-        contactName: s.contact_name,
+        businessName: s.businessName,
+        contactName: s.contactName,
         phone: s.phone,
         email: s.email,
         categories: s.categories
       })));
-    } catch (error: any) {
-       setApiStateError(error.message || "Error al cargar los proveedores.");
+    } catch (error: unknown) {
+       setApiStateError(error instanceof Error ? error.message : "Error al cargar los proveedores.");
     } finally {
       setLoading(false);
     }
@@ -78,25 +77,27 @@ export function ProveedoresNative() {
 
     setLoading(true);
     try {
-      const { error } = await supabase.from('suppliers').insert({
-        tenant_id: session?.shop.id,
-        business_name: form.businessName,
-        contact_name: form.contactName,
-        phone: form.phone,
-        email: form.email,
-        categories: form.categories,
-        notes: form.notes,
-        created_by: session?.user.id,
-        updated_by: session?.user.id
+      const response = await fetchWithAuth("/api/suppliers", {
+        method: "POST",
+        body: JSON.stringify({
+          businessName: form.businessName.trim(),
+          contactName: form.contactName.trim() || null,
+          phone: form.phone.trim() || null,
+          email: form.email.trim() || null,
+          categories: form.categories.trim() || null,
+          notes: form.notes.trim() || null
+        })
       });
-
-      if (error) throw error;
+      const payload = await response.json();
+      if (!response.ok) {
+        throw new Error(payload?.error?.message || "Error al guardar el proveedor.");
+      }
       
       setForm({ businessName: "", contactName: "", phone: "", email: "", categories: "", notes: "" });
       await loadSuppliers();
       setApiStateMessage("✅ Proveedor registrado exitosamente.");
-    } catch (error: any) {
-      setApiStateError(error.message || "Error al guardar el proveedor.");
+    } catch (error: unknown) {
+      setApiStateError(error instanceof Error ? error.message : "Error al guardar el proveedor.");
     } finally {
       setLoading(false);
     }

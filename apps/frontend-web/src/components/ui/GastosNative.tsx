@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
+import { fetchWithAuth } from "../../lib/apiClient";
 
 type Supplier = { id: string; businessName: string; };
 
@@ -9,8 +10,6 @@ type Expense = {
   description?: string; amount: number; paymentMethod?: string;
   expenseDate: string; supplierName?: string;
 };
-
-import { supabase } from "../../lib/supabase";
 import { useAuth } from "./AuthGuard";
 
 function formatMoney(value: number) { return new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN", maximumFractionDigits: 0 }).format(value || 0); }
@@ -40,25 +39,29 @@ export function GastosNative() {
     setLoading(true); setApiStateMessage(""); setApiStateError("");
     try {
       const [suppliersRes, expensesRes] = await Promise.all([
-        supabase.from('suppliers').select('id, business_name').eq('tenant_id', session.shop.id).eq('is_active', true).order('business_name'),
-        supabase.from('expenses').select('*').eq('tenant_id', session.shop.id).order('expense_date', { ascending: false })
+        fetchWithAuth("/api/suppliers"),
+        fetchWithAuth("/api/expenses?page=1&pageSize=100")
       ]);
 
-      if (suppliersRes.error) throw suppliersRes.error;
-      if (expensesRes.error) throw expensesRes.error;
+      const suppliersPayload = await suppliersRes.json();
+      const expensesPayload = await expensesRes.json();
 
-      setSuppliers(suppliersRes.data.map((s: any) => ({ id: s.id, businessName: s.business_name })));
-      setExpenses(expensesRes.data.map((e: any) => ({
+      if (!suppliersRes.ok) throw new Error(suppliersPayload?.error?.message || "Error al cargar proveedores.");
+      if (!expensesRes.ok) throw new Error(expensesPayload?.error?.message || "Error al cargar gastos.");
+
+      setSuppliers((Array.isArray(suppliersPayload?.data) ? suppliersPayload.data : []).map((s: any) => ({ id: s.id, businessName: s.businessName })));
+      setExpenses((Array.isArray(expensesPayload?.data) ? expensesPayload.data : []).map((e: any) => ({
         id: e.id,
-        expenseType: e.expense_type,
+        expenseType: e.expenseType,
         category: e.category,
         concept: e.concept,
         description: e.description,
         amount: Number(e.amount || 0),
-        paymentMethod: e.payment_method,
-        expenseDate: e.expense_date
+        paymentMethod: e.paymentMethod,
+        expenseDate: e.expenseDate,
+        supplierName: e.supplierName ?? undefined
       })));
-    } catch (error: any) { setApiStateError(error.message || "Error al cargar los datos."); } finally { setLoading(false); }
+    } catch (error: unknown) { setApiStateError(error instanceof Error ? error.message : "Error al cargar los datos."); } finally { setLoading(false); }
   }
 
   useEffect(() => { 
@@ -74,21 +77,22 @@ export function GastosNative() {
 
     setLoading(true);
     try {
-      const { error } = await supabase.from('expenses').insert({
-        tenant_id: session?.shop.id,
-        supplier_id: form.supplierId || null,
-        expense_type: form.expenseType,
-        category: form.category,
-        concept: form.concept.trim(),
-        description: form.description,
-        amount: amountNum,
-        payment_method: form.paymentMethod,
-        expense_date: form.expenseDate,
-        created_by: session?.user.id,
-        updated_by: session?.user.id
+      const response = await fetchWithAuth("/api/expenses", {
+        method: "POST",
+        body: JSON.stringify({
+          supplierId: form.supplierId || null,
+          expenseType: form.expenseType,
+          category: form.category,
+          concept: form.concept.trim(),
+          description: form.description.trim() || null,
+          amount: amountNum,
+          paymentMethod: form.paymentMethod,
+          notes: form.notes.trim() || null,
+          expenseDate: form.expenseDate
+        })
       });
-
-      if (error) throw error;
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload?.error?.message || "Ocurrió un error al guardar el registro.");
 
       setForm({
         supplierId: "", expenseType: "variable", category: "insumos", concept: "", description: "",
@@ -96,7 +100,7 @@ export function GastosNative() {
       });
       await loadData();
       setApiStateMessage("✅ Gasto registrado exitosamente.");
-    } catch (error: any) { setApiStateError(error.message || "Ocurrió un error al guardar el registro."); } finally { setLoading(false); }
+    } catch (error: unknown) { setApiStateError(error instanceof Error ? error.message : "Ocurrió un error al guardar el registro."); } finally { setLoading(false); }
   }
 
   const filteredExpenses = expenses.filter(e => !search || e.concept.toLowerCase().includes(search.toLowerCase()) || (e.supplierName && e.supplierName.toLowerCase().includes(search.toLowerCase())));

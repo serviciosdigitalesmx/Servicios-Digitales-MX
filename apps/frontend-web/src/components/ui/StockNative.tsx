@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
-import { PostgrestError } from "@supabase/supabase-js";
+import { fetchWithAuth } from "../../lib/apiClient";
 
 type Supplier = { id: string; businessName: string; };
 
@@ -10,58 +10,11 @@ type Product = {
   cost: number; salePrice: number; minimumStock: number; stockCurrent: number; supplierName?: string;
 };
 
-type SupplierRow = {
-  id: string;
-  business_name: string;
-};
-
-type ProductRow = {
-  id: string;
-  sku: string;
-  name: string;
-  category: string | null;
-  brand: string | null;
-  cost: number | null;
-  sale_price: number | null;
-  minimum_stock: number | null;
-  stock_current: number | null;
-  suppliers?: {
-    business_name?: string | null;
-  } | null;
-};
-
-import { supabase } from "../../lib/supabase";
 import { useAuth } from "./AuthGuard";
 
 function formatMoney(value: number) { return new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN", maximumFractionDigits: 0 }).format(value || 0); }
 function getErrorMessage(error: unknown, fallback: string) {
-  return error instanceof Error || isPostgrestError(error) ? error.message : fallback;
-}
-
-function isPostgrestError(error: unknown): error is PostgrestError {
-  return typeof error === "object" && error !== null && "message" in error;
-}
-
-function mapSupplierRow(supplier: SupplierRow): Supplier {
-  return {
-    id: supplier.id,
-    businessName: supplier.business_name
-  };
-}
-
-function mapProductRow(product: ProductRow): Product {
-  return {
-    id: product.id,
-    sku: product.sku,
-    name: product.name,
-    category: product.category ?? undefined,
-    brand: product.brand ?? undefined,
-    cost: Number(product.cost || 0),
-    salePrice: Number(product.sale_price || 0),
-    minimumStock: Number(product.minimum_stock || 0),
-    stockCurrent: Number(product.stock_current || 0),
-    supplierName: product.suppliers?.business_name ?? undefined
-  };
+  return error instanceof Error ? error.message : fallback;
 }
 
 export function StockNative() {
@@ -86,15 +39,32 @@ export function StockNative() {
     setLoading(true); setApiStateError(""); setApiStateMessage("");
     try {
       const [suppliersRes, productsRes] = await Promise.all([
-        supabase.from('suppliers').select('*').eq('tenant_id', session.shop.id).order('business_name'),
-        supabase.from('products').select('*, suppliers(business_name)').eq('tenant_id', session.shop.id).order('name')
+        fetchWithAuth("/api/suppliers"),
+        fetchWithAuth("/api/products?page=1&pageSize=100")
       ]);
 
-      if (suppliersRes.error) throw suppliersRes.error;
-      if (productsRes.error) throw productsRes.error;
+      const suppliersPayload = await suppliersRes.json();
+      const productsPayload = await productsRes.json();
 
-      setSuppliers((suppliersRes.data || []).map(mapSupplierRow));
-      setProducts((productsRes.data || []).map(mapProductRow));
+      if (!suppliersRes.ok) throw new Error(suppliersPayload?.error?.message || "Error al cargar proveedores.");
+      if (!productsRes.ok) throw new Error(productsPayload?.error?.message || "Error al cargar productos.");
+
+      setSuppliers((Array.isArray(suppliersPayload?.data) ? suppliersPayload.data : []).map((supplier: any) => ({
+        id: supplier.id,
+        businessName: supplier.businessName
+      })));
+      setProducts((Array.isArray(productsPayload?.data) ? productsPayload.data : []).map((product: any) => ({
+        id: product.id,
+        sku: product.sku,
+        name: product.name,
+        category: product.category ?? undefined,
+        brand: product.brand ?? undefined,
+        cost: Number(product.cost || 0),
+        salePrice: Number(product.salePrice || 0),
+        minimumStock: Number(product.minimumStock || 0),
+        stockCurrent: Number(product.stockCurrent || 0),
+        supplierName: product.supplierName ?? undefined
+      })));
     } catch (error: unknown) {
       setApiStateError(getErrorMessage(error, "Error de red al conectar con el servidor."));
     } finally {
@@ -113,17 +83,19 @@ export function StockNative() {
     
     setLoading(true);
     try {
-      const { error } = await supabase.from('suppliers').insert({
-        tenant_id: session.shop.id,
-        business_name: supplierForm.businessName.trim(),
-        contact_name: supplierForm.contactName.trim() || null,
-        phone: supplierForm.phone.trim() || null,
-        email: supplierForm.email.trim() || null,
-        categories: supplierForm.categories.trim() || null,
-        notes: supplierForm.notes.trim() || null,
-        created_by: session.user.id
+      const response = await fetchWithAuth("/api/suppliers", {
+        method: "POST",
+        body: JSON.stringify({
+          businessName: supplierForm.businessName.trim(),
+          contactName: supplierForm.contactName.trim() || null,
+          phone: supplierForm.phone.trim() || null,
+          email: supplierForm.email.trim() || null,
+          categories: supplierForm.categories.trim() || null,
+          notes: supplierForm.notes.trim() || null
+        })
       });
-      if (error) throw error;
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload?.error?.message || "El sistema rechazó al proveedor.");
 
       setSupplierForm({ businessName: "", contactName: "", phone: "", email: "", categories: "", notes: "" });
       await loadData();
@@ -148,25 +120,26 @@ export function StockNative() {
       const minStock = Number(productForm.minimumStock || 0);
       const initStock = Number(productForm.initialStock || 0);
 
-      const { error } = await supabase.from('products').insert({
-        tenant_id: session.shop.id,
-        sku: productForm.sku.trim(),
-        name: productForm.name.trim(),
-        category: productForm.category.trim() || null,
-        brand: productForm.brand.trim() || null,
-        compatible_model: productForm.compatibleModel.trim() || null,
-        primary_supplier_id: productForm.primarySupplierId || null,
-        cost,
-        sale_price: salePrice,
-        minimum_stock: minStock,
-        stock_current: initStock,
-        unit: productForm.unit,
-        location: productForm.location.trim() || null,
-        notes: productForm.notes.trim() || null,
-        created_by: session.user.id
+      const response = await fetchWithAuth("/api/products", {
+        method: "POST",
+        body: JSON.stringify({
+          sku: productForm.sku.trim(),
+          name: productForm.name.trim(),
+          category: productForm.category.trim() || null,
+          brand: productForm.brand.trim() || null,
+          compatibleModel: productForm.compatibleModel.trim() || null,
+          primarySupplierId: productForm.primarySupplierId || null,
+          cost,
+          salePrice,
+          minimumStock: minStock,
+          unit: productForm.unit,
+          location: productForm.location.trim() || null,
+          notes: productForm.notes.trim() || null,
+          initialStock: initStock
+        })
       });
-
-      if (error) throw error;
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload?.error?.message || "Falla al crear ficha. Posible SKU duplicado.");
 
       setProductForm({ sku: "", name: "", category: "", brand: "", compatibleModel: "", primarySupplierId: "", cost: "0", salePrice: "0", minimumStock: "0", unit: "pieza", location: "", notes: "", initialStock: "0" });
       await loadData();

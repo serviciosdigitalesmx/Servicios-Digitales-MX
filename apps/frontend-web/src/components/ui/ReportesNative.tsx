@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { fetchWithAuth } from "../../lib/apiClient";
 
 type ReportData = {
   ordersTotal: number; ordersOpen: number; ordersDelivered: number;
@@ -8,8 +9,6 @@ type ReportData = {
   criticalStock: Array<{ sku: string; name: string; minimumStock: number; stockCurrent: number }>;
   commonIssues: Array<{ issue: string; total: number }>;
 };
-
-import { supabase } from "../../lib/supabase";
 import { useAuth } from "./AuthGuard";
 
 export function ReportesNative() {
@@ -21,46 +20,34 @@ export function ReportesNative() {
     if (!session?.shop.id) return;
     setLoading(true);
     try {
-      const [ordersRes, tasksRes, productsRes] = await Promise.all([
-        supabase.from('service_orders').select('status, estimated_cost, final_cost').eq('tenant_id', session.shop.id),
-        supabase.from('tasks').select('status, priority').eq('tenant_id', session.shop.id),
-        supabase.from('products').select('sku, name, stock_min, stock_current').eq('tenant_id', session.shop.id).eq('is_active', true)
-      ]);
+      const response = await fetchWithAuth("/api/reports/operational");
+      const payload = await response.json();
 
-      if (ordersRes.error) throw ordersRes.error;
-      if (tasksRes.error) throw tasksRes.error;
-      if (productsRes.error) throw productsRes.error;
+      if (!response.ok) {
+        throw new Error(payload?.error?.message || "Error al cargar el reporte operativo.");
+      }
 
-      const products = productsRes.data || [];
-      const criticalStock = products.filter((p: any) => (p.stock_current || 0) < (p.stock_min || 0));
-
-      const orders = ordersRes.data || [];
-      const tasks = tasksRes.data || [];
-      
-      const ordersOpen = orders.filter(o => !['entregado', 'cancelado', 'archivado'].includes(o.status)).length;
-      const ordersDelivered = orders.filter(o => o.status === 'entregado').length;
-      const revenue = orders.reduce((acc, o) => acc + (Number(o.final_cost || o.estimated_cost || 0)), 0);
-
-      const tasksOpen = tasks.filter(t => t.status === 'pendiente').length;
-      const tasksUrgent = tasks.filter(t => t.priority === 'urgente' && t.status === 'pendiente').length;
-
+      const report = payload?.data;
       setData({
-        ordersTotal: orders.length,
-        ordersOpen,
-        ordersDelivered,
-        tasksOpen,
-        tasksUrgent,
-        estimatedRevenue: revenue,
-        criticalStock: criticalStock.map((p: any) => ({
-          sku: p.sku,
-          name: p.name,
-          minimumStock: p.stock_min,
-          stockCurrent: p.stock_current
-        })),
-        commonIssues: []
+        ordersTotal: Number(report?.ordersTotal || 0),
+        ordersOpen: Number(report?.ordersOpen || 0),
+        ordersDelivered: Number(report?.ordersDelivered || 0),
+        tasksOpen: Number(report?.tasksOpen || 0),
+        tasksUrgent: Number(report?.tasksUrgent || 0),
+        estimatedRevenue: Number(report?.estimatedRevenue || 0),
+        criticalStock: Array.isArray(report?.criticalStock) ? report.criticalStock.map((item: any) => ({
+          sku: item.sku,
+          name: item.name,
+          minimumStock: Number(item.minimumStock || 0),
+          stockCurrent: Number(item.stockCurrent || 0)
+        })) : [],
+        commonIssues: Array.isArray(report?.commonIssues) ? report.commonIssues.map((item: any) => ({
+          issue: item.issue,
+          total: Number(item.total || 0)
+        })) : []
       });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error(error);
     } finally {
       setLoading(false);

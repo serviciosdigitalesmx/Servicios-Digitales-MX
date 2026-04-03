@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { supabase } from "../../../lib/supabase";
+import { API_BASE_URL, saveStoredSession } from "../../../lib/apiClient";
 import { IconMicrochip, IconLock, IconUser, IconArrowLeft } from "../../../components/ui/Icons";
 
 export default function LoginPage() {
@@ -16,16 +16,32 @@ export default function LoginPage() {
     setError("");
 
     try {
-      const { data, error: authError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
+      const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email,
+          password,
+        }),
       });
 
-      if (authError) throw authError;
+      const payload = await response.json();
+      if (!response.ok || !payload?.success || !payload?.data?.accessToken) {
+        throw new Error(payload?.error?.message || "Error al iniciar sesión");
+      }
+
+      saveStoredSession({
+        accessToken: payload.data.accessToken,
+        user: payload.data.user,
+        shop: payload.data.shop,
+        subscription: payload.data.subscription,
+      });
 
       window.location.href = "/hub";
-    } catch (err: any) {
-      setError(err.message || "Error al iniciar sesión");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Error al iniciar sesión");
     } finally {
       setLoading(false);
     }

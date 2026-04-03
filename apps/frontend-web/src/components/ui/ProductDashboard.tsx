@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { startTransition, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { fetchWithAuth } from "../../lib/apiClient";
 import { MODULES, type ModuleKey } from "../../lib/module-registry";
 import { ClientesNative } from "./ClientesNative";
 import { ComprasNative } from "./ComprasNative";
@@ -21,7 +23,6 @@ import {
   IconWallet, IconChart, IconStore, IconMenu, IconUser, IconLogOut 
 } from "./Icons";
 import { useAuth } from "./AuthGuard";
-import { supabase } from "../../lib/supabase";
 
 const ROLE_PERMISSIONS: Record<string, string[]> = {
   owner: ["operativo", "tecnico", "archivo", "sucursales", "stock", "clientes", "proveedores", "compras", "gastos", "finanzas", "reportes", "solicitudes", "tareas"],
@@ -56,10 +57,12 @@ const getIconForModule = (key: string, props: React.SVGProps<SVGSVGElement> = {}
 };
 
 export function ProductDashboard({ initialModule = "operativo", shopSlug }: ProductDashboardProps) {
+  const router = useRouter();
   const { session } = useAuth();
   const [branches, setBranches] = useState<any[]>([]);
   const [branchFilter, setBranchFilter] = useState("GLOBAL");
   const [isSidebarOpen, setSidebarOpen] = useState(true);
+  const [activeModule, setActiveModule] = useState<ModuleKey>(initialModule);
 
   const businessName = session?.shop?.name?.trim() || "SR. FIX";
   const subscriptionStatus = session?.subscription?.status?.toUpperCase() || "ADMIN";
@@ -67,15 +70,22 @@ export function ProductDashboard({ initialModule = "operativo", shopSlug }: Prod
   if (userRole === "admin") userRole = "owner";
   
   const allowedModules = ROLE_PERMISSIONS[userRole] || ROLE_PERMISSIONS["technician"];
-  const currentModule = MODULES.find((module) => module.key === initialModule) ?? MODULES[0];
+  const currentModule = MODULES.find((module) => module.key === activeModule) ?? MODULES[0];
   const moduleLabel = currentModule.label;
-  const hasAccess = allowedModules.includes(initialModule);
+  const hasAccess = allowedModules.includes(activeModule);
+
+  useEffect(() => {
+    setActiveModule(initialModule);
+  }, [initialModule]);
 
   useEffect(() => {
     async function loadBranches() {
       if (!session?.shop.id) return;
-      const { data } = await supabase.from('branches').select('id, name, code').eq('tenant_id', session.shop.id).eq('is_active', true);
-      if (data) setBranches(data);
+      const response = await fetchWithAuth("/api/branches");
+      const payload = await response.json();
+      if (!response.ok) return;
+      const data = Array.isArray(payload?.data) ? payload.data : [];
+      setBranches(data);
     }
     void loadBranches();
     setBranchFilter(localStorage.getItem("srfix_sucursal_activa") || "GLOBAL");
@@ -97,6 +107,14 @@ export function ProductDashboard({ initialModule = "operativo", shopSlug }: Prod
       ) as Record<ModuleKey, string>,
     [shopSlug]
   );
+
+  const handleModuleSelect = (moduleKey: ModuleKey) => {
+    setActiveModule(moduleKey);
+
+    startTransition(() => {
+      router.replace(moduleLinkMap[moduleKey], { scroll: false });
+    });
+  };
 
   const navigationGroups = [
     { group: "Principal", items: MODULES.filter(m => ["operativo", "tecnico", "archivo"].includes(m.key) && allowedModules.includes(m.key)) },
@@ -124,10 +142,16 @@ export function ProductDashboard({ initialModule = "operativo", shopSlug }: Prod
             <div key={idx} style={{marginBottom: '0.5rem'}}>
                {isSidebarOpen && <div className="sdmx-sidebar-group-label">{group.group}</div>}
                {group.items.map((module) => (
-                 <a key={module.key} href={moduleLinkMap[module.key]} className={`sdmx-sidebar-link ${initialModule === module.key ? "is-active" : ""}`} title={`${module.label} · ${module.summary}`}>
+                 <button
+                   key={module.key}
+                   type="button"
+                   onClick={() => handleModuleSelect(module.key)}
+                   className={`sdmx-sidebar-link ${activeModule === module.key ? "is-active" : ""}`}
+                   title={`${module.label} · ${module.summary}`}
+                 >
                    <div style={{width: '24px', display: 'flex', justifyContent: 'center'}}>{getIconForModule(module.key)}</div>
                    {isSidebarOpen && <span>{module.label}</span>}
-                 </a>
+                 </button>
                ))}
             </div>
           ))}
@@ -183,19 +207,19 @@ export function ProductDashboard({ initialModule = "operativo", shopSlug }: Prod
                  <p className="text-[#4A5568] max-w-md mb-8">Tu rol actual corporativo (<strong className="uppercase">{userRole}</strong>) carece de los privilegios necesarios para acceder a este módulo.</p>
                  <a href="/interno" className="bg-[#1A202C] hover:bg-[#2D3748] text-white px-8 py-3 rounded-xl font-bold transition">Volver al autorizado</a>
               </div>
-            ) : initialModule === "operativo" ? <OperativoNative /> 
-              : initialModule === "tecnico" ? <TecnicoNative />
-              : initialModule === "solicitudes" ? <SolicitudesNative />
-              : initialModule === "archivo" ? <ArchivoNative />
-              : initialModule === "clientes" ? <ClientesNative />
-              : initialModule === "tareas" ? <TareasNative />
-              : initialModule === "stock" ? <StockNative />
-              : initialModule === "proveedores" ? <ProveedoresNative />
-              : initialModule === "compras" ? <ComprasNative />
-              : initialModule === "gastos" ? <GastosNative />
-              : initialModule === "finanzas" ? <FinanzasNative />
-              : initialModule === "reportes" ? <ReportesNative />
-              : initialModule === "sucursales" ? <SucursalesNative />
+            ) : activeModule === "operativo" ? <OperativoNative /> 
+              : activeModule === "tecnico" ? <TecnicoNative />
+              : activeModule === "solicitudes" ? <SolicitudesNative />
+              : activeModule === "archivo" ? <ArchivoNative />
+              : activeModule === "clientes" ? <ClientesNative />
+              : activeModule === "tareas" ? <TareasNative />
+              : activeModule === "stock" ? <StockNative />
+              : activeModule === "proveedores" ? <ProveedoresNative />
+              : activeModule === "compras" ? <ComprasNative />
+              : activeModule === "gastos" ? <GastosNative />
+              : activeModule === "finanzas" ? <FinanzasNative />
+              : activeModule === "reportes" ? <ReportesNative />
+              : activeModule === "sucursales" ? <SucursalesNative />
               : <div className="p-12 text-center text-[#64748b]">Módulo en preparación...</div>
             }
           </div>

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { supabase } from "../../../lib/supabase";
+import { API_BASE_URL } from "../../../lib/apiClient";
 import { IconMicrochip, IconUser, IconArrowLeft, IconCheckCircular, IconStore, IconLock } from "../../../components/ui/Icons";
 
 export default function RegisterPage() {
@@ -40,92 +40,30 @@ export default function RegisterPage() {
     setError("");
     
     try {
-      const slug = form.shopName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
-
-      // 1. Sign up user
-      let userId = "";
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: form.email,
-        password: form.password,
-        options: {
-          data: {
-            full_name: form.fullName,
-          }
-        }
+      const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          shopName: form.shopName,
+          fullName: form.fullName,
+          email: form.email,
+          phone: form.phone,
+          password: form.password,
+          planCode: plan,
+        }),
       });
 
-      if (authError) {
-        // Si el error es que ya existe, intentamos recuperar el ID si es posible o damos un error claro
-        if (authError.message.includes("already registered") || authError.status === 422) {
-          // Nota: En un flujo ideal, aquí pediríamos login. 
-          // Por ahora, lanzamos un error que pida usar otro correo para no dejar huérfana la cuenta.
-          throw new Error("Este correo ya está registrado. Por favor, usa uno diferente o inicia sesión.");
-        }
-        throw authError;
-      }
+      const payload = await response.json();
 
-      if (authData.user) {
-        userId = authData.user.id;
-      } else {
-        throw new Error("No se pudo obtener el ID del usuario.");
-      }
-
-      // 2. Initialize Tenant
-      const { data: tenantData, error: tenantError } = await supabase.from('tenants').insert({
-        name: form.shopName,
-        slug: slug,
-        contact_name: form.fullName,
-        contact_email: form.email,
-        contact_phone: form.phone
-      }).select().single();
-
-      if (tenantError) {
-        throw new Error(`Error creando empresa: ${tenantError.message}`);
-      }
-      
-      const tenantId = tenantData.id;
-
-      // 3. Create Branch
-      const { data: branchData, error: branchError } = await supabase.from('branches').insert({
-        tenant_id: tenantId,
-        name: 'Matriz',
-        code: 'MTZ'
-      }).select().single();
-
-      if (branchError) {
-        throw new Error(`Error creando sucursal: ${branchError.message}`);
-      }
-
-      // 4. Create User Profile
-      const { error: userError } = await supabase.from('users').insert({
-        tenant_id: tenantId,
-        branch_id: branchData.id,
-        auth_user_id: userId,
-        full_name: form.fullName,
-        email: form.email,
-        phone: form.phone,
-        role: 'admin'
-      });
-
-      if (userError) {
-        throw new Error(`Error creando perfil: ${userError.message}`);
-      }
-
-      // 5. Create Subscription
-      const { error: subError } = await supabase.from('subscriptions').insert({
-        tenant_id: tenantId,
-        plan_code: plan,
-        status: 'trialing',
-        current_period_end: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString()
-      });
-
-      if (subError) {
-        throw new Error(`Error activando prueba: ${subError.message}`);
+      if (!response.ok || !payload?.success || !payload?.data?.tenantId) {
+        throw new Error(payload?.error?.message || "Error al crear la cuenta");
       }
 
       setResolvedPlan(plan);
-      setConfirmationRequired(!authData.session);
-      setAutoRedirectHub(!!authData.session);
+      setConfirmationRequired(true);
+      setAutoRedirectHub(false);
       setStep(3);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Error inesperado en el servidor";
