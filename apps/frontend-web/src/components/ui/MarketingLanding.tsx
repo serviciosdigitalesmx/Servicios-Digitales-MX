@@ -48,16 +48,17 @@ const PLANS = [
     name: 'Plan Pro: "El Dueño Ausente"',
     code: "profesional-650",
     price: "549",
-    meta: "Plan ancla · El más equilibrado y generoso del mercado",
+    meta: "1 Sucursal · Usuarios ilimitados",
     button: "Lo quiero ya",
     tone: "featured",
     badge: "El más popular",
     features: [
-      "El plan más equilibrado para operar con control sin estar pegado al mostrador",
-      "Ideal para crecer con una operación más fluida y profesional",
-      "Mantiene el balance entre rentabilidad, control y percepción premium",
-      "Diseñado para el dueño que quiere supervisar sin vivir apagando incendios",
-      "Es el plan que ya definimos como el más generoso del mercado"
+      "Todo lo del Esencial",
+      "Stock e inventario",
+      "Compras y proveedores",
+      "Gastos y finanzas",
+      "Reportes operativos",
+      "Sistema de referidos"
     ]
   },
   {
