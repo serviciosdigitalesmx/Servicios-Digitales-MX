@@ -29,53 +29,51 @@ const FEATURES = [
 
 const PLANS = [
   {
-    name: "Esencial",
+    name: 'Plan Esencial: "Adiós al Papel"',
     code: "esencial-350",
     price: "350",
-    meta: "1 Sucursal · 1 Usuario",
-    button: "Comenzar Ahora",
+    meta: "1 Usuario · 1 Sucursal",
+    button: "Comenzar ahora",
     tone: "light",
     features: [
-      "Recepción / Operativo",
-      "Panel de Técnico",
-      "Solicitudes y Cotizaciones",
-      "Archivo Histórico",
-      "Gestión de Clientes",
-      "Portal por Folio",
-      "Sistema de Referidos"
+      "Digitalización sustentable: elimina libretas y notas sueltas con control 100% digital",
+      "Recepción con evidencia fotográfica y folio automático para evitar reclamos injustos",
+      "Semáforo de prioridades en tiempo real para no perder fechas promesa",
+      "Orden de servicio en PDF con envío inmediato por WhatsApp",
+      "Portal de consulta para clientes con estatus de reparación",
+      "Límite de 1 usuario y 1 sucursal"
     ]
   },
   {
-    name: "Profesional",
+    name: 'Plan Pro: "El Dueño Ausente"',
     code: "profesional-650",
-    price: "650",
-    meta: "1 Sucursal · Usuarios Ilimitados",
+    price: "549",
+    meta: "Plan ancla · El más equilibrado y generoso del mercado",
     button: "Lo quiero ya",
     tone: "featured",
     badge: "El más popular",
     features: [
-      "Todo lo del Esencial",
-      "Stock e Inventario",
-      "Compras y Proveedores",
-      "Gastos y Finanzas",
-      "Reportes Operativos",
-      "Sistema de Referidos"
+      "El plan más equilibrado para operar con control sin estar pegado al mostrador",
+      "Ideal para crecer con una operación más fluida y profesional",
+      "Mantiene el balance entre rentabilidad, control y percepción premium",
+      "Diseñado para el dueño que quiere supervisar sin vivir apagando incendios",
+      "Es el plan que ya definimos como el más generoso del mercado"
     ]
   },
   {
-    name: "Elite",
+    name: 'Plan Business: "Control Total Multi-Sede"',
     code: "elite-1200",
-    price: "1,200",
-    meta: "Multi-sucursal · Usuarios Ilimitados",
-    button: "Hablar con Ventas",
+    price: "850",
+    meta: "Usuarios ilimitados · Multi-sucursal",
+    button: "Hablar con ventas",
     tone: "light",
     features: [
-      "Todo lo del Profesional",
-      "Multi-sucursal Ilimitado",
-      "Branding (Tu Logo)",
-      "Dashboard Ejecutivo",
-      "Soporte VIP",
-      "Sistema de Referidos"
+      "Gestión multi-sucursal global para controlar inventarios, personal y ventas desde un solo integrador",
+      "Módulo de finanzas e inteligencia con rentabilidad, egresos y flujo de caja real",
+      "Seguridad de élite y auditoría IP con rastreo de movimientos por usuario",
+      "Reportes consolidados con KPIs por sucursal o visión global",
+      "Infraestructura de máxima velocidad para reportes pesados y operación de alto volumen",
+      "Usuarios ilimitados con roles y permisos personalizados"
     ]
   }
 ];
