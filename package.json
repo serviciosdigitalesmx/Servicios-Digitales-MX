@@ -2,12 +2,21 @@
   "name": "servicios-digitales-mx",
   "private": true,
   "version": "0.1.0",
+  "engines": {
+    "node": "22.x"
+  },
   "workspaces": [
     "apps/*",
     "packages/*"
   ],
   "scripts": {
+    "build:backend": "dotnet build apps/backend-api/BackendApi.csproj",
+    "build:frontend:lts": "cd apps/frontend-web && rm -rf .next-build && NEXT_DIST_DIR=.next-build npx -y node@22 ../../node_modules/next/dist/bin/next build",
     "dev:frontend": "npm run dev --workspace frontend-web",
-    "lint:frontend": "npm run lint --workspace frontend-web"
+    "deploy:preflight": "bash scripts/deploy-preflight.sh",
+    "lint:frontend": "npm run lint --workspace frontend-web",
+    "go-live:smoke": "bash scripts/go-live-smoke.sh",
+    "release:smoke": "bash scripts/release-smoke.sh",
+    "typecheck:frontend": "cd apps/frontend-web && npx tsc --noEmit"
   }
 }

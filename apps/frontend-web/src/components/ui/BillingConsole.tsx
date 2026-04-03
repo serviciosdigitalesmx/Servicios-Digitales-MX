@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { supabase } from "../../lib/supabase";
 import { useAuth, AuthMeResponse } from "./AuthGuard";
 
 type BillingPlan = {
@@ -95,6 +94,30 @@ export function BillingConsole({ initialPlanCode }: { initialPlanCode?: string }
     }
   }, [initialPlanCode]);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadPlans() {
+      try {
+        const response = await fetch("/api/payments/plans", { cache: "no-store" });
+        const data = await response.json();
+        const remotePlans = data?.data;
+
+        if (!cancelled && Array.isArray(remotePlans) && remotePlans.length > 0) {
+          setPlans(remotePlans);
+        }
+      } catch (error) {
+        console.warn("No se pudieron cargar planes remotos, usando catálogo local.", error);
+      }
+    }
+
+    void loadPlans();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const statusCopy = useMemo(
     () => getStatusCopy(auth?.subscription.status ?? "unknown"),
     [auth?.subscription.status]
@@ -105,8 +128,45 @@ export function BillingConsole({ initialPlanCode }: { initialPlanCode?: string }
   }, [plans, selectedPlanCode]);
 
   async function handleCheckout() {
-    setMessage("⚠️ La pasarela de pagos nativa de Supabase está en configuración. Por favor, contacta a soporte vía WhatsApp para renovar tu suscripción.");
-    setPaying(false);
+    if (!auth || !selectedPlan) {
+      setMessage("No pudimos resolver la cuenta o el plan seleccionado.");
+      return;
+    }
+
+    try {
+      setPaying(true);
+      setMessage("");
+
+      const response = await fetch("/api/payments/subscribe", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          planCode: selectedPlan.code,
+          tenantId: auth.shop.id,
+          email: auth.user.email,
+          fullName: auth.user.fullName
+        })
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data?.error?.message || data?.error || "No se pudo iniciar el checkout.");
+      }
+
+      const checkoutUrl = data?.checkoutUrl ?? data?.init_point;
+      if (checkoutUrl) {
+        window.location.href = checkoutUrl;
+        return;
+      }
+
+      throw new Error("El backend no devolvió una URL de checkout.");
+    } catch (error: any) {
+      setMessage(error.message || "No se pudo iniciar el flujo de cobro.");
+    } finally {
+      setPaying(false);
+    }
   }
 
   if (auth && !["owner", "admin"].includes(auth.user.role.toLowerCase())) {

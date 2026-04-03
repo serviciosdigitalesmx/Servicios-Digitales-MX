@@ -3,7 +3,11 @@ import path from "node:path";
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  outputFileTracingRoot: path.join(process.cwd(), "../..")
+  distDir: process.env.NEXT_DIST_DIR || ".next",
+  outputFileTracingRoot: path.join(process.cwd(), "../.."),
+  experimental: {
+    devtoolSegmentExplorer: false
+  }
 };
 
 export default nextConfig;

@@ -62,7 +62,10 @@ public sealed record RegisterRequest(
 );
 
 public sealed record BillingCheckoutRequest(
-    string? PlanCode
+    string? PlanCode,
+    Guid? TenantId,
+    string? PayerEmail,
+    string? PayerName
 );
 
 public sealed record CreateCustomerRequest(

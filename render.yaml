@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: sdmx-backend-api
+    runtime: docker
+    rootDir: apps/backend-api
+    dockerfilePath: ./Dockerfile
+    autoDeploy: false
+    healthCheckPath: /api/health
+    envVars:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+      - key: Supabase__Url
+        sync: false
+      - key: Supabase__ServiceKey
+        sync: false
+      - key: MercadoPago__AccessToken
+        sync: false
+      - key: MercadoPago__PublicKey
+        sync: false
+      - key: MercadoPago__BaseUrl
+        sync: false
+      - key: MercadoPago__WebhookBaseUrl
+        sync: false
+      - key: MercadoPago__SupportPhone
+        sync: false

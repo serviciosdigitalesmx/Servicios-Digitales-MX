@@ -10,6 +10,8 @@ export default function RegisterPage() {
   const [error, setError] = useState("");
   const [plan, setPlan] = useState("");
   const [resolvedPlan, setResolvedPlan] = useState("");
+  const [confirmationRequired, setConfirmationRequired] = useState(false);
+  const [autoRedirectHub, setAutoRedirectHub] = useState(false);
 
   // Capturar plan de la URL
   useEffect(() => {
@@ -136,6 +138,8 @@ export default function RegisterPage() {
 
       console.log("¡Registro existoso!");
       setResolvedPlan(plan);
+      setConfirmationRequired(!authData.session);
+      setAutoRedirectHub(!!authData.session);
       setStep(3);
     } catch (err: any) {
       console.error("Registro fallido:", err);
@@ -144,6 +148,16 @@ export default function RegisterPage() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (!autoRedirectHub || confirmationRequired || step !== 3) return;
+
+    const timer = window.setTimeout(() => {
+      window.location.href = "/hub";
+    }, 1400);
+
+    return () => window.clearTimeout(timer);
+  }, [autoRedirectHub, confirmationRequired, step]);
 
   return (
     <div className="sdmx-gradient-bg min-h-screen flex flex-col items-center justify-center p-4 overflow-hidden font-sans">
@@ -330,7 +344,11 @@ export default function RegisterPage() {
                 
                 <div>
                   <h2 className="text-3xl font-bold text-white">¡Bienvenido a bordo!</h2>
-                  <p className="text-slate-400 mt-2">Tu infraestructura digital está lista para operar</p>
+                  <p className="text-slate-400 mt-2">
+                    {confirmationRequired
+                      ? "Tu cuenta fue creada. Verifica tu correo electrónico para activar el acceso."
+                      : `Tu infraestructura digital está lista para operar. Te llevamos al panel de ${resolvedPlan || "lanzamiento"} en un momento.`}
+                  </p>
                 </div>
                 
                 <div className="bg-slate-900/80 p-6 rounded-3xl border border-slate-800 text-left my-8">
@@ -343,13 +361,29 @@ export default function RegisterPage() {
                   </div>
                 </div>
 
-                <button 
-                  type="button" 
-                  onClick={() => window.location.href = "/hub"}
-                  className="w-full bg-gradient-to-r from-[#0066FF] to-[#0052CC] text-white py-5 rounded-2xl font-bold hover:shadow-[0_0_30px_rgb(0,102,255,0.4)] transition-all transform active:scale-95"
-                >
-                  Ir al Panel de Control
-                </button>
+                {confirmationRequired ? (
+                  <a
+                    href="/login"
+                    className="block w-full bg-gradient-to-r from-[#0066FF] to-[#0052CC] text-white py-5 rounded-2xl font-bold hover:shadow-[0_0_30px_rgb(0,102,255,0.4)] transition-all transform active:scale-95"
+                  >
+                    Ir a Iniciar Sesión
+                  </a>
+                ) : (
+                  <div className="space-y-3">
+                    <button 
+                      type="button" 
+                      onClick={() => window.location.href = "/hub"}
+                      className="w-full bg-gradient-to-r from-[#0066FF] to-[#0052CC] text-white py-5 rounded-2xl font-bold hover:shadow-[0_0_30px_rgb(0,102,255,0.4)] transition-all transform active:scale-95"
+                    >
+                      Ir al Panel de Control
+                    </button>
+                    {autoRedirectHub && (
+                      <p className="text-xs text-slate-500 uppercase tracking-[0.25em] font-bold animate-pulse">
+                        Abriendo panel automáticamente...
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
             )}
 

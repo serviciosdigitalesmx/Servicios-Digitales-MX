@@ -46,18 +46,24 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   const [subscriptionError, setSubscriptionError] = useState<string | null>(null);
   const [showRetry, setShowRetry] = useState(false);
 
+  const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
   useEffect(() => {
     let mounted = true;
 
     async function initializeAuth() {
       console.log("🔐 AuthGuard: Iniciando verificación...");
+      if (mounted) setLoading(true);
       
       // 1. Verificar sesión actual DE INMEDIATO
       const { data: { session: initialSession }, error: sessionError } = await supabase.auth.getSession();
       
       if (sessionError) {
         console.error("❌ AuthGuard Error:", sessionError);
-        if (mounted) setLoading(false);
+        if (mounted) {
+          setSession(null);
+          setLoading(false);
+        }
         return;
       }
 
@@ -66,30 +72,51 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
         await hydrateProfile(initialSession);
       } else {
         console.log("ℹ️ AuthGuard: Sin sesión activa.");
-        if (mounted) setLoading(false);
+        if (mounted) {
+          setSession(null);
+          setLoading(false);
+        }
       }
     }
 
     async function hydrateProfile(authSession: any) {
-      try {
-        // 1. Fetch User Profile
-        const { data: userData, error: userError } = await supabase
-          .from('users')
-          .select('*')
-          .eq('auth_user_id', authSession.user.id)
-          .limit(1) // Aseguramos que solo venga uno
-          .maybeSingle(); // No tira error si hay cero, solo regresa null
+      const maxAttempts = 5;
+      let userData: any = null;
+      let userError: any = null;
 
-        if (userError) throw userError;
+      try {
+        // 1. Fetch User Profile con reintentos cortos para evitar carreras con el alta
+        for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+          const response = await supabase
+            .from('users')
+            .select('*')
+            .eq('auth_user_id', authSession.user.id)
+            .limit(1)
+            .maybeSingle();
+
+          userData = response.data;
+          userError = response.error;
+
+          if (userError) throw userError;
+          if (userData) break;
+
+          console.warn(`⚠️ AuthGuard: Perfil aún no disponible, reintento ${attempt}/${maxAttempts}...`);
+          if (attempt < maxAttempts) {
+            await sleep(250 * attempt);
+          }
+        }
 
         if (!userData) {
           console.warn("⚠️ AuthGuard: No se encontró perfil de usuario para ID:", authSession.user.id);
-          // Redirigir a setup si el perfil no existe, pero hay sesión auth?
-          if (mounted) setLoading(false);
+          if (mounted) {
+            setSession(null);
+            setLoading(false);
+          }
           return;
         }
 
         // 2. Fetch Tenant and Subscription
+        if (mounted) setLoading(true);
         const [tenantRes, subRes] = await Promise.all([
           supabase.from('tenants').select('*').eq('id', userData.tenant_id).single(),
           supabase.from('subscriptions').select('*').eq('tenant_id', userData.tenant_id).single()
@@ -132,7 +159,10 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
         }
       } catch (err) {
         console.error("❌ AuthGuard Critical Error:", err);
-        if (mounted) setLoading(false);
+        if (mounted) {
+          setSession(null);
+          setLoading(false);
+        }
       }
     }
 
@@ -220,4 +250,3 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     </AuthContext.Provider>
   );
 }
-

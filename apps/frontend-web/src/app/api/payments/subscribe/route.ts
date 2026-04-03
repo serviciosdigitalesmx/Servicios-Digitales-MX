@@ -1,61 +1,35 @@
-import { supabaseServiceRole } from '@/lib/supabaseService';
 import { NextResponse } from 'next/server';
+import { proxyBackendJson } from '../../../../lib/backendApi';
 
 export async function POST(req: Request) {
   try {
-    const { planCode, tenantId, email } = await req.json();
-    
-    const planData: Record<string, { amount: number, title: string }> = {
-      'profesional-650': { amount: 650, title: 'Plan Profesional - Sr-Fix' },
-      'elite-1200': { amount: 1200, title: 'Plan Elite - Sr-Fix' }
-    };
-
-    const selectedPlan = planData[planCode as keyof typeof planData];
-    if (!selectedPlan) throw new Error('Plan no válido');
-
-    console.log(`Creando suscripción para Tenant ${tenantId} con plan ${planCode}`);
-
-    // 1. Crear Preapproval en Mercado Pago
-    const response = await fetch('https://api.mercadopago.com/preapproval', {
+    const { planCode, tenantId, email, fullName } = await req.json();
+    const result = await proxyBackendJson('/api/billing/checkout-preference', {
       method: 'POST',
-      headers: {
-        Authorization: `Bearer ${process.env.MERCADOPAGO_ACCESS_TOKEN}`,
-        'Content-Type': 'application/json'
-      },
       body: JSON.stringify({
-        reason: selectedPlan.title,
-        external_reference: tenantId,
-        payer_email: email,
-        auto_recurring: {
-          frequency: 1,
-          frequency_type: 'months',
-          transaction_amount: selectedPlan.amount,
-          currency_id: 'MXN'
-        },
-        back_url: `${process.env.NEXT_PUBLIC_APP_URL}/hub?payment=success`,
-        status: 'pending'
+        planCode,
+        tenantId,
+        payerEmail: email,
+        payerName: fullName
       })
     });
 
-    const mpData = await response.json();
+    const headers = {
+      'x-sdmx-billing-source': 'backend-dotnet-via-next-proxy',
+      'x-sdmx-backend-mode': result.resolution.mode,
+      'x-sdmx-backend-source': result.resolution.source,
+      'x-sdmx-backend-configured': String(result.resolution.configured)
+    };
 
-    if (!mpData.id) {
-       console.error("Error MP:", mpData);
-       throw new Error(mpData.message || 'Error al crear suscripción en MP');
+    if (!result.ok) {
+      return NextResponse.json(result.body ?? { error: 'No se pudo iniciar checkout' }, { status: result.status, headers });
     }
 
-    // 2. GUARDAR ID DE SUSCRIPCIÓN INMEDIATO (Trazabilidad)
-    const { error: dbError } = await supabaseServiceRole
-      .from('subscriptions')
-      .update({ 
-        mp_preapproval_id: mpData.id,
-        plan_code: planCode 
-      })
-      .eq('tenant_id', tenantId);
-
-    if (dbError) throw dbError;
-
-    return NextResponse.json({ init_point: mpData.init_point });
+    return NextResponse.json({
+      init_point: result.body?.data?.checkoutUrl,
+      checkoutUrl: result.body?.data?.checkoutUrl,
+      preferenceId: result.body?.data?.preferenceId
+    }, { headers });
   } catch (error: any) {
     console.error("Error en Subscribe:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });

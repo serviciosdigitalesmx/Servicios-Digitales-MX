@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { 
   IconStore, 
   IconDashboard, 
@@ -26,10 +27,26 @@ function getStatusStyle(status: string) {
 }
 
 function HubDashboardContent() {
-  const { session } = useAuth();
+  const { session, loading } = useAuth();
   const [upgrading, setUpgrading] = useState(false);
+  const router = useRouter();
 
-  if (!session) return null;
+  useEffect(() => {
+    if (!loading && !session) {
+      router.replace("/login");
+    }
+  }, [loading, router, session]);
+
+  if (!session) {
+    return (
+      <div className="min-h-screen bg-[#0F172A] flex items-center justify-center p-6 text-center">
+        <div className="sdmx-card-premium max-w-md w-full p-10">
+          <h2 className="text-2xl font-black text-white uppercase tracking-tight">Redirigiendo al acceso</h2>
+          <p className="text-slate-400 mt-3 font-medium">Necesitamos una sesión activa para entrar al panel.</p>
+        </div>
+      </div>
+    );
+  }
   const auth = session as AuthMeResponse;
   const subStatus = auth.subscription.status;
   const styles = getStatusStyle(subStatus);
@@ -44,15 +61,20 @@ function HubDashboardContent() {
     try {
       const res = await fetch("/api/payments/subscribe", {
         method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
         body: JSON.stringify({
           planCode: "profesional-650", // Upgrade sugerido
           tenantId: auth.shop.id,
-          email: auth.user.email
+          email: auth.user.email,
+          fullName: auth.user.fullName
         })
       });
       const data = await res.json();
-      if (data.init_point) {
-        window.location.href = data.init_point;
+      const checkoutUrl = data.checkoutUrl ?? data.init_point;
+      if (checkoutUrl) {
+        window.location.href = checkoutUrl;
       }
     } catch (e) {
       console.error(e);

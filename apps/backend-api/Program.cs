@@ -177,6 +177,8 @@ app.MapGet("/api/health", () =>
 {
     var bootstrap = app.Services.GetRequiredService<SupabaseBootstrapContext>();
     var mercadoPagoConfigured = !string.IsNullOrWhiteSpace(app.Configuration["MercadoPago:AccessToken"]);
+    var mercadoPagoBaseUrl = app.Configuration["MercadoPago:BaseUrl"]?.Trim().TrimEnd('/');
+    var webhookBaseUrl = app.Configuration["MercadoPago:WebhookBaseUrl"]?.Trim().TrimEnd('/');
     return Results.Ok(new
     {
         success = true,
@@ -188,6 +190,13 @@ app.MapGet("/api/health", () =>
             supabaseConfigured = !string.IsNullOrWhiteSpace(app.Configuration["Supabase:Url"]) &&
                                  !string.IsNullOrWhiteSpace(app.Configuration["Supabase:ServiceKey"]),
             mercadoPagoConfigured,
+            billing = new
+            {
+                frontendBaseUrl = mercadoPagoBaseUrl,
+                webhookBaseUrl,
+                webhookTarget = string.IsNullOrWhiteSpace(webhookBaseUrl) ? null : $"{webhookBaseUrl}/api/webhooks/mercadopago",
+                webhookConfigured = !string.IsNullOrWhiteSpace(webhookBaseUrl)
+            },
             shop = new
             {
                 id = bootstrap.TenantId,
@@ -1228,17 +1237,27 @@ app.MapPost("/api/billing/checkout-preference", async (BillingCheckoutRequest? r
 
     var bootstrap = supabase.Bootstrap;
     var selectedPlan = SubscriptionPlans.Resolve(request?.PlanCode ?? bootstrap.SubscriptionPlanCode);
+    var tenantId = request?.TenantId is { } explicitTenantId && explicitTenantId != Guid.Empty
+        ? explicitTenantId
+        : bootstrap.TenantId;
+    var payerName = string.IsNullOrWhiteSpace(request?.PayerName)
+        ? bootstrap.UserFullName
+        : request!.PayerName!.Trim();
+    var payerEmail = string.IsNullOrWhiteSpace(request?.PayerEmail)
+        ? bootstrap.UserEmail
+        : request!.PayerEmail!.Trim();
+
     var preference = await mercadoPago.CreateSubscriptionPreferenceAsync(
         new MercadoPagoPreferenceRequest(
-            bootstrap.TenantId,
+            tenantId,
             selectedPlan.Code,
             $"Servicios Digitales MX - {selectedPlan.Name}",
             $"Suscripcion mensual {selectedPlan.Name} para acceso operativo del shop",
             selectedPlan.PriceMxn,
             "MXN",
-            $"shop:{bootstrap.TenantId}:subscription:{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}",
-            bootstrap.UserFullName,
-            bootstrap.UserEmail
+            $"shop:{tenantId}:subscription:{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}",
+            payerName,
+            payerEmail
         ),
         cancellationToken
     );

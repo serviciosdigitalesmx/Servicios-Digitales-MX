@@ -1,10 +1,8 @@
-bin/
-obj/
-.vs/
-.vscode/
-*.user
-*.suo
-*.swp
-*.tmp
+bin
+obj
+.vs
+.vscode
+Properties/launchSettings.json
 appsettings.Development.local.json
-appsettings.*.local.json
+appsettings.Development.json
+.local_auth.json

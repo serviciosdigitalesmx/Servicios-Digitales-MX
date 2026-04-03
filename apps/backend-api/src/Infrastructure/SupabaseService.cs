@@ -603,7 +603,6 @@ public sealed class SupabaseService
             status = "pendiente",
             quoted_total = request.QuotedTotal ?? 0,
             deposit_amount = request.DepositAmount ?? 0,
-            deposit_amount = request.DepositAmount ?? 0,
             balance_amount = request.BalanceAmount ?? Math.Max((request.QuotedTotal ?? 0) - (request.DepositAmount ?? 0), 0),
             solicitud_origen_ip = request.SolicitudOrigenIp
         }, cancellationToken, "id,folio,customer_name,customer_phone,customer_email,device_type,device_model,issue_description,urgency,status,quoted_total,deposit_amount,balance_amount,created_at,solicitud_origen_ip");
