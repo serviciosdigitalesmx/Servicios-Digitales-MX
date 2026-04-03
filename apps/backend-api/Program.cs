@@ -88,7 +88,15 @@ await using (var scope = app.Services.CreateAsyncScope())
     var supabase = scope.ServiceProvider.GetRequiredService<SupabaseService>();
     if (supabase.IsConfigured)
     {
-        await supabase.EnsureBootstrapDataAsync();
+        var logger = scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("Bootstrap");
+        try
+        {
+            await supabase.EnsureBootstrapDataAsync();
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "No se pudo completar el bootstrap de Supabase durante el arranque. La API seguira activa sin datos sembrados.");
+        }
     }
 }
 
