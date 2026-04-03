@@ -1222,35 +1222,35 @@ app.MapGet("/api/billing/plans", () =>
 
 app.MapPost("/api/billing/checkout-preference", async (BillingCheckoutRequest? request, SupabaseService supabase, MercadoPagoService mercadoPago, CancellationToken cancellationToken) =>
 {
-    await supabase.RefreshSubscriptionContextAsync(cancellationToken);
-
-    if (!mercadoPago.IsConfigured)
-    {
-        return Results.Json(new
-        {
-            success = false,
-            error = new
-            {
-                code = "MERCADOPAGO_NOT_CONFIGURED",
-                message = "Mercado Pago no esta configurado en este entorno"
-            }
-        }, statusCode: StatusCodes.Status500InternalServerError);
-    }
-
-    var bootstrap = supabase.Bootstrap;
-    var selectedPlan = SubscriptionPlans.Resolve(request?.PlanCode ?? bootstrap.SubscriptionPlanCode);
-    var tenantId = request?.TenantId is { } explicitTenantId && explicitTenantId != Guid.Empty
-        ? explicitTenantId
-        : bootstrap.TenantId;
-    var payerName = string.IsNullOrWhiteSpace(request?.PayerName)
-        ? bootstrap.UserFullName
-        : request!.PayerName!.Trim();
-    var payerEmail = string.IsNullOrWhiteSpace(request?.PayerEmail)
-        ? bootstrap.UserEmail
-        : request!.PayerEmail!.Trim();
-
     try
     {
+        await supabase.RefreshSubscriptionContextAsync(cancellationToken);
+
+        if (!mercadoPago.IsConfigured)
+        {
+            return Results.Json(new
+            {
+                success = false,
+                error = new
+                {
+                    code = "MERCADOPAGO_NOT_CONFIGURED",
+                    message = "Mercado Pago no esta configurado en este entorno"
+                }
+            }, statusCode: StatusCodes.Status500InternalServerError);
+        }
+
+        var bootstrap = supabase.Bootstrap;
+        var selectedPlan = SubscriptionPlans.Resolve(request?.PlanCode ?? bootstrap.SubscriptionPlanCode);
+        var tenantId = request?.TenantId is { } explicitTenantId && explicitTenantId != Guid.Empty
+            ? explicitTenantId
+            : bootstrap.TenantId;
+        var payerName = string.IsNullOrWhiteSpace(request?.PayerName)
+            ? bootstrap.UserFullName
+            : request!.PayerName!.Trim();
+        var payerEmail = string.IsNullOrWhiteSpace(request?.PayerEmail)
+            ? bootstrap.UserEmail
+            : request!.PayerEmail!.Trim();
+
         var preference = await mercadoPago.CreateSubscriptionPreferenceAsync(
             new MercadoPagoPreferenceRequest(
                 tenantId,
