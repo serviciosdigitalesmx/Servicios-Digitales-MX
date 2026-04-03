@@ -110,6 +110,7 @@ app.Use(async (context, next) =>
         !path.StartsWithSegments("/api/auth/register") && 
         !path.StartsWithSegments("/api/health") && 
         !path.StartsWithSegments("/api/portal") &&
+        !path.StartsWithSegments("/api/webhooks/mercadopago") &&
         !path.StartsWithSegments("/api/billing/checkout-preference") &&
         !path.StartsWithSegments("/api/billing/plans"))
     {
@@ -1318,149 +1319,203 @@ app.MapPost("/api/billing/checkout-preference", async (BillingCheckoutRequest? r
 
 app.MapPost("/api/webhooks/mercadopago", async (HttpRequest httpRequest, SupabaseService supabase, MercadoPagoService mercadoPago, CancellationToken cancellationToken) =>
 {
-    MercadoPagoWebhookRequest? request = null;
-    if (httpRequest.ContentLength is > 0)
+    try
     {
-        request = await JsonSerializer.DeserializeAsync<MercadoPagoWebhookRequest>(
-            httpRequest.Body,
-            new JsonSerializerOptions(JsonSerializerDefaults.Web),
+        MercadoPagoWebhookRequest? request = null;
+        if (httpRequest.ContentLength is > 0)
+        {
+            request = await JsonSerializer.DeserializeAsync<MercadoPagoWebhookRequest>(
+                httpRequest.Body,
+                new JsonSerializerOptions(JsonSerializerDefaults.Web),
+                cancellationToken
+            );
+        }
+
+        var paymentId = request?.Data?.Id
+                        ?? httpRequest.Query["data.id"].ToString()
+                        ?? httpRequest.Query["id"].ToString();
+
+        var topic = request?.Type
+                    ?? httpRequest.Query["type"].ToString()
+                    ?? httpRequest.Query["topic"].ToString();
+
+        if (string.IsNullOrWhiteSpace(paymentId) || (!string.IsNullOrWhiteSpace(topic) && !string.Equals(topic, "payment", StringComparison.OrdinalIgnoreCase)))
+        {
+            return Results.Ok(new
+            {
+                success = true,
+                data = new
+                {
+                    ignored = true
+                }
+            });
+        }
+
+        var payment = await mercadoPago.GetPaymentDetailsAsync(paymentId, cancellationToken);
+        if (payment is null)
+        {
+            return Results.NotFound(new
+            {
+                success = false,
+                error = new
+                {
+                    code = "PAYMENT_NOT_FOUND",
+                    message = "No se encontro el pago en Mercado Pago"
+                }
+            });
+        }
+
+        var shopId = ResolveShopId(payment.ExternalReference, payment.Metadata);
+        if (shopId is null || shopId == Guid.Empty)
+        {
+            return Results.BadRequest(new
+            {
+                success = false,
+                error = new
+                {
+                    code = "SHOP_ID_NOT_FOUND",
+                    message = "No se pudo resolver el shop asociado al pago"
+                }
+            });
+        }
+
+        var updated = await supabase.UpdateSubscriptionFromPaymentAsync(
+            shopId.Value,
+            payment.Status,
+            payment.Id,
+            payment.Payer?.Email,
+            payment.TransactionAmount,
+            payment.CurrencyId,
+            payment.Metadata?.SubscriptionPlan,
             cancellationToken
         );
-    }
 
-    var paymentId = request?.Data?.Id
-                    ?? httpRequest.Query["data.id"].ToString()
-                    ?? httpRequest.Query["id"].ToString();
+        var referral = await supabase.GetReferralByReferredTenantAsync(shopId.Value, cancellationToken);
+        var referralCommissionReleased = string.Equals(referral?.Status, "confirmed", StringComparison.OrdinalIgnoreCase);
 
-    var topic = request?.Type
-                ?? httpRequest.Query["type"].ToString()
-                ?? httpRequest.Query["topic"].ToString();
-
-    if (string.IsNullOrWhiteSpace(paymentId) || (!string.IsNullOrWhiteSpace(topic) && !string.Equals(topic, "payment", StringComparison.OrdinalIgnoreCase)))
-    {
         return Results.Ok(new
         {
             success = true,
             data = new
             {
-                ignored = true
+                paymentId = payment.Id,
+                paymentStatus = payment.Status,
+                shopId,
+                subscriptionUpdated = updated,
+                referralCommissionReleased
             }
         });
     }
-
-    var payment = await mercadoPago.GetPaymentDetailsAsync(paymentId, cancellationToken);
-    if (payment is null)
+    catch (HttpRequestException ex)
     {
-        return Results.NotFound(new
+        return Results.Json(new
         {
             success = false,
             error = new
             {
-                code = "PAYMENT_NOT_FOUND",
-                message = "No se encontro el pago en Mercado Pago"
+                code = "MERCADOPAGO_WEBHOOK_LOOKUP_FAILED",
+                message = ex.Message
             }
-        });
+        }, statusCode: StatusCodes.Status502BadGateway);
     }
-
-    var shopId = ResolveShopId(payment.ExternalReference, payment.Metadata);
-    if (shopId is null || shopId == Guid.Empty)
+    catch (Exception ex)
     {
-        return Results.BadRequest(new
+        return Results.Json(new
         {
             success = false,
             error = new
             {
-                code = "SHOP_ID_NOT_FOUND",
-                message = "No se pudo resolver el shop asociado al pago"
+                code = "MERCADOPAGO_WEBHOOK_UNEXPECTED_ERROR",
+                message = ex.Message
             }
-        });
+        }, statusCode: StatusCodes.Status500InternalServerError);
     }
-
-    var updated = await supabase.UpdateSubscriptionFromPaymentAsync(
-        shopId.Value,
-        payment.Status,
-        payment.Id,
-        payment.Payer?.Email,
-        payment.TransactionAmount,
-        payment.CurrencyId,
-        payment.Metadata?.SubscriptionPlan,
-        cancellationToken
-    );
-
-    var referral = await supabase.GetReferralByReferredTenantAsync(shopId.Value, cancellationToken);
-    var referralCommissionReleased = string.Equals(referral?.Status, "confirmed", StringComparison.OrdinalIgnoreCase);
-
-    return Results.Ok(new
-    {
-        success = true,
-        data = new
-        {
-            paymentId = payment.Id,
-            paymentStatus = payment.Status,
-            shopId,
-            subscriptionUpdated = updated,
-            referralCommissionReleased
-        }
-    });
 })
 .WithName("MercadoPagoWebhook");
 
 app.MapPost("/api/billing/simulate-payment-sync", async (string paymentId, SupabaseService supabase, MercadoPagoService mercadoPago, CancellationToken cancellationToken) =>
 {
-    var payment = await mercadoPago.GetPaymentDetailsAsync(paymentId, cancellationToken);
-    if (payment is null)
+    try
     {
-        return Results.NotFound(new
+        var payment = await mercadoPago.GetPaymentDetailsAsync(paymentId, cancellationToken);
+        if (payment is null)
         {
-            success = false,
-            error = new
+            return Results.NotFound(new
             {
-                code = "PAYMENT_NOT_FOUND",
-                message = "No se encontro el pago en Mercado Pago"
-            }
-        });
-    }
-
-    var shopId = ResolveShopId(payment.ExternalReference, payment.Metadata);
-    if (shopId is null || shopId == Guid.Empty)
-    {
-        return Results.BadRequest(new
-        {
-            success = false,
-            error = new
-            {
-                code = "SHOP_ID_NOT_FOUND",
-                message = "No se pudo resolver el shop asociado al pago"
-            }
-        });
-    }
-
-    var updated = await supabase.UpdateSubscriptionFromPaymentAsync(
-        shopId.Value,
-        payment.Status,
-        payment.Id,
-        payment.Payer?.Email,
-        payment.TransactionAmount,
-        payment.CurrencyId,
-        payment.Metadata?.SubscriptionPlan,
-        cancellationToken
-    );
-
-    var referral = await supabase.GetReferralByReferredTenantAsync(shopId.Value, cancellationToken);
-    var referralCommissionReleased = string.Equals(referral?.Status, "confirmed", StringComparison.OrdinalIgnoreCase);
-
-    return Results.Ok(new
-    {
-        success = true,
-        data = new
-        {
-            paymentId = payment.Id,
-            paymentStatus = payment.Status,
-            shopId,
-            subscriptionUpdated = updated,
-            referralCommissionReleased
+                success = false,
+                error = new
+                {
+                    code = "PAYMENT_NOT_FOUND",
+                    message = "No se encontro el pago en Mercado Pago"
+                }
+            });
         }
-    });
+
+        var shopId = ResolveShopId(payment.ExternalReference, payment.Metadata);
+        if (shopId is null || shopId == Guid.Empty)
+        {
+            return Results.BadRequest(new
+            {
+                success = false,
+                error = new
+                {
+                    code = "SHOP_ID_NOT_FOUND",
+                    message = "No se pudo resolver el shop asociado al pago"
+                }
+            });
+        }
+
+        var updated = await supabase.UpdateSubscriptionFromPaymentAsync(
+            shopId.Value,
+            payment.Status,
+            payment.Id,
+            payment.Payer?.Email,
+            payment.TransactionAmount,
+            payment.CurrencyId,
+            payment.Metadata?.SubscriptionPlan,
+            cancellationToken
+        );
+
+        var referral = await supabase.GetReferralByReferredTenantAsync(shopId.Value, cancellationToken);
+        var referralCommissionReleased = string.Equals(referral?.Status, "confirmed", StringComparison.OrdinalIgnoreCase);
+
+        return Results.Ok(new
+        {
+            success = true,
+            data = new
+            {
+                paymentId = payment.Id,
+                paymentStatus = payment.Status,
+                shopId,
+                subscriptionUpdated = updated,
+                referralCommissionReleased
+            }
+        });
+    }
+    catch (HttpRequestException ex)
+    {
+        return Results.Json(new
+        {
+            success = false,
+            error = new
+            {
+                code = "MERCADOPAGO_PAYMENT_SYNC_LOOKUP_FAILED",
+                message = ex.Message
+            }
+        }, statusCode: StatusCodes.Status502BadGateway);
+    }
+    catch (Exception ex)
+    {
+        return Results.Json(new
+        {
+            success = false,
+            error = new
+            {
+                code = "MERCADOPAGO_PAYMENT_SYNC_UNEXPECTED_ERROR",
+                message = ex.Message
+            }
+        }, statusCode: StatusCodes.Status500InternalServerError);
+    }
 })
 .WithName("SimulatePaymentSync");
 
