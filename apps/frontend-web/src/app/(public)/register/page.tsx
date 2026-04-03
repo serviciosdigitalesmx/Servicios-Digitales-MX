@@ -40,7 +40,6 @@ export default function RegisterPage() {
     setError("");
     
     try {
-      console.log("Iniciando proceso de registro completo...");
       const slug = form.shopName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
 
       // 1. Sign up user
@@ -58,7 +57,6 @@ export default function RegisterPage() {
       if (authError) {
         // Si el error es que ya existe, intentamos recuperar el ID si es posible o damos un error claro
         if (authError.message.includes("already registered") || authError.status === 422) {
-          console.log("El usuario ya existe en Auth, intentando vincular...");
           // Nota: En un flujo ideal, aquí pediríamos login. 
           // Por ahora, lanzamos un error que pida usar otro correo para no dejar huérfana la cuenta.
           throw new Error("Este correo ya está registrado. Por favor, usa uno diferente o inicia sesión.");
@@ -72,10 +70,7 @@ export default function RegisterPage() {
         throw new Error("No se pudo obtener el ID del usuario.");
       }
 
-      console.log("Usuario Auth creado con ID:", userId);
-
       // 2. Initialize Tenant
-      console.log("Insertando Tenant...");
       const { data: tenantData, error: tenantError } = await supabase.from('tenants').insert({
         name: form.shopName,
         slug: slug,
@@ -85,15 +80,12 @@ export default function RegisterPage() {
       }).select().single();
 
       if (tenantError) {
-        console.error("Error en Tenant:", tenantError);
         throw new Error(`Error creando empresa: ${tenantError.message}`);
       }
       
       const tenantId = tenantData.id;
-      console.log("Tenant creado ID:", tenantId);
 
       // 3. Create Branch
-      console.log("Insertando Sucursal...");
       const { data: branchData, error: branchError } = await supabase.from('branches').insert({
         tenant_id: tenantId,
         name: 'Matriz',
@@ -101,12 +93,10 @@ export default function RegisterPage() {
       }).select().single();
 
       if (branchError) {
-        console.error("Error en Sucursal:", branchError);
         throw new Error(`Error creando sucursal: ${branchError.message}`);
       }
 
       // 4. Create User Profile
-      console.log("Insertando Perfil de Usuario...");
       const { error: userError } = await supabase.from('users').insert({
         tenant_id: tenantId,
         branch_id: branchData.id,
@@ -118,12 +108,10 @@ export default function RegisterPage() {
       });
 
       if (userError) {
-        console.error("Error en Perfil:", userError);
         throw new Error(`Error creando perfil: ${userError.message}`);
       }
 
       // 5. Create Subscription
-      console.log("Insertando Suscripción...");
       const { error: subError } = await supabase.from('subscriptions').insert({
         tenant_id: tenantId,
         plan_code: plan,
@@ -132,18 +120,16 @@ export default function RegisterPage() {
       });
 
       if (subError) {
-        console.error("Error en Suscripción:", subError);
         throw new Error(`Error activando prueba: ${subError.message}`);
       }
 
-      console.log("¡Registro existoso!");
       setResolvedPlan(plan);
       setConfirmationRequired(!authData.session);
       setAutoRedirectHub(!!authData.session);
       setStep(3);
-    } catch (err: any) {
-      console.error("Registro fallido:", err);
-      setError(err.message || "Error inesperado en el servidor");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Error inesperado en el servidor";
+      setError(message);
     } finally {
       setLoading(false);
     }

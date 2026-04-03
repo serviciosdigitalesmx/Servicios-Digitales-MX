@@ -1,9 +1,22 @@
 import { NextResponse } from 'next/server';
-import { getBackendApiResolution } from '../../../../lib/backendApi';
+import { getBackendApiResolution, getErrorMessage, getProxyHeaders } from '../../../../lib/backendApi';
 
 export async function POST(req: Request) {
   try {
     const resolution = getBackendApiResolution();
+    if (!resolution.baseUrl) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            code: 'BACKEND_API_URL_NOT_CONFIGURED',
+            message: 'El frontend no tiene configurada la URL del backend para este entorno.'
+          }
+        },
+        { status: 503, headers: getProxyHeaders(resolution) }
+      );
+    }
+
     const rawBody = await req.text();
     const response = await fetch(`${resolution.baseUrl}/api/webhooks/mercadopago${new URL(req.url).search}`, {
       method: 'POST',
@@ -14,26 +27,21 @@ export async function POST(req: Request) {
     });
 
     const rawText = await response.text();
-    let parsedBody: any = null;
-    if (rawText) {
-      try {
-        parsedBody = JSON.parse(rawText);
-      } catch {
-        parsedBody = { raw: rawText };
-      }
-    }
+    const parsedBody = rawText ? safeParse(rawText) : null;
 
     return NextResponse.json(parsedBody ?? { received: true }, {
       status: response.status,
-      headers: {
-        'x-sdmx-billing-source': 'backend-dotnet-via-next-proxy',
-        'x-sdmx-backend-mode': resolution.mode,
-        'x-sdmx-backend-source': resolution.source,
-        'x-sdmx-backend-configured': String(resolution.configured)
-      }
+      headers: getProxyHeaders(resolution)
     });
-  } catch (error: any) {
-    console.error("Webhook Error:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    return NextResponse.json({ error: getErrorMessage(error, 'Error al procesar webhook') }, { status: 500 });
+  }
+}
+
+function safeParse(rawText: string) {
+  try {
+    return JSON.parse(rawText) as Record<string, unknown>;
+  } catch {
+    return { raw: rawText };
   }
 }

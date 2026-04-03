@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { proxyBackendJson } from '../../../../lib/backendApi';
+import { getErrorMessage, getProxyHeaders, proxyBackendJson } from '../../../../lib/backendApi';
 
 export async function GET() {
   try {
@@ -9,15 +9,9 @@ export async function GET() {
 
     return NextResponse.json(result.body ?? { success: false }, {
       status: result.status,
-      headers: {
-        'x-sdmx-billing-source': 'backend-dotnet-via-next-proxy',
-        'x-sdmx-backend-mode': result.resolution.mode,
-        'x-sdmx-backend-source': result.resolution.source,
-        'x-sdmx-backend-configured': String(result.resolution.configured)
-      }
+      headers: getProxyHeaders(result.resolution)
     });
-  } catch (error: any) {
-    console.error('Error en plans proxy:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    return NextResponse.json({ error: getErrorMessage(error, 'Error al obtener planes') }, { status: 500 });
   }
 }

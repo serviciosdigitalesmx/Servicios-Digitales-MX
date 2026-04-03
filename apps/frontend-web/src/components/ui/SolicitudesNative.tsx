@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState, useMemo } from "react";
+import { PostgrestError } from "@supabase/supabase-js";
 import { 
   IconSearch, IconPlus, IconCheckCircular, IconWarning, IconPen, 
   IconThumbsUp, IconChart, IconSync, IconArchive, IconMonitor, 
@@ -14,6 +15,23 @@ type ServiceRequest = {
   solicitudOrigenIp?: string;
 };
 
+type ServiceRequestRow = {
+  id: string;
+  folio: string;
+  customer_name: string;
+  customer_phone: string | null;
+  customer_email: string | null;
+  device_type: string | null;
+  device_model: string | null;
+  issue_description: string | null;
+  urgency: string | null;
+  status: string;
+  quoted_total: number | null;
+  deposit_amount: number | null;
+  balance_amount: number | null;
+  solicitud_origen_ip: string | null;
+};
+
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "./AuthGuard";
 
@@ -23,6 +41,41 @@ function formatMoney(value: number) {
 
 const SERVICE_REQUEST_STATUS_LABELS: Record<string, string> = { pendiente: "En Dictamen / Pausa", aprobada: "Autorizada (Comercial)" };
 function getRequestStatusLabel(value?: string) { return SERVICE_REQUEST_STATUS_LABELS[(value ?? "").trim().toLowerCase()] ?? (value ? value.charAt(0).toUpperCase() + value.slice(1) : "Abierto"); }
+function getErrorMessage(error: unknown, fallback: string) {
+  return error instanceof Error || isPostgrestError(error) ? error.message : fallback;
+}
+
+function isPostgrestError(error: unknown): error is PostgrestError {
+  return typeof error === "object" && error !== null && "message" in error;
+}
+
+function mapServiceRequestRow(request: ServiceRequestRow): ServiceRequest {
+  return {
+    id: request.id,
+    folio: request.folio,
+    customerName: request.customer_name,
+    customerPhone: request.customer_phone ?? undefined,
+    customerEmail: request.customer_email ?? undefined,
+    deviceType: request.device_type ?? undefined,
+    deviceModel: request.device_model ?? undefined,
+    issueDescription: request.issue_description ?? undefined,
+    urgency: request.urgency ?? undefined,
+    status: request.status,
+    quotedTotal: Number(request.quoted_total || 0),
+    depositAmount: Number(request.deposit_amount || 0),
+    balanceAmount: Number(request.balance_amount || 0),
+    solicitudOrigenIp: request.solicitud_origen_ip ?? undefined
+  };
+}
+
+function getNextFolioNumber(folio?: string, prefix = "COT-") {
+  if (!folio?.startsWith(prefix)) {
+    return 1;
+  }
+
+  const lastNum = parseInt(folio.split("-")[1], 10);
+  return Number.isNaN(lastNum) ? 1 : lastNum + 1;
+}
 
 export function SolicitudesNative() {
   const { session } = useAuth();
@@ -51,24 +104,9 @@ export function SolicitudesNative() {
 
       if (error) throw error;
 
-      setItems((data || []).map((t: any) => ({
-        id: t.id,
-        folio: t.folio,
-        customerName: t.customer_name,
-        customerPhone: t.customer_phone,
-        customerEmail: t.customer_email,
-        deviceType: t.device_type,
-        deviceModel: t.device_model,
-        issueDescription: t.issue_description,
-        urgency: t.urgency,
-        status: t.status,
-        quotedTotal: Number(t.quoted_total || 0),
-        depositAmount: Number(t.deposit_amount || 0),
-        balanceAmount: Number(t.balance_amount || 0),
-        solicitudOrigenIp: t.solicitud_origen_ip
-      })));
-    } catch (error: any) {
-       setApiStateError(error.message || "Error de conexión al cargar la bandeja.");
+      setItems((data || []).map(mapServiceRequestRow));
+    } catch (error: unknown) {
+       setApiStateError(getErrorMessage(error, "Error de conexión al cargar la bandeja."));
     } finally {
       setLoading(false);
     }
@@ -88,10 +126,7 @@ export function SolicitudesNative() {
       .single();
 
     let nextNumber = 1;
-    if (lastReq && lastReq.folio.startsWith('COT-')) {
-      const lastNum = parseInt(lastReq.folio.split('-')[1]);
-      if (!isNaN(lastNum)) nextNumber = lastNum + 1;
-    }
+    if (lastReq) nextNumber = getNextFolioNumber(lastReq.folio);
     return `COT-${String(nextNumber).padStart(6, '0')}`;
   };
 
@@ -133,8 +168,8 @@ export function SolicitudesNative() {
       await loadData();
       setApiStateMessage("Solicitud completada exitosamente.");
       setTimeout(() => setApiStateMessage(""), 4000);
-    } catch (error: any) {
-       setApiStateError(error.message || "Error al registrar la cotización.");
+    } catch (error: unknown) {
+       setApiStateError(getErrorMessage(error, "Error al registrar la cotización."));
     } finally {
       setLoading(false);
     }

@@ -7,6 +7,41 @@ export type BackendApiResolution = {
   configured: boolean;
 };
 
+export type ParsedBackendBody = Record<string, unknown> | { raw: string } | null;
+
+export type BackendProxyResult = {
+  ok: boolean;
+  status: number;
+  body: ParsedBackendBody;
+  resolution: BackendApiResolution;
+};
+
+export function getErrorMessage(error: unknown, fallback: string) {
+  return error instanceof Error ? error.message : fallback;
+}
+
+export function getProxyHeaders(resolution: BackendApiResolution) {
+  return {
+    "x-sdmx-billing-source": "backend-dotnet-via-next-proxy",
+    "x-sdmx-backend-mode": resolution.mode,
+    "x-sdmx-backend-source": resolution.source,
+    "x-sdmx-backend-configured": String(resolution.configured)
+  };
+}
+
+async function parseBackendBody(response: Response): Promise<ParsedBackendBody> {
+  const rawText = await response.text();
+  if (!rawText) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(rawText) as Record<string, unknown>;
+  } catch {
+    return { raw: rawText };
+  }
+}
+
 export function getBackendApiResolution(): BackendApiResolution {
   if (process.env.API_BASE_URL) {
     return {
@@ -52,7 +87,7 @@ export function getBackendApiBaseUrl() {
   return resolution.baseUrl;
 }
 
-export async function proxyBackendJson(path: string, init?: RequestInit) {
+export async function proxyBackendJson(path: string, init?: RequestInit): Promise<BackendProxyResult> {
   const resolution = getBackendApiResolution();
   if (!resolution.baseUrl) {
     return {
@@ -78,21 +113,10 @@ export async function proxyBackendJson(path: string, init?: RequestInit) {
     cache: "no-store"
   });
 
-  const rawText = await response.text();
-  let parsedBody: any = null;
-
-  if (rawText) {
-    try {
-      parsedBody = JSON.parse(rawText);
-    } catch {
-      parsedBody = { raw: rawText };
-    }
-  }
-
   return {
     ok: response.ok,
     status: response.status,
-    body: parsedBody,
+    body: await parseBackendBody(response),
     resolution
   };
 }

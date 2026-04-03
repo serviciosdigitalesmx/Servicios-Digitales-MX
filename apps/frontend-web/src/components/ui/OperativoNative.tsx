@@ -1,15 +1,8 @@
 "use client";
 
 import { FormEvent, useEffect, useState, useMemo } from "react";
+import { PostgrestError } from "@supabase/supabase-js";
 import { useAuth } from "./AuthGuard";
-
-type AuthResponse = {
-  data: {
-    user: { branchId: string; fullName: string; };
-    shop: { name: string; };
-    subscription: { operationalAccess: boolean; status: string; };
-  };
-};
 
 type Customer = { id: string; fullName: string; phone?: string; email?: string; tag: string; };
 
@@ -17,6 +10,26 @@ type Order = {
   id: string; folio: string; status: string; deviceType: string; deviceModel?: string;
   priority?: string; customerName?: string; assignedTechnician?: string; estimatedCost?: number;
   promisedDate?: string; createdAt: string;
+};
+
+type CustomerRow = {
+  id: string;
+  full_name: string;
+  phone: string | null;
+  email: string | null;
+  tag: string | null;
+};
+
+type ServiceOrderRow = {
+  id: string;
+  folio: string;
+  status: string;
+  device_type: string;
+  device_model: string | null;
+  priority: string | null;
+  estimated_cost: number | null;
+  promised_date: string | null;
+  created_at: string;
 };
 
 import { supabase } from "../../lib/supabase";
@@ -42,6 +55,37 @@ const SERVICE_ORDER_STATUS_OPTIONS = [
 
 function normalizeServiceOrderStatus(value?: string) { return SERVICE_ORDER_STATUS_ALIASES[(value ?? "").trim().toLowerCase()] ?? (value ?? "").trim().toLowerCase(); }
 function getServiceOrderStatusLabel(value?: string) { return SERVICE_ORDER_STATUS_LABELS[normalizeServiceOrderStatus(value)] ?? (value ? value : "Sin estado"); }
+function getErrorMessage(error: unknown, fallback: string) {
+  return error instanceof Error || isPostgrestError(error) ? error.message : fallback;
+}
+
+function isPostgrestError(error: unknown): error is PostgrestError {
+  return typeof error === "object" && error !== null && "message" in error;
+}
+
+function mapCustomerRow(customer: CustomerRow): Customer {
+  return {
+    id: customer.id,
+    fullName: customer.full_name,
+    phone: customer.phone ?? undefined,
+    email: customer.email ?? undefined,
+    tag: customer.tag || "nuevo"
+  };
+}
+
+function mapServiceOrderRow(order: ServiceOrderRow): Order {
+  return {
+    id: order.id,
+    folio: order.folio,
+    status: order.status,
+    deviceType: order.device_type,
+    deviceModel: order.device_model ?? undefined,
+    priority: order.priority ?? undefined,
+    estimatedCost: Number(order.estimated_cost || 0),
+    promisedDate: order.promised_date ?? undefined,
+    createdAt: order.created_at
+  };
+}
 
 export function OperativoNative() {
   const { session } = useAuth();
@@ -73,28 +117,10 @@ export function OperativoNative() {
       if (customersRes.error) throw customersRes.error;
       if (ordersRes.error) throw ordersRes.error;
 
-      setCustomers(customersRes.data.map((c: any) => ({
-        id: c.id,
-        fullName: c.full_name,
-        phone: c.phone,
-        email: c.email,
-        tag: c.tag || 'nuevo'
-      })));
-
-      setOrders(ordersRes.data.map((o: any) => ({
-        id: o.id,
-        folio: o.folio,
-        status: o.status,
-        deviceType: o.device_type,
-        deviceModel: o.device_model,
-        priority: o.priority,
-        estimatedCost: Number(o.estimated_cost || 0),
-        promisedDate: o.promised_date,
-        createdAt: o.created_at
-      })));
-
-    } catch (error: any) {
-       setApiStateError(error.message || "Error al conectar con Supabase.");
+      setCustomers((customersRes.data || []).map(mapCustomerRow));
+      setOrders((ordersRes.data || []).map(mapServiceOrderRow));
+    } catch (error: unknown) {
+       setApiStateError(getErrorMessage(error, "Error al conectar con Supabase."));
     } finally {
       setLoading(false);
     }
@@ -158,8 +184,8 @@ export function OperativoNative() {
       setOrderForm({ customerId: "", deviceType: "", deviceBrand: "", deviceModel: "", serialNumber: "", reportedIssue: "", priority: "normal", promisedDate: "", estimatedCost: "0" });
       await loadData();
       setApiStateMessage("✅ Orden de servicio creada exitosamente.");
-    } catch (error: any) {
-      setApiStateError(error.message || "Error al procesar la orden.");
+    } catch (error: unknown) {
+      setApiStateError(getErrorMessage(error, "Error al procesar la orden."));
     } finally {
       setLoading(false);
     }

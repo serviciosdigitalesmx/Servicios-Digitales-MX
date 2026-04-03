@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, createContext, useContext } from "react";
 import { supabase } from "../../lib/supabase";
+import { getBackendApiBaseUrl } from "../../lib/backendApi";
 import { IconMicrochip, IconWarning } from "./Icons";
 
 export type AuthMeResponse = {
@@ -35,6 +36,7 @@ type AuthContextType = {
 };
 
 const AuthContext = createContext<AuthContextType>({ session: null, loading: true });
+const SUBSCRIPTION_ATTENTION_STATUSES = new Set(["inactive", "past_due"]);
 
 export function useAuth() {
   return useContext(AuthContext);
@@ -46,20 +48,17 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   const [subscriptionError, setSubscriptionError] = useState<string | null>(null);
   const [showRetry, setShowRetry] = useState(false);
 
-  const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-
   useEffect(() => {
     let mounted = true;
 
     async function initializeAuth() {
-      console.log("🔐 AuthGuard: Iniciando verificación...");
-      if (mounted) setLoading(true);
+      if (mounted) {
+        setLoading(true);
+      }
       
-      // 1. Verificar sesión actual DE INMEDIATO
       const { data: { session: initialSession }, error: sessionError } = await supabase.auth.getSession();
       
       if (sessionError) {
-        console.error("❌ AuthGuard Error:", sessionError);
         if (mounted) {
           setSession(null);
           setLoading(false);
@@ -68,10 +67,8 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
       }
 
       if (initialSession) {
-        console.log("✅ AuthGuard: Sesión detectada, hidratando perfil...");
         await hydrateProfile(initialSession);
       } else {
-        console.log("ℹ️ AuthGuard: Sin sesión activa.");
         if (mounted) {
           setSession(null);
           setLoading(false);
@@ -79,54 +76,21 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
       }
     }
 
-    async function hydrateProfile(authSession: any) {
-      const maxAttempts = 5;
-      let userData: any = null;
-      let userError: any = null;
-
+    async function hydrateProfile(authSession: { access_token: string }) {
+      if (!mounted) return;
+      
       try {
-        // 1. Fetch User Profile con reintentos cortos para evitar carreras con el alta
-        for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
-          const response = await supabase
-            .from('users')
-            .select('*')
-            .eq('auth_user_id', authSession.user.id)
-            .limit(1)
-            .maybeSingle();
-
-          userData = response.data;
-          userError = response.error;
-
-          if (userError) throw userError;
-          if (userData) break;
-
-          console.warn(`⚠️ AuthGuard: Perfil aún no disponible, reintento ${attempt}/${maxAttempts}...`);
-          if (attempt < maxAttempts) {
-            await sleep(250 * attempt);
+        setLoading(true);
+        const baseUrl = getBackendApiBaseUrl();
+        const response = await fetch(`${baseUrl}/api/auth/me`, {
+          headers: {
+            'Authorization': `Bearer ${authSession.access_token}`,
+            'Content-Type': 'application/json'
           }
-        }
+        });
 
-        if (!userData) {
-          console.warn("⚠️ AuthGuard: No se encontró perfil de usuario para ID:", authSession.user.id);
-          if (mounted) {
-            setSession(null);
-            setLoading(false);
-          }
-          return;
-        }
-
-        // 2. Fetch Tenant and Subscription
-        if (mounted) setLoading(true);
-        const [tenantRes, subRes] = await Promise.all([
-          supabase.from('tenants').select('*').eq('id', userData.tenant_id).single(),
-          supabase.from('subscriptions').select('*').eq('tenant_id', userData.tenant_id).single()
-        ]);
-
-        const sub = subRes.data;
-        if (sub?.status === 'inactive' || sub?.status === 'past_due') {
-           setSubscriptionError("⚠️ Tu suscripción requiere atención. Por favor, realiza tu pago.");
-        } else {
-           setSubscriptionError(null);
+        if (!response.ok) {
+          throw new Error(`Error al obtener perfil: ${response.status}`);
         }
 
         const { data } = await response.json();
@@ -134,7 +98,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
         if (mounted) {
           setSession(data);
           
-          if (data.subscription?.status === 'inactive' || data.subscription?.status === 'past_due') {
+          if (SUBSCRIPTION_ATTENTION_STATUSES.has(data.subscription?.status ?? "")) {
             setSubscriptionError("⚠️ Tu suscripción requiere atención. Por favor, realiza tu pago.");
           } else {
             setSubscriptionError(null);
@@ -143,7 +107,6 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
           setLoading(false);
         }
       } catch (err) {
-        console.error("❌ AuthGuard Critical Error:", err);
         if (mounted) {
           setSession(null);
           setLoading(false);
@@ -154,7 +117,6 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     // Listener para cambios de estado (Login/Logout)
     const { data: { subscription: authListener } } = supabase.auth.onAuthStateChange(
       async (_event, authSession) => {
-        console.log(`🔄 AuthGuard Evento: ${_event}`);
         if (_event === "SIGNED_OUT") {
           setSession(null);
           setLoading(false);

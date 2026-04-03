@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
+import { PostgrestError } from "@supabase/supabase-js";
 
 type Supplier = { id: string; businessName: string; };
 
@@ -9,10 +10,59 @@ type Product = {
   cost: number; salePrice: number; minimumStock: number; stockCurrent: number; supplierName?: string;
 };
 
+type SupplierRow = {
+  id: string;
+  business_name: string;
+};
+
+type ProductRow = {
+  id: string;
+  sku: string;
+  name: string;
+  category: string | null;
+  brand: string | null;
+  cost: number | null;
+  sale_price: number | null;
+  minimum_stock: number | null;
+  stock_current: number | null;
+  suppliers?: {
+    business_name?: string | null;
+  } | null;
+};
+
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "./AuthGuard";
 
 function formatMoney(value: number) { return new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN", maximumFractionDigits: 0 }).format(value || 0); }
+function getErrorMessage(error: unknown, fallback: string) {
+  return error instanceof Error || isPostgrestError(error) ? error.message : fallback;
+}
+
+function isPostgrestError(error: unknown): error is PostgrestError {
+  return typeof error === "object" && error !== null && "message" in error;
+}
+
+function mapSupplierRow(supplier: SupplierRow): Supplier {
+  return {
+    id: supplier.id,
+    businessName: supplier.business_name
+  };
+}
+
+function mapProductRow(product: ProductRow): Product {
+  return {
+    id: product.id,
+    sku: product.sku,
+    name: product.name,
+    category: product.category ?? undefined,
+    brand: product.brand ?? undefined,
+    cost: Number(product.cost || 0),
+    salePrice: Number(product.sale_price || 0),
+    minimumStock: Number(product.minimum_stock || 0),
+    stockCurrent: Number(product.stock_current || 0),
+    supplierName: product.suppliers?.business_name ?? undefined
+  };
+}
 
 export function StockNative() {
   const { session } = useAuth();
@@ -43,24 +93,13 @@ export function StockNative() {
       if (suppliersRes.error) throw suppliersRes.error;
       if (productsRes.error) throw productsRes.error;
 
-      setSuppliers((suppliersRes.data || []).map((s: any) => ({
-        id: s.id,
-        businessName: s.business_name
-      })));
-
-      setProducts((productsRes.data || []).map((p: any) => ({
-        id: p.id,
-        sku: p.sku,
-        name: p.name,
-        category: p.category,
-        brand: p.brand,
-        cost: Number(p.cost || 0),
-        salePrice: Number(p.sale_price || 0),
-        minimumStock: Number(p.minimum_stock || 0),
-        stockCurrent: Number(p.stock_current || 0),
-        supplierName: p.suppliers?.business_name
-      })));
-    } catch (error: any) { setApiStateError(error.message || "Error de red al conectar con el servidor."); } finally { setLoading(false); }
+      setSuppliers((suppliersRes.data || []).map(mapSupplierRow));
+      setProducts((productsRes.data || []).map(mapProductRow));
+    } catch (error: unknown) {
+      setApiStateError(getErrorMessage(error, "Error de red al conectar con el servidor."));
+    } finally {
+      setLoading(false);
+    }
   }
 
   useEffect(() => { 
@@ -89,7 +128,11 @@ export function StockNative() {
       setSupplierForm({ businessName: "", contactName: "", phone: "", email: "", categories: "", notes: "" });
       await loadData();
       setApiStateMessage("✅ Nuevo proveedor integrado.");
-    } catch (error: any) { setApiStateError(error.message || "El sistema rechazó al proveedor."); } finally { setLoading(false); }
+    } catch (error: unknown) {
+      setApiStateError(getErrorMessage(error, "El sistema rechazó al proveedor."));
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function handleProductSubmit(event: FormEvent<HTMLFormElement>) {
@@ -128,7 +171,11 @@ export function StockNative() {
       setProductForm({ sku: "", name: "", category: "", brand: "", compatibleModel: "", primarySupplierId: "", cost: "0", salePrice: "0", minimumStock: "0", unit: "pieza", location: "", notes: "", initialStock: "0" });
       await loadData();
       setApiStateMessage("✅ Unidad indexada al stock general.");
-    } catch (error: any) { setApiStateError(error.message || "Falla al crear ficha. Posible SKU duplicado."); } finally { setLoading(false); }
+    } catch (error: unknown) {
+      setApiStateError(getErrorMessage(error, "Falla al crear ficha. Posible SKU duplicado."));
+    } finally {
+      setLoading(false);
+    }
   }
 
   const filteredProducts = products.filter(p => !searchProduct || p.name.toLowerCase().includes(searchProduct.toLowerCase()) || p.sku.toLowerCase().includes(searchProduct.toLowerCase()));

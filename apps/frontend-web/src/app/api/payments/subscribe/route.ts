@@ -1,5 +1,12 @@
 import { NextResponse } from 'next/server';
-import { proxyBackendJson } from '../../../../lib/backendApi';
+import { getErrorMessage, getProxyHeaders, proxyBackendJson } from '../../../../lib/backendApi';
+
+type CheckoutResponseBody = {
+  data?: {
+    checkoutUrl?: string;
+    preferenceId?: string;
+  };
+};
 
 export async function POST(req: Request) {
   try {
@@ -14,24 +21,20 @@ export async function POST(req: Request) {
       })
     });
 
-    const headers = {
-      'x-sdmx-billing-source': 'backend-dotnet-via-next-proxy',
-      'x-sdmx-backend-mode': result.resolution.mode,
-      'x-sdmx-backend-source': result.resolution.source,
-      'x-sdmx-backend-configured': String(result.resolution.configured)
-    };
+    const headers = getProxyHeaders(result.resolution);
 
     if (!result.ok) {
       return NextResponse.json(result.body ?? { error: 'No se pudo iniciar checkout' }, { status: result.status, headers });
     }
 
+    const body = result.body as CheckoutResponseBody | null;
+
     return NextResponse.json({
-      init_point: result.body?.data?.checkoutUrl,
-      checkoutUrl: result.body?.data?.checkoutUrl,
-      preferenceId: result.body?.data?.preferenceId
+      init_point: body?.data?.checkoutUrl,
+      checkoutUrl: body?.data?.checkoutUrl,
+      preferenceId: body?.data?.preferenceId
     }, { headers });
-  } catch (error: any) {
-    console.error("Error en Subscribe:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    return NextResponse.json({ error: getErrorMessage(error, 'Error al iniciar checkout') }, { status: 500 });
   }
 }
