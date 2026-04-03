@@ -226,7 +226,7 @@ app.MapPost("/api/auth/login", async (LoginRequest request, SupabaseService supa
         });
     }
 
-    if (!SupabaseService.VerifySimulatedPassword(email, request.Password))
+    if (!await supabase.VerifyUserPasswordAsync(email, request.Password, cancellationToken))
     {
         return Results.BadRequest(new
         {

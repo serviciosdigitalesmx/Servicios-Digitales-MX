@@ -46,34 +46,36 @@ public sealed class SupabaseService
 
     private static readonly string MockAuthFile = System.IO.Path.Combine(System.IO.Directory.GetCurrentDirectory(), ".local_auth.json");
 
-    private static string HashPassword(string password)
+    private static string HashPassword(string password, string salt)
     {
         using var sha256 = System.Security.Cryptography.SHA256.Create();
-        var bytes = sha256.ComputeHash(System.Text.Encoding.UTF8.GetBytes(password));
+        var bytes = sha256.ComputeHash(System.Text.Encoding.UTF8.GetBytes(password + salt));
         return Convert.ToBase64String(bytes);
     }
 
-    public static void SimulatePasswordStore(string email, string password)
+    public async Task<bool> VerifyUserPasswordAsync(string email, string password, CancellationToken cancellationToken = default)
     {
-        var dict = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        if (System.IO.File.Exists(MockAuthFile))
+        // En producción, esto debería validar contra la tabla 'users'
+        var user = await GetSingleAsync<DbUser>($"users?email=eq.{Uri.EscapeDataString(email)}&select=id,password_hash,password_salt", cancellationToken);
+        
+        if (user is null || string.IsNullOrEmpty(user.PasswordHash) || string.IsNullOrEmpty(user.PasswordSalt))
         {
-            try { dict = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(System.IO.File.ReadAllText(MockAuthFile)) ?? dict; } catch {}
+            return false;
         }
-        dict[email] = HashPassword(password);
-        System.IO.File.WriteAllText(MockAuthFile, System.Text.Json.JsonSerializer.Serialize(dict));
+
+        return user.PasswordHash == HashPassword(password, user.PasswordSalt);
     }
 
-    public static bool VerifySimulatedPassword(string email, string password)
+    public async Task SetUserPasswordAsync(Guid userId, string password, CancellationToken cancellationToken = default)
     {
-        if (System.IO.File.Exists(MockAuthFile))
+        var salt = Guid.NewGuid().ToString("N");
+        var hash = HashPassword(password, salt);
+
+        await PatchAsync("users", $"id=eq.{userId}", new
         {
-            try { 
-                var dict = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(System.IO.File.ReadAllText(MockAuthFile));
-                if (dict != null && dict.TryGetValue(email, out var hashedPwd)) return hashedPwd == HashPassword(password);
-            } catch {}
-        }
-        return false;
+            password_hash = hash,
+            password_salt = salt
+        }, cancellationToken);
     }
 
     public async Task EnsureBootstrapDataAsync(CancellationToken cancellationToken = default)
@@ -154,8 +156,8 @@ public sealed class SupabaseService
         _bootstrap.UserReferralCode = user.ReferralCode ?? string.Empty;
         _bootstrap.UserBalance = user.Balance;
 
-        // Seed the staging auth securely without a universal backdoor
-        SimulatePasswordStore("admin@taller.com", "Admin123!");
+        // Proporcionamos password real en el seed
+        await SetUserPasswordAsync(user.Id, "Admin123!", cancellationToken);
 
         var subscription = await GetSingleAsync<DbSubscription>($"subscriptions?tenant_id=eq.{tenant.Id}&order=created_at.desc&limit=1&select=id,tenant_id,plan_code,plan_name,price_mxn,billing_interval,status,current_period_start,current_period_end,grace_until", cancellationToken);
         if (subscription is null)
@@ -248,7 +250,7 @@ public sealed class SupabaseService
             balance = 0
         }, cancellationToken, "id,tenant_id,full_name,email,role,is_active,branch_id,referral_code,balance");
 
-        SimulatePasswordStore(normalizedEmail, request.Password);
+        await SetUserPasswordAsync(user!.Id, request.Password, cancellationToken);
 
         var now = DateTimeOffset.UtcNow;
         var selectedPlan = SubscriptionPlans.Resolve(request.PlanCode);
@@ -1487,7 +1489,7 @@ public sealed class SupabaseService
 
     public sealed record DbTenant(Guid Id, string Name, string Slug);
     public sealed record DbBranch(Guid Id, string Name);
-    public sealed record DbUser(Guid Id, Guid TenantId, Guid? BranchId, string FullName, string Email, string Role, bool IsActive, string? ReferralCode = null, decimal Balance = 0);
+    public sealed record DbUser(Guid Id, Guid TenantId, Guid? BranchId, string FullName, string Email, string Role, bool IsActive, string? PasswordHash = null, string? PasswordSalt = null, string? ReferralCode = null, decimal Balance = 0);
     public sealed record DbSubscription(Guid Id, Guid TenantId, string PlanCode, string PlanName, decimal PriceMxn, string BillingInterval, string Status, DateTimeOffset? CurrentPeriodStart, DateTimeOffset? CurrentPeriodEnd, DateTimeOffset? GraceUntil, JsonElement? MetadataJson = null);
     public sealed record DbSubscriptionPayment(Guid Id, Guid SubscriptionId, string Provider, string ProviderPaymentId, string ProviderPaymentStatus, decimal? Amount, string? CurrencyId, string? PayerEmail, DateTimeOffset PaidAt, DateTimeOffset CreatedAt);
     public sealed record DbReferral(Guid Id, Guid ReferrerUserId, Guid ReferredUserId, string Status, decimal CommissionAmount, string ReferralCodeUsed);

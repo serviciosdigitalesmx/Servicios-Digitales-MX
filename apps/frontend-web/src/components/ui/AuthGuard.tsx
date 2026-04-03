@@ -129,32 +129,17 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
            setSubscriptionError(null);
         }
 
+        const { data } = await response.json();
+        
         if (mounted) {
-          setSession({
-            user: {
-              id: authSession.user.id,
-              fullName: userData?.full_name || "Usuario",
-              email: authSession.user.email || "",
-              role: userData?.role || "admin",
-              branchId: userData?.branch_id || ""
-            },
-            shop: {
-              id: tenantRes.data?.id || "",
-              name: tenantRes.data?.name || "Mi Negocio",
-              slug: tenantRes.data?.slug || "mi-negocio"
-            },
-            subscription: {
-              status: sub?.status || "active",
-              planCode: sub?.plan_code || "starter",
-              planName: sub?.plan_name || "Plan Inicial",
-              priceMxn: Number(sub?.price_mxn || 350),
-              billingInterval: sub?.billing_interval || "monthly",
-              currentPeriodStart: sub?.current_period_start,
-              currentPeriodEnd: sub?.current_period_end,
-              graceUntil: sub?.grace_until,
-              operationalAccess: sub?.status === 'active' || sub?.status === 'trialing'
-            }
-          });
+          setSession(data);
+          
+          if (data.subscription?.status === 'inactive' || data.subscription?.status === 'past_due') {
+            setSubscriptionError("⚠️ Tu suscripción requiere atención. Por favor, realiza tu pago.");
+          } else {
+            setSubscriptionError(null);
+          }
+          
           setLoading(false);
         }
       } catch (err) {
