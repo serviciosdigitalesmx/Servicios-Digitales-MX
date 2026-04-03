@@ -192,6 +192,46 @@ public sealed class SupabaseService
         _bootstrap.GraceUntil = subscription.GraceUntil;
     }
 
+    public async Task LoadContextForEmailAsync(string email, CancellationToken cancellationToken = default)
+    {
+        if (!IsConfigured || string.IsNullOrWhiteSpace(email))
+        {
+            return;
+        }
+
+        var normalizedEmail = email.Trim().ToLowerInvariant();
+        var user = await GetSingleAsync<DbUser>(
+            $"users?email=eq.{Uri.EscapeDataString(normalizedEmail)}&select=id,tenant_id,branch_id,full_name,email,role,is_active,referral_code,balance",
+            cancellationToken);
+
+        if (user is null || !user.IsActive)
+        {
+            throw new InvalidOperationException("Usuario autenticado no encontrado o inactivo");
+        }
+
+        var tenant = await GetSingleAsync<DbTenant>(
+            $"tenants?id=eq.{user.TenantId}&select=id,name,slug",
+            cancellationToken);
+
+        if (tenant is null)
+        {
+            throw new InvalidOperationException("Tenant del usuario autenticado no encontrado");
+        }
+
+        _bootstrap.UserId = user.Id;
+        _bootstrap.UserEmail = user.Email;
+        _bootstrap.UserFullName = user.FullName;
+        _bootstrap.UserRole = user.Role;
+        _bootstrap.UserReferralCode = user.ReferralCode ?? string.Empty;
+        _bootstrap.UserBalance = user.Balance;
+        _bootstrap.TenantId = tenant.Id;
+        _bootstrap.TenantName = tenant.Name;
+        _bootstrap.TenantSlug = tenant.Slug;
+        _bootstrap.BranchId = user.BranchId ?? Guid.Empty;
+
+        await RefreshSubscriptionContextAsync(cancellationToken);
+    }
+
     public async Task<RegistrationResult> RegisterShopAsync(RegisterRequest request, CancellationToken cancellationToken = default)
     {
         var normalizedEmail = request.Email.Trim().ToLowerInvariant();

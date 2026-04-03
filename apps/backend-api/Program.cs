@@ -32,7 +32,7 @@ builder.Services.AddCors(options =>
             .AllowAnyMethod();
     });
 });
-builder.Services.AddSingleton<SupabaseBootstrapContext>();
+builder.Services.AddScoped<SupabaseBootstrapContext>();
 builder.Services.AddHttpClient<SupabaseService>();
 builder.Services.AddHttpClient<MercadoPagoService>();
 
@@ -164,6 +164,9 @@ app.Use(async (context, next) =>
                 context.Response.StatusCode = StatusCodes.Status401Unauthorized;
                 return;
             }
+
+            var supabase = context.RequestServices.GetRequiredService<SupabaseService>();
+            await supabase.LoadContextForEmailAsync(decodedEmail, context.RequestAborted);
         }
         catch
         {
@@ -175,9 +178,15 @@ app.Use(async (context, next) =>
     await next(context);
 });
 
-app.MapGet("/api/health", () =>
+app.MapGet("/api/health", async (SupabaseService supabase, CancellationToken cancellationToken) =>
 {
-    var bootstrap = app.Services.GetRequiredService<SupabaseBootstrapContext>();
+    if (supabase.IsConfigured)
+    {
+        await supabase.EnsureBootstrapDataAsync(cancellationToken);
+        await supabase.RefreshSubscriptionContextAsync(cancellationToken);
+    }
+
+    var bootstrap = supabase.Bootstrap;
     var mercadoPagoConfigured = !string.IsNullOrWhiteSpace(app.Configuration["MercadoPago:AccessToken"]);
     var mercadoPagoBaseUrl = app.Configuration["MercadoPago:BaseUrl"]?.Trim().TrimEnd('/');
     var webhookBaseUrl = app.Configuration["MercadoPago:WebhookBaseUrl"]?.Trim().TrimEnd('/');
