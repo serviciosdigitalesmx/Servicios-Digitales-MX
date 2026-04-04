@@ -141,7 +141,7 @@ export function MarketingLanding() {
             <a href="#caracteristicas">Características</a>
             <a href="#planes">Planes</a>
             <a href="#contacto">Contacto</a>
-            <Link href="/login" className="sdmx-nav-cta">Comenzar</Link>
+            <Link href="/login" className="sdmx-nav-cta" style={{cursor: 'pointer', position: 'relative', zIndex: 9999, display: 'inline-flex', alignItems: 'center', justifyContent: 'center'}}>Comenzar</Link>
           </div>
         </div>
       </nav>
@@ -149,7 +149,7 @@ export function MarketingLanding() {
       {/* HERO SECTION */}
       <section id="inicio" className="sdmx-hero">
         <div className="sdmx-container-6xl">
-          <div className="sdmx-hero-kicker">SOFTWARE OPERATIVO PARA TALLERES Y SERVICIOS TÉCNICOS</div>
+          <div className="sdmx-hero-kicker">SOFTWARE OPERATIVO PARA TALLERES Y SERVICIOS TÉCNICOS [v1.0.3]</div>
           <h1 className="sdmx-hero-title" style={{ position: 'relative', zIndex: 10 }}>
             Convierte tu taller en una <br className="hidden md:block" />
             <span>operación profesional</span>{' '}
@@ -201,7 +201,7 @@ export function MarketingLanding() {
           {/* CTA Block */}
           <div className="sdmx-central-action">
             <div className="sdmx-central-buttons">
-              <Link href="/login" className="sdmx-btn-primary">Comenzar ahora</Link>
+              <Link href="/login" className="sdmx-btn-primary" style={{cursor: 'pointer', position: 'relative', zIndex: 9999, display: 'inline-flex', alignItems: 'center', justifyContent: 'center'}}>Comenzar ahora</Link>
             </div>
             <p className="sdmx-central-disclaimer">Suscríbete mensualmente de forma segura con Mercado Pago.</p>
           </div>
@@ -395,7 +395,7 @@ export function MarketingLanding() {
               <a href="#planes">Planes</a>
               <a href="#contacto">Contacto</a>
             </div>
-            <Link href="/login" className="sdmx-footer-cta">Iniciar sesión</Link>
+            <Link href="/login" className="sdmx-footer-cta" style={{cursor: 'pointer', position: 'relative', zIndex: 9999, display: 'inline-flex', alignItems: 'center', justifyContent: 'center'}}>Iniciar sesión</Link>
           </div>
           <div className="sdmx-footer-bottom">
             <span>&copy; 2026 Servicios Digitales MX. Reservados todos los derechos.</span>
