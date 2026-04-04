@@ -1,4 +1,4 @@
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "https://sr-fix-backend.onrender.com";
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "https://sdmx-backend-api.onrender.com";
 const SESSION_STORAGE_KEY = "sdmx_session";
 
 type StoredSession = {

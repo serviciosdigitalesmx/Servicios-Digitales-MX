@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { IconRobot, IconCheck, IconStar, IconCheckCircular } from "./Icons";
 
 const MODULE_CHIPS = [
@@ -140,7 +141,7 @@ export function MarketingLanding() {
             <a href="#caracteristicas">Características</a>
             <a href="#planes">Planes</a>
             <a href="#contacto">Contacto</a>
-            <a href="/login" className="sdmx-nav-cta">Comenzar</a>
+            <Link href="/login" className="sdmx-nav-cta">Comenzar</Link>
           </div>
         </div>
       </nav>
@@ -200,7 +201,7 @@ export function MarketingLanding() {
           {/* CTA Block */}
           <div className="sdmx-central-action">
             <div className="sdmx-central-buttons">
-              <a href="#planes" className="sdmx-btn-primary">Comenzar ahora</a>
+              <Link href="/login" className="sdmx-btn-primary">Comenzar ahora</Link>
             </div>
             <p className="sdmx-central-disclaimer">Suscríbete mensualmente de forma segura con Mercado Pago.</p>
           </div>
@@ -394,7 +395,7 @@ export function MarketingLanding() {
               <a href="#planes">Planes</a>
               <a href="#contacto">Contacto</a>
             </div>
-            <a href="/login" className="sdmx-footer-cta">Iniciar sesión</a>
+            <Link href="/login" className="sdmx-footer-cta">Iniciar sesión</Link>
           </div>
           <div className="sdmx-footer-bottom">
             <span>&copy; 2026 Servicios Digitales MX. Reservados todos los derechos.</span>
