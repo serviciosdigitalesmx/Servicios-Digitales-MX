@@ -117,17 +117,17 @@ export function ComprasNative() {
       <div className="module-native-header">
         <div className="flex-col">
           <span className="hero-eyebrow">Compras</span>
-          <h1>Órdenes de Compra y Pedidos</h1>
-          <p className="muted">Controla tu reabastecimiento externo mediante requisiciones asignadas a proveedores.</p>
+          <h1>Órdenes de compra y abastecimiento</h1>
+          <p className="muted">Centraliza pedidos a proveedores, controla fechas de llegada y mantén visible cuánto inventario está por entrar.</p>
         </div>
         <div className="module-native-actions flex-row-between" style={{flex: 1, justifyContent: 'flex-end', gap: '12px'}}>
            <div style={{ position: "relative", width: "100%", maxWidth: "340px" }}>
             <span style={{ position: "absolute", top: "14px", left: "14px", opacity: 0.5, fontSize: "1.1rem" }}>🔍</span>
             <input className="module-search-input" style={{ width: "100%", paddingLeft: "42px", paddingRight: "16px", height: "48px" }}
-              placeholder="Escanear folio u origen..." value={search} onChange={(event) => setSearch(event.target.value)} />
+              placeholder="Buscar por folio o proveedor..." value={search} onChange={(event) => setSearch(event.target.value)} />
            </div>
            <button type="button" disabled={loading} className="product-button" onClick={() => void loadData()}>
-             Sincronizar Órdenes
+             Actualizar compras
           </button>
         </div>
       </div>
@@ -138,53 +138,53 @@ export function ComprasNative() {
       <div className="module-native-grid module-native-grid-wide">
         <form className="sdmx-card-premium" onSubmit={handleSubmit}>
           <div style={{borderBottom: '1px solid rgba(15,23,42,0.08)', paddingBottom: '16px', marginBottom: '16px'}}>
-             <h3 style={{fontSize: '1.25rem', margin: 0}}>Nueva Orden de Compra</h3>
-             <p className="muted" style={{margin: '4px 0 0 0', fontSize: '0.85rem'}}>Calcula y registra tus futuros ingresos de almacén.</p>
+             <h3 style={{fontSize: '1.25rem', margin: 0}}>Nueva orden de compra</h3>
+             <p className="muted" style={{margin: '4px 0 0 0', fontSize: '0.85rem'}}>Registra una compra nueva con proveedor, producto y fecha compromiso.</p>
           </div>
           {formError && <div className="form-message is-warning">{formError}</div>}
           
           <div className="flex-col" style={{marginBottom: '10px'}}>
-             <label style={{fontWeight: 'bold'}}>Proveedor Principal *</label>
+             <label style={{fontWeight: 'bold'}}>Proveedor principal *</label>
             <select value={form.supplierId} onChange={(event) => setForm({ ...form, supplierId: event.target.value })}>
-              <option value="">-- Conecta el Mayorista Maestro --</option>
+              <option value="">-- Selecciona un proveedor --</option>
               {suppliers.map((supplier) => (<option key={supplier.id} value={supplier.id}>{supplier.businessName}</option>))}
             </select>
           </div>
 
           <div className="flex-col" style={{marginBottom: '10px'}}>
-             <label style={{fontWeight: 'bold'}}>Producto / Refacción a Solicitar *</label>
+             <label style={{fontWeight: 'bold'}}>Producto o refacción *</label>
             <select value={form.productId} onChange={(event) => setForm({ ...form, productId: event.target.value })}>
-              <option value="">-- Enlaza un código indexado --</option>
+              <option value="">-- Selecciona un producto --</option>
               {products.map((product) => (<option key={product.id} value={product.id}>SKU {product.sku} — {product.name}</option>))}
             </select>
           </div>
           
           <div className="grid-cols-3" style={{background: '#f8fafc', padding: '16px', borderRadius: '8px', marginBottom: '10px'}}>
              <div className="flex-col"><label style={{margin:0}}>Cantidad</label><input type="number" min="1" step="0.01" value={form.qtyOrdered} onChange={(event) => setForm({ ...form, qtyOrdered: event.target.value })} /></div>
-             <div className="flex-col"><label style={{margin:0, color: '#10b981', fontWeight: 'bold'}}>Costo Unitario ($)</label><input type="number" min="0" step="0.01" value={form.unitCost} onChange={(event) => setForm({ ...form, unitCost: event.target.value })} /></div>
-             <div className="flex-col"><label style={{margin:0}}>Condiciones de Pago</label><input value={form.paymentTerms} onChange={(event) => setForm({ ...form, paymentTerms: event.target.value })} placeholder="Ej. A 30 días" /></div>
+             <div className="flex-col"><label style={{margin:0, color: '#10b981', fontWeight: 'bold'}}>Costo unitario ($)</label><input type="number" min="0" step="0.01" value={form.unitCost} onChange={(event) => setForm({ ...form, unitCost: event.target.value })} /></div>
+             <div className="flex-col"><label style={{margin:0}}>Condiciones de pago</label><input value={form.paymentTerms} onChange={(event) => setForm({ ...form, paymentTerms: event.target.value })} placeholder="Ej. A 30 días" /></div>
           </div>
           
           <div className="grid-cols-2" style={{marginBottom: '10px'}}>
-             <div className="flex-col"><label style={{margin:0}}>Referencia / Folio Prov.</label><input value={form.reference} onChange={(event) => setForm({ ...form, reference: event.target.value })} placeholder="Dato del proveedor (Ej. #30219L)" /></div>
-             <div className="flex-col"><label style={{margin:0}}>Fecha Esperada</label><input type="date" value={form.expectedDate} onChange={(event) => setForm({ ...form, expectedDate: event.target.value })} /></div>
+             <div className="flex-col"><label style={{margin:0}}>Referencia del proveedor</label><input value={form.reference} onChange={(event) => setForm({ ...form, reference: event.target.value })} placeholder="Dato del proveedor (Ej. #30219L)" /></div>
+             <div className="flex-col"><label style={{margin:0}}>Fecha esperada</label><input type="date" value={form.expectedDate} onChange={(event) => setForm({ ...form, expectedDate: event.target.value })} /></div>
           </div>
           
           <button type="submit" disabled={loading || products.length === 0} className="product-button is-primary" style={{marginTop: '16px'}}>
-             Generar Orden de Compra
+             Generar orden
           </button>
         </form>
 
         <article className="sdmx-card-premium" style={{display: "flex", flexDirection: "column"}}>
           <div style={{borderBottom: '1px solid rgba(15,23,42,0.08)', paddingBottom: '16px', marginBottom: '16px'}}>
-             <h3 style={{fontSize: '1.25rem', margin: 0}}>Seguimiento de Compras</h3>
-             <p className="muted" style={{margin: 0, fontSize: '0.85rem'}}>Mostrando {filteredOrders.length} orden(es) en curso.</p>
+             <h3 style={{fontSize: '1.25rem', margin: 0}}>Seguimiento de compras</h3>
+             <p className="muted" style={{margin: 0, fontSize: '0.85rem'}}>Mostrando {filteredOrders.length} orden(es) visibles.</p>
           </div>
           <ul className="data-list scrollable-list">
             {filteredOrders.length === 0 ? (
                <li className="empty-state">
                   <strong>No hay órdenes de compra</strong>
-                  <span>Tus pedidos formales con proveedores estarán enlistados aquí.</span>
+                  <span>Crea la primera orden para empezar a dar seguimiento al abastecimiento.</span>
                </li>
             ) : (
               filteredOrders.map((order) => (
@@ -197,7 +197,7 @@ export function ComprasNative() {
                           {order.status.toUpperCase()}
                        </span>
                     </strong>
-                    <span style={{ fontSize: '0.85rem', color: '#64748b' }}>🗓 Entregar aprox. el {formatDate(order.expectedDate)}</span>
+                    <span style={{ fontSize: '0.85rem', color: '#64748b' }}>🗓 Llegada estimada: {formatDate(order.expectedDate)}</span>
                   </div>
                   <div style={{ textAlign: 'right' }}>
                     <span style={{color: '#0f172a', border: '1px solid rgba(15,23,42,0.15)', padding: '6px 12px', borderRadius: '12px', fontSize: '1.2rem', fontWeight: '900' }}>

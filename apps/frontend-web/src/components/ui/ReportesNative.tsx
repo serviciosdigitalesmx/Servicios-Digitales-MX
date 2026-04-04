@@ -64,12 +64,12 @@ export function ReportesNative() {
     <section className="operativo-shell">
       <div className="operativo-header">
         <div className="flex-col">
-          <span className="hero-eyebrow">Métricas</span>
-          <h1>Reporte Operativo</h1>
-          <p className="muted">Resumen en tiempo real de la operación de servicio.</p>
+          <span className="hero-eyebrow">Reportes</span>
+          <h1>Reporte operativo</h1>
+          <p className="muted">Lectura rápida del día a día para detectar carga, riesgos y oportunidades antes de que se vuelvan problema.</p>
         </div>
         <div className="module-native-actions flex-row-between" style={{flex: 1, justifyContent: 'flex-end', gap: '12px'}}>
-           <button disabled={loading} className="product-button is-primary" onClick={rawLoad} style={{padding: '0 20px', minWidth: '150px'}}>{loading ? 'Cargando...' : 'Actualizar Datos'}</button>
+           <button disabled={loading} className="product-button is-primary" onClick={rawLoad} style={{padding: '0 20px', minWidth: '150px'}}>{loading ? 'Cargando...' : 'Actualizar reporte'}</button>
         </div>
       </div>
 
@@ -78,24 +78,24 @@ export function ReportesNative() {
         {/* KPI Row */}
         <div style={{display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: '16px'}}>
            <div className="sdmx-card-premium" style={{display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px', textAlign: 'center'}}>
-               <span style={{color: '#64748b', fontSize: '0.9rem', fontWeight: 'bold'}}>Ingresos Estimados</span>
+               <span style={{color: '#64748b', fontSize: '0.9rem', fontWeight: 'bold'}}>Ingresos estimados</span>
                <strong style={{fontSize: '2.5rem', color: '#10b981', lineHeight: '1'}}>{data ? formatMoney(data.estimatedRevenue) : "$0"}</strong>
-               <span style={{fontSize: '0.75rem', color: '#94a3b8', marginTop: '8px'}}>Ingreso potencial</span>
+               <span style={{fontSize: '0.75rem', color: '#94a3b8', marginTop: '8px'}}>Valor esperado del periodo</span>
            </div>
            <div className="sdmx-card-premium" style={{display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px', textAlign: 'center'}}>
-               <span style={{color: '#64748b', fontSize: '0.9rem', fontWeight: 'bold'}}>Órdenes Abiertas</span>
+               <span style={{color: '#64748b', fontSize: '0.9rem', fontWeight: 'bold'}}>Órdenes abiertas</span>
                <strong style={{fontSize: '2.5rem', color: '#1e3a8a', lineHeight: '1'}}>{data?.ordersOpen || "0"}</strong>
-               <span style={{fontSize: '0.75rem', color: '#94a3b8', marginTop: '8px'}}>Activas actualmente</span>
+               <span style={{fontSize: '0.75rem', color: '#94a3b8', marginTop: '8px'}}>En proceso ahora mismo</span>
            </div>
            <div className="sdmx-card-premium" style={{display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px', textAlign: 'center'}}>
-               <span style={{color: '#64748b', fontSize: '0.9rem', fontWeight: 'bold'}}>Tareas Urgentes</span>
+               <span style={{color: '#64748b', fontSize: '0.9rem', fontWeight: 'bold'}}>Tareas urgentes</span>
                <strong style={{fontSize: '2.5rem', color: '#f59e0b', lineHeight: '1'}}>{data?.tasksUrgent || "0"}</strong>
-               <span style={{fontSize: '0.75rem', color: '#94a3b8', marginTop: '8px'}}>Requieren atención</span>
+               <span style={{fontSize: '0.75rem', color: '#94a3b8', marginTop: '8px'}}>Requieren atención inmediata</span>
            </div>
            <div className="sdmx-card-premium" style={{display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px', textAlign: 'center'}}>
-               <span style={{color: '#64748b', fontSize: '0.9rem', fontWeight: 'bold'}}>Órdenes Entregadas</span>
+               <span style={{color: '#64748b', fontSize: '0.9rem', fontWeight: 'bold'}}>Órdenes entregadas</span>
                <strong style={{fontSize: '2.5rem', color: '#0f172a', lineHeight: '1'}}>{data?.ordersDelivered || "0"}</strong>
-               <span style={{fontSize: '0.75rem', color: '#94a3b8', marginTop: '8px'}}>Equipos devueltos</span>
+               <span style={{fontSize: '0.75rem', color: '#94a3b8', marginTop: '8px'}}>Casos cerrados correctamente</span>
            </div>
         </div>
 
@@ -103,15 +103,15 @@ export function ReportesNative() {
         <div style={{display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr)', gap: '16px'}}>
            <article className="sdmx-card-premium" style={{display: "flex", flexDirection: "column"}}>
               <div style={{borderBottom: '1px solid rgba(15,23,42,0.08)', paddingBottom: '16px', marginBottom: '16px'}}>
-                 <h3 style={{fontSize: '1.25rem', margin: 0}}>Fallas Comunes</h3>
-                 <p className="muted" style={{margin: 0, fontSize: '0.85rem'}}>Problemas frecuentes reportados por los clientes.</p>
+                 <h3 style={{fontSize: '1.25rem', margin: 0}}>Fallas comunes</h3>
+                 <p className="muted" style={{margin: 0, fontSize: '0.85rem'}}>Problemas que más se están repitiendo en la operación.</p>
               </div>
               <ul className="data-list scrollable-list">
                  {!data || data.commonIssues.length === 0 ? <li className="empty-state"><strong>Sin incidencias comunes</strong></li> :
                    data.commonIssues.map((issue, idx) => (
                      <li key={idx} className="flex-row-between">
                         <strong style={{color: '#0f172a'}}>{issue.issue}</strong>
-                        <span className="badge-warning">{issue.total} Casos idénticos</span>
+                        <span className="badge-warning">{issue.total} caso(s)</span>
                      </li>
                    ))
                  }
@@ -120,8 +120,8 @@ export function ReportesNative() {
 
            <article className="sdmx-card-premium" style={{display: "flex", flexDirection: "column"}}>
               <div style={{borderBottom: '1px solid rgba(15,23,42,0.08)', paddingBottom: '16px', marginBottom: '16px'}}>
-                 <h3 style={{fontSize: '1.25rem', margin: 0}}>Inventario Bajo</h3>
-                 <p className="muted" style={{margin: 0, fontSize: '0.85rem'}}>Productos con stock por debajo del mínimo establecido.</p>
+                 <h3 style={{fontSize: '1.25rem', margin: 0}}>Inventario bajo</h3>
+                 <p className="muted" style={{margin: 0, fontSize: '0.85rem'}}>Productos que ya requieren reposición o vigilancia cercana.</p>
               </div>
               <ul className="data-list scrollable-list">
                  {!data || data.criticalStock.length === 0 ? <li className="empty-state"><strong>Inventario saludable</strong></li> :
@@ -133,7 +133,7 @@ export function ReportesNative() {
                         </div>
                         <div className="flex-col" style={{alignItems: 'flex-end', textAlign: 'right'}}>
                            <span className="badge-danger">Restan {s.stockCurrent} pzas</span>
-                           <span style={{color: '#94a3b8', fontSize: '0.75rem'}}>Piso Mínimo {s.minimumStock}</span>
+                           <span style={{color: '#94a3b8', fontSize: '0.75rem'}}>Mínimo esperado: {s.minimumStock}</span>
                         </div>
                      </li>
                    ))

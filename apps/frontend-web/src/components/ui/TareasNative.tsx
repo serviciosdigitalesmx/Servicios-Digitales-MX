@@ -130,8 +130,8 @@ export function TareasNative() {
       <div className="module-native-header">
         <div>
           <span className="hero-eyebrow">Tareas</span>
-          <h1>Gestión de Tareas</h1>
-          <p>Control de pendientes y asignaciones del equipo.</p>
+          <h1>Seguimiento interno del equipo</h1>
+          <p>Organiza pendientes, responsables y fechas clave para que nada importante se quede sin seguimiento.</p>
         </div>
       </div>
 
@@ -140,21 +140,21 @@ export function TareasNative() {
 
       <div className="module-native-grid module-native-grid-wide">
         <form className="sdmx-card-premium" onSubmit={handleSubmit}>
-          <h3>Nueva Tarea</h3>
+          <h3>Nueva tarea interna</h3>
           {formError && <div className="form-message is-warning">{formError}</div>}
 
           <label>Título *
             <input value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} placeholder="Ej. Realizar corte de caja adelantado" />
           </label>
           <label>Descripción
-            <textarea value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} placeholder="Pasos clave o advertencias..." />
+            <textarea value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} placeholder="Contexto, siguiente paso o advertencias para el equipo..." />
           </label>
 
           <div className="grid-cols-2">
             <label>Estado
               <select value={form.status} onChange={(event) => setForm({ ...form, status: event.target.value })}>
-                <option value="pendiente">Pendiente (No iniciada)</option>
-                <option value="en_proceso">En Proceso o Espera</option>
+                <option value="pendiente">Pendiente</option>
+                <option value="en_proceso">En proceso</option>
                 <option value="completada">Resuelta</option>
                 <option value="cancelada">Cancelada</option>
               </select>
@@ -168,22 +168,25 @@ export function TareasNative() {
               </select>
             </label>
           </div>
-          <label>Fecha Límite
+          <label>Fecha compromiso
             <input type="date" value={form.dueDate} onChange={(event) => setForm({ ...form, dueDate: event.target.value })} />
           </label>
-          <button type="submit" disabled={loading}>Guardar Tarea</button>
+          <button type="submit" disabled={loading}>Guardar tarea</button>
         </form>
 
         <article className="sdmx-card-premium" style={{ display: "flex", flexDirection: "column" }}>
           <div className="flex-row-between">
-            <h3>Lista de Tareas</h3>
-            <input type="text" className="module-search-input" style={{ width: "260px", padding: "8px 12px", fontSize: "0.85rem" }} placeholder="Buscar folio o título..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+            <div className="flex-col">
+              <h3 style={{ margin: 0 }}>Bandeja de pendientes</h3>
+              <p className="muted" style={{ margin: 0, fontSize: "0.85rem" }}>{filteredTasks.length} tarea(s) visibles.</p>
+            </div>
+            <input type="text" className="module-search-input" style={{ width: "260px", padding: "8px 12px", fontSize: "0.85rem" }} placeholder="Buscar por título o responsable..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
           </div>
           <ul className="data-list scrollable-list">
             {filteredTasks.length === 0 ? (
               <li className="empty-state">
-                <strong>No hay tareas registradas.</strong>
-                <span>No hay registros pendientes para mostrar.</span>
+                <strong>No hay tareas para mostrar.</strong>
+                <span>Crea una tarea nueva o ajusta la búsqueda para encontrar un pendiente existente.</span>
               </li>
             ) : (
               filteredTasks.map((task) => (
@@ -194,14 +197,14 @@ export function TareasNative() {
                   <div className="flex-col">
                     <strong style={{ fontSize: "1.05rem", color: "#0f172a", textDecoration: task.status === "completada" ? "line-through" : "none" }}>{task.title}</strong>
                     <span style={{ fontSize: "0.85rem", color: "#64748b" }}>
-                      Estado Actual: <strong>{task.status}</strong>
-                      {task.dueDate ? ` · Expira en: ${formatDate(task.dueDate)}` : ""}
+                      Estado: <strong>{task.status}</strong>
+                      {task.dueDate ? ` · Compromiso: ${formatDate(task.dueDate)}` : ""}
                     </span>
                   </div>
                   <div style={{ textAlign: "right" }}>
                     {task.assignedUserName && (
                       <span style={{ color: "#1e3a8a", backgroundColor: "rgba(30,58,138,0.06)", padding: "6px 14px", borderRadius: "12px", fontSize: "0.85rem", fontWeight: "bold" }}>
-                        Asignado a: {task.assignedUserName}
+                        Responsable: {task.assignedUserName}
                       </span>
                     )}
                   </div>

@@ -78,7 +78,7 @@ export function FinanzasNative() {
       <div className="finanzas-header">
          <div>
             <h1>Finanzas</h1>
-            <p>Resumen unificado de ingresos, egresos y flujo de operación.</p>
+            <p>Resumen ejecutivo de ingresos, egresos y margen operativo para entender rápido cómo va el negocio.</p>
          </div>
          <div style={{display: 'flex', gap: '1rem', alignItems: 'center'}}>
            {loading && <span style={{fontSize: '0.875rem', color: '#64748b'}}><IconSync style={{marginRight: '0.5rem', width: '16px', height: '16px', animation: 'sdmx-spin 1s linear infinite', display: 'inline-block'}} />Cargando...</span>}
@@ -88,8 +88,8 @@ export function FinanzasNative() {
            </button>
            <button className="sdmx-btn-ghost">
               <IconDownload style={{width:'16px', height:'16px'}} />
-              Exportar
-           </button>
+              Exportar resumen
+            </button>
          </div>
       </div>
 
@@ -106,7 +106,7 @@ export function FinanzasNative() {
                </div>
             </div>
             <p className="finanzas-kpi-val">{formatMoney(summary?.projectedRevenue ?? 0)}</p>
-            <p style={{fontSize: '0.75rem', color: '#64748b', marginTop: '0.5rem', fontWeight: 500}}>Total bruto</p>
+            <p style={{fontSize: '0.75rem', color: '#64748b', marginTop: '0.5rem', fontWeight: 500}}>Valor estimado de entrada</p>
          </div>
 
          <div className="finanzas-kpi-box" style={{borderLeft: '4px solid #ef4444'}}>
@@ -117,18 +117,18 @@ export function FinanzasNative() {
                </div>
             </div>
             <p className="finanzas-kpi-val">{formatMoney(summary?.expenseTotal ?? 0)}</p>
-            <p style={{fontSize: '0.75rem', color: '#64748b', marginTop: '0.5rem', fontWeight: 500}}>Total salidas</p>
+            <p style={{fontSize: '0.75rem', color: '#64748b', marginTop: '0.5rem', fontWeight: 500}}>Salidas registradas</p>
          </div>
 
          <div className="finanzas-kpi-box" style={{borderLeft: '4px solid #f59e0b'}}>
             <div style={{display: 'flex', justifyContent: 'space-between', marginBottom: '1rem'}}>
-               <span className="finanzas-kpi-label">Por Pagar</span>
+               <span className="finanzas-kpi-label">Por pagar</span>
                <div style={{background: '#fffbeb', color: '#f59e0b', width: '2.5rem', height: '2.5rem', borderRadius: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center'}}>
                   <IconReceipt style={{width:'20px', height:'20px'}} />
                </div>
             </div>
             <p className="finanzas-kpi-val">{formatMoney(summary?.purchaseCommitted ?? 0)}</p>
-            <p style={{fontSize: '0.75rem', color: '#64748b', marginTop: '0.5rem', fontWeight: 500}}>Saldo pendiente</p>
+            <p style={{fontSize: '0.75rem', color: '#64748b', marginTop: '0.5rem', fontWeight: 500}}>Compromisos abiertos</p>
          </div>
 
          <div className="finanzas-kpi-box" style={{background: '#0f172a', border: 'none', color: 'white'}}>
@@ -139,7 +139,7 @@ export function FinanzasNative() {
                </div>
             </div>
             <p className="finanzas-kpi-val" style={{color: 'white'}}>{formatMoney(summary?.netProjected ?? 0)}</p>
-            <p style={{fontSize: '0.75rem', color: '#94a3b8', marginTop: '0.5rem', fontWeight: 500}}>Neto estimado</p>
+            <p style={{fontSize: '0.75rem', color: '#94a3b8', marginTop: '0.5rem', fontWeight: 500}}>Margen proyectado</p>
          </div>
       </div>
 
@@ -149,22 +149,22 @@ export function FinanzasNative() {
          <div className="sdmx-card-premium">
             <div className="sdmx-card-header">
                <div>
-                  <h3>Operación</h3>
-                  <p>Métricas de desempeño generales</p>
+                  <h3>Señales de operación</h3>
+                  <p>Indicadores rápidos del tamaño y ritmo actual del taller.</p>
                </div>
             </div>
             <div className="sdmx-card-body">
                <div className="finanzas-kpi-secondary" style={{marginBottom: 0}}>
                   <div className="finanzas-kpi-box" style={{boxShadow: 'none', border: '1px solid #f1f5f9', background: '#f8fafc'}}>
-                     <span className="finanzas-kpi-label">Tickets Activos</span>
+                     <span className="finanzas-kpi-label">Tickets activos</span>
                      <p className="finanzas-kpi-val" style={{fontSize: '1.5rem'}}>{summary?.activeOrders ?? 0}</p>
                   </div>
                   <div className="finanzas-kpi-box" style={{boxShadow: 'none', border: '1px solid #f1f5f9', background: '#f8fafc'}}>
-                     <span className="finanzas-kpi-label">Base Comercial</span>
+                     <span className="finanzas-kpi-label">Base comercial</span>
                      <p className="finanzas-kpi-val" style={{fontSize: '1.5rem'}}>{summary?.customers ?? 0}</p>
                   </div>
                   <div className="finanzas-kpi-box" style={{boxShadow: 'none', border: '1px solid #f1f5f9', background: '#f8fafc', gridColumn: 'span 2'}}>
-                     <span className="finanzas-kpi-label">Ticket Promedio</span>
+                     <span className="finanzas-kpi-label">Ticket promedio</span>
                      <p className="finanzas-kpi-val" style={{fontSize: '1.5rem', color: '#3b82f6'}}>{formatMoney(summary?.averageTicket ?? 0)}</p>
                   </div>
                </div>
@@ -174,8 +174,8 @@ export function FinanzasNative() {
          <div className="sdmx-card-premium">
             <div className="sdmx-card-header">
                <div>
-                  <h3>Histórico Mensual</h3>
-                  <p>Comparativo ingresos vs egresos</p>
+                  <h3>Histórico mensual</h3>
+                  <p>Comparativo simple entre ingresos y egresos por periodo.</p>
                </div>
             </div>
             <div className="sdmx-card-body" style={{padding: 0}}>
@@ -183,7 +183,7 @@ export function FinanzasNative() {
                   {(summary?.monthlyRevenue ?? []).length === 0 && (summary?.monthlyExpenses ?? []).length === 0 ? (
                     <li style={{padding: '3rem 2rem', textAlign: 'center', color: '#94a3b8', fontSize: '0.875rem'}}>
                       <IconChart style={{width:'32px', height:'32px', marginBottom: '1rem', opacity: 0.5}} />
-                      <br/>Sin información disponible.
+                      <br/>Sin información disponible por ahora.
                     </li>
                   ) : (
                     (summary?.monthlyRevenue ?? []).map((item, idx) => {

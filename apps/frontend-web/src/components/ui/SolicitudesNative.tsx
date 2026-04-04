@@ -222,8 +222,8 @@ export function SolicitudesNative() {
       {/* HEADER & GLOBAL ACTIONS */}
       <div className="finanzas-header" style={{marginBottom: 0}}>
          <div>
-            <h1>Cotizaciones</h1>
-            <p>Captura diagnósticos previos y presupuesta nuevos servicios.</p>
+            <h1>Solicitudes y cotizaciones</h1>
+            <p>Convierte diagnósticos en propuestas claras, da seguimiento comercial y mantén visible qué oportunidades ya van avanzando.</p>
          </div>
          <div style={{display: 'flex', gap: '1rem', alignItems: 'center'}}>
            <div style={{position: 'relative', width: '280px'}}>
@@ -245,11 +245,11 @@ export function SolicitudesNative() {
            >
              <option value="ALL">Todos los estados</option>
              <option value="pendiente">Pendientes</option>
-             <option value="aprobada">Aprobadas</option>
+             <option value="aprobada">Autorizadas</option>
            </select>
            <button onClick={() => setIsModalOpen(true)} className="sdmx-btn-primary">
               <IconPlus width={16} height={16} />
-              Nueva Cotización
+              Nueva solicitud
            </button>
          </div>
       </div>
@@ -264,7 +264,7 @@ export function SolicitudesNative() {
                <IconPen width={20} height={20} />
             </div>
             <div>
-               <p style={{fontSize: '0.75rem', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0}}>Borradores</p>
+               <p style={{fontSize: '0.75rem', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0}}>Pendientes</p>
                <p style={{fontSize: '1.5rem', fontWeight: 800, color: '#0f172a', margin: '0.25rem 0 0 0'}}>{stats.borradores}</p>
             </div>
          </div>
@@ -273,7 +273,7 @@ export function SolicitudesNative() {
                <IconThumbsUp width={20} height={20} />
             </div>
             <div>
-               <p style={{fontSize: '0.75rem', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0}}>Aprobadas</p>
+               <p style={{fontSize: '0.75rem', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0}}>Autorizadas</p>
                <p style={{fontSize: '1.5rem', fontWeight: 800, color: '#0f172a', margin: '0.25rem 0 0 0'}}>{stats.aprobadas}</p>
             </div>
          </div>
@@ -282,7 +282,7 @@ export function SolicitudesNative() {
                <IconChart width={20} height={20} />
             </div>
             <div>
-               <p style={{fontSize: '0.75rem', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0}}>Ingreso Potencial</p>
+               <p style={{fontSize: '0.75rem', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0}}>Valor cotizado</p>
                <p style={{fontSize: '1.5rem', fontWeight: 800, color: '#0f172a', margin: '0.25rem 0 0 0'}}>{formatMoney(stats.potencial)}</p>
             </div>
          </div>
@@ -291,7 +291,7 @@ export function SolicitudesNative() {
                <IconPaperPlane width={20} height={20} />
             </div>
             <div>
-               <p style={{fontSize: '0.75rem', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0}}>Saldo por convertir</p>
+               <p style={{fontSize: '0.75rem', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0}}>Pendiente de cierre</p>
                <p style={{fontSize: '1.5rem', fontWeight: 800, color: '#0f172a', margin: '0.25rem 0 0 0'}}>{formatMoney(items.reduce((acc, curr) => acc + curr.balanceAmount, 0))}</p>
             </div>
          </div>
@@ -302,8 +302,8 @@ export function SolicitudesNative() {
       <div className="sdmx-card-premium">
          <div className="sdmx-card-header">
             <div>
-               <h3>Bandeja de Entrada</h3>
-               <p>Registros de cotización activos</p>
+               <h3>Bandeja comercial</h3>
+               <p>Oportunidades activas de cotización</p>
             </div>
             <div>
                <button className="sdmx-btn-ghost" onClick={() => void loadData()} disabled={loading}>
@@ -319,7 +319,7 @@ export function SolicitudesNative() {
                         <IconArchive width={24} height={24} />
                      </div>
                      <strong style={{display: 'block', color: '#1e293b', fontSize: '1.125rem', marginBottom: '0.25rem'}}>No hay registros activos</strong>
-                     <span style={{fontSize: '0.875rem'}}>Registra una nueva cotización comercial disponible en el botón superior.</span>
+                     <span style={{fontSize: '0.875rem'}}>Crea una nueva cotización para comenzar a mover la bandeja comercial.</span>
                   </li>
                ) : (
                   filteredItems.map((item, idx) => (
@@ -331,10 +331,10 @@ export function SolicitudesNative() {
                           </div>
                           <div style={{display: 'flex', flexDirection: 'column', justifyContent: 'center'}}>
                              <strong style={{fontSize: '1rem', color: '#0f172a', marginBottom: '0.25rem'}}>{item.customerName}</strong>
-                             <div style={{fontSize: '0.8125rem', color: '#64748b', display: 'flex', gap: '0.75rem', alignItems: 'center'}}>
+                            <div style={{fontSize: '0.8125rem', color: '#64748b', display: 'flex', gap: '0.75rem', alignItems: 'center'}}>
                                 <span style={{display: 'flex', alignItems: 'center', gap: '0.25rem'}}><IconMonitor width={12} height={12} style={{opacity:0.7}} /> {item.deviceType || "Genérico"}</span>
                                 <span style={{color: '#cbd5e1'}}>•</span>
-                                <span>{item.issueDescription?.slice(0, 60) || "Sin historial vinculado"}...</span>
+                                <span>{item.issueDescription?.slice(0, 60) || "Sin descripción capturada"}...</span>
                                 {item.solicitudOrigenIp && (
                                   <>
                                     <span style={{color: '#cbd5e1'}}>•</span>
@@ -366,8 +366,8 @@ export function SolicitudesNative() {
       <aside className="sdmx-card-premium" style={{alignSelf: 'start', position: 'sticky', top: '96px'}}>
         <div className="sdmx-card-header">
           <div>
-            <h3>Cotización Activa</h3>
-            <p>Lectura rápida comercial de la solicitud seleccionada.</p>
+            <h3>Oportunidad seleccionada</h3>
+            <p>Lectura rápida para decidir el siguiente paso comercial.</p>
           </div>
         </div>
         <div className="sdmx-card-body" style={{display: 'grid', gap: '1rem'}}>
@@ -401,7 +401,7 @@ export function SolicitudesNative() {
 
               <div style={{padding: '1rem', borderRadius: '1rem', background: '#f8fafc', border: '1px solid #e2e8f0'}}>
                 <div style={{display: 'flex', justifyContent: 'space-between', paddingBottom: '8px', marginBottom: '8px', borderBottom: '1px solid #e2e8f0'}}>
-                  <span className="muted">Estado</span>
+                  <span className="muted">Estado comercial</span>
                   <strong style={{color: '#0f172a'}}>{getRequestStatusLabel(selectedRequest.status)}</strong>
                 </div>
                 <div style={{display: 'flex', justifyContent: 'space-between', paddingBottom: '8px', marginBottom: '8px', borderBottom: '1px solid #e2e8f0'}}>
@@ -409,7 +409,7 @@ export function SolicitudesNative() {
                   <strong style={{color: '#0f172a'}}>{selectedRequest.urgency?.toUpperCase() || "NORMAL"}</strong>
                 </div>
                 <div style={{display: 'flex', justifyContent: 'space-between', paddingBottom: '8px', marginBottom: '8px', borderBottom: '1px solid #e2e8f0'}}>
-                  <span className="muted">Costo cotizado</span>
+                  <span className="muted">Valor cotizado</span>
                   <strong style={{color: '#0f172a'}}>{formatMoney(selectedRequest.quotedTotal)}</strong>
                 </div>
                 <div style={{display: 'flex', justifyContent: 'space-between', paddingBottom: '8px', marginBottom: '8px', borderBottom: '1px solid #e2e8f0'}}>
@@ -417,7 +417,7 @@ export function SolicitudesNative() {
                   <strong style={{color: '#059669'}}>{formatMoney(selectedRequest.depositAmount)}</strong>
                 </div>
                 <div style={{display: 'flex', justifyContent: 'space-between'}}>
-                  <span className="muted">Saldo</span>
+                  <span className="muted">Pendiente de cierre</span>
                   <strong style={{color: '#ea580c'}}>{formatMoney(selectedRequest.balanceAmount)}</strong>
                 </div>
               </div>
@@ -434,8 +434,8 @@ export function SolicitudesNative() {
               
               <div style={{padding: '1.5rem', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(8px)', zIndex: 10}}>
                  <div>
-                    <h3 style={{fontSize: '1.25rem', fontWeight: 800, color: '#0f172a', margin: 0}}>Nueva Cotización</h3>
-                    <p style={{fontSize: '0.75rem', color: '#64748b', margin: '0.25rem 0 0 0'}}>Emite un dictamen preliminar.</p>
+                    <h3 style={{fontSize: '1.25rem', fontWeight: 800, color: '#0f172a', margin: 0}}>Nueva solicitud</h3>
+                    <p style={{fontSize: '0.75rem', color: '#64748b', margin: '0.25rem 0 0 0'}}>Registra una oportunidad comercial con contexto claro desde el primer contacto.</p>
                  </div>
                  <button onClick={() => setIsModalOpen(false)} style={{background: '#f1f5f9', border: 'none', width: '2rem', height: '2rem', borderRadius: '0.5rem', color: '#64748b', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center'}}>
                     <IconClose width={16} height={16} />
@@ -448,10 +448,10 @@ export function SolicitudesNative() {
                  <div style={{display: 'flex', flexDirection: 'column', gap: '1.5rem'}}>
                     {/* CLIENT INFO */}
                     <div style={{background: '#f8fafc', padding: '1rem', borderRadius: '0.75rem', border: '1px solid #f1f5f9'}}>
-                       <h4 style={{fontSize: '0.75rem', fontWeight: 800, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '1rem', marginTop: 0, display: 'flex', alignItems: 'center', gap: '0.5rem'}}><IconUser width={14} height={14} />Datos de Contacto</h4>
+                       <h4 style={{fontSize: '0.75rem', fontWeight: 800, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '1rem', marginTop: 0, display: 'flex', alignItems: 'center', gap: '0.5rem'}}><IconUser width={14} height={14} />Contacto comercial</h4>
                        <div style={{display: 'grid', gridTemplateColumns: 'repeat(1, 1fr)', gap: '1rem'}}>
                           <div style={{display: 'flex', flexDirection: 'column'}}>
-                             <label style={{fontSize: '0.75rem', fontWeight: 700, color: '#1e293b', marginBottom: '0.375rem'}}>Prospecto / Organización *</label>
+                             <label style={{fontSize: '0.75rem', fontWeight: 700, color: '#1e293b', marginBottom: '0.375rem'}}>Cliente o empresa *</label>
                              <input required style={{padding: '0.625rem', borderRadius: '0.5rem', border: '1px solid #cbd5e1', outline: 'none', fontSize: '0.875rem'}} value={form.customerName} onChange={(e) => setForm({ ...form, customerName: e.target.value })} placeholder="Ej. Corporativo Zenith"/>
                           </div>
                        </div>
@@ -469,7 +469,7 @@ export function SolicitudesNative() {
 
                     {/* DEVICE INFO */}
                     <div>
-                       <h4 style={{fontSize: '0.75rem', fontWeight: 800, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '1rem', marginTop: 0, display:'flex', alignItems:'center', gap:'0.5rem'}}><IconMonitor width={14} height={14} />Activo Tecnológico</h4>
+                       <h4 style={{fontSize: '0.75rem', fontWeight: 800, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '1rem', marginTop: 0, display:'flex', alignItems:'center', gap:'0.5rem'}}><IconMonitor width={14} height={14} />Equipo o servicio</h4>
                        <div style={{display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem'}}>
                           <div style={{display: 'flex', flexDirection: 'column'}}>
                              <label style={{fontSize: '0.75rem', fontWeight: 700, color: '#1e293b', marginBottom: '0.375rem'}}>Tipo de Equipo *</label>
@@ -481,7 +481,7 @@ export function SolicitudesNative() {
                           </div>
                        </div>
                        <div style={{display: 'flex', flexDirection: 'column', marginTop: '1rem'}}>
-                          <label style={{fontSize: '0.75rem', fontWeight: 700, color: '#1e293b', marginBottom: '0.375rem'}}>Descripción del Requerimiento</label>
+                             <label style={{fontSize: '0.75rem', fontWeight: 700, color: '#1e293b', marginBottom: '0.375rem'}}>Descripción de la necesidad</label>
                           <textarea style={{padding: '0.625rem', borderRadius: '0.5rem', border: '1px solid #cbd5e1', outline: 'none', fontSize: '0.875rem', minHeight: '5rem', resize: 'vertical'}} value={form.issueDescription} onChange={(e) => setForm({ ...form, issueDescription: e.target.value })} placeholder="Detalla el escenario de falla o mejora esperada..."></textarea>
                        </div>
                     </div>
@@ -490,7 +490,7 @@ export function SolicitudesNative() {
                     <div style={{background: '#eff6ff', padding: '1rem', borderRadius: '0.75rem', border: '1px solid #dbeafe'}}>
                        <div style={{display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem'}}>
                           <div style={{display: 'flex', flexDirection: 'column'}}>
-                             <label style={{fontSize: '0.75rem', fontWeight: 700, color: '#1e3a8a', marginBottom: '0.375rem'}}>SLA Prioridad</label>
+                             <label style={{fontSize: '0.75rem', fontWeight: 700, color: '#1e3a8a', marginBottom: '0.375rem'}}>Prioridad comercial</label>
                              <select style={{padding: '0.625rem', borderRadius: '0.5rem', border: '1px solid #bfdbfe', background: 'white', outline: 'none', fontSize: '0.875rem'}} value={form.urgency} onChange={(e) => setForm({ ...form, urgency: e.target.value })}>
                                 <option value="baja">Baja</option>
                                 <option value="normal">Estándar</option>
@@ -499,7 +499,7 @@ export function SolicitudesNative() {
                              </select>
                           </div>
                           <div style={{display: 'flex', flexDirection: 'column'}}>
-                             <label style={{fontSize: '0.75rem', fontWeight: 700, color: '#1e3a8a', marginBottom: '0.375rem'}}>Presupuesto (MXN) *</label>
+                             <label style={{fontSize: '0.75rem', fontWeight: 700, color: '#1e3a8a', marginBottom: '0.375rem'}}>Valor cotizado (MXN) *</label>
                              <input type="number" min="0" step="0.01" style={{padding: '0.625rem', borderRadius: '0.5rem', border: '1px solid #bfdbfe', outline: 'none', fontSize: '0.875rem', fontWeight: 'bold'}} value={form.quotedTotal} onChange={(e) => setForm({ ...form, quotedTotal: e.target.value })} />
                           </div>
                           <div style={{display: 'flex', flexDirection: 'column'}}>
@@ -515,7 +515,7 @@ export function SolicitudesNative() {
                     <button type="button" onClick={() => setIsModalOpen(false)} className="sdmx-btn-ghost">Cancelar</button>
                     <button type="submit" disabled={loading} className="sdmx-btn-primary">
                        {loading ? <IconCircleNotch width={16} height={16} style={{animation:'sdmx-spin 1s linear infinite'}} /> : <IconPaperPlane width={16} height={16} />}
-                       Confirmar Alta
+                       Guardar solicitud
                     </button>
                  </div>
               </form>

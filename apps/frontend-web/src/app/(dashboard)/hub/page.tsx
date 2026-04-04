@@ -2,11 +2,11 @@
 
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { 
-  IconStore, 
-  IconDashboard, 
-  IconWallet, 
-  IconLogOut, 
+import {
+  IconStore,
+  IconDashboard,
+  IconWallet,
+  IconLogOut,
   IconMicrochip,
   IconCheckCircular,
   IconStar
@@ -40,7 +40,7 @@ function HubDashboardContent() {
   if (!session) {
     return (
       <div className="min-h-screen bg-[#0F172A] flex items-center justify-center p-6 text-center">
-        <div className="sdmx-card-premium max-w-md w-full p-10">
+        <div className="sdmx-hub-card max-w-md w-full p-10">
           <h2 className="text-2xl font-black text-white uppercase tracking-tight">Redirigiendo al acceso</h2>
           <p className="text-slate-400 mt-3 font-medium">Necesitamos una sesión activa para entrar al panel.</p>
         </div>
@@ -85,23 +85,28 @@ function HubDashboardContent() {
   };
 
   return (
-    <div className="sdmx-dashboard-container min-h-screen">
+    <div className="sdmx-dashboard-container min-h-screen bg-slate-950">
       {/* Header Premium */}
-      <header className="sdmx-glass-header sticky top-0 z-40">
+      <header className="sticky top-0 z-40 bg-slate-900/60 backdrop-blur-xl border-b border-white/5">
         <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-[#0066FF] to-[#0044CC] rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20">
+            <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-blue-800 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20">
               <IconMicrochip width={20} height={20} className="text-white" />
             </div>
-            <span className="font-black text-white text-xl tracking-tight">Sr-Fix <span className="text-[#0066FF] italic text-sm">PRO</span></span>
+            <span className="font-tech text-white text-xl tracking-tight uppercase">
+              Sr-Fix <span className="text-blue-500 italic text-sm">PRO</span>
+            </span>
           </div>
 
           <div className="flex items-center gap-6">
             <div className="text-right hidden sm:block">
-              <p className="text-sm font-bold text-white leading-none">{auth.shop.name}</p>
-              <p className="text-[11px] text-slate-500 mt-1 uppercase tracking-widest font-black">{auth.user.fullName}</p>
+              <p className="text-sm font-bold text-white leading-none font-label uppercase tracking-wider">{auth.shop.name}</p>
+              <p className="text-[10px] text-slate-500 mt-1 uppercase tracking-[0.2em] font-label font-bold">{auth.user.fullName}</p>
             </div>
-            <button onClick={handleLogout} className="w-10 h-10 rounded-full bg-slate-800/50 border border-white/5 flex items-center justify-center text-slate-400 hover:text-white hover:bg-red-500/20 transition-all">
+            <button
+              onClick={handleLogout}
+              className="w-10 h-10 rounded-full bg-slate-800/50 border border-white/5 flex items-center justify-center text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-all"
+            >
               <IconLogOut width={18} height={18} />
             </button>
           </div>
@@ -110,119 +115,98 @@ function HubDashboardContent() {
 
       <main className="max-w-7xl mx-auto px-6 py-12">
         <div className="mb-12">
-          <h1 className="text-4xl font-black text-white mb-3">Panel de Control</h1>
-          <p className="text-slate-500 font-medium">Gestiona tu taller y domina el mercado con herramientas de élite.</p>
+          <h1 className="text-4xl lg:text-5xl font-black text-white mb-3 font-tech tracking-wider uppercase">
+            Panel de Control
+          </h1>
+          <p className="text-slate-400 font-label font-medium uppercase tracking-widest text-sm">
+            Gestión de élite para servicios tecnológicos.
+          </p>
         </div>
 
         <div className="grid lg:grid-cols-3 gap-8">
           {/* Subscription Status Card */}
-          <div className={`sdmx-card-premium p-8 border ${styles.border} flex flex-col justify-between relative overflow-hidden group`}>
-            <div className="absolute top-0 right-0 w-32 h-32 bg-blue-600/5 blur-[60px] rounded-full pointer-events-none group-hover:bg-blue-600/10 transition-all"></div>
+          <div className="sdmx-glass p-8 rounded-[2.5rem] flex flex-col justify-between relative overflow-hidden group min-h-[300px]">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-blue-600/10 blur-[60px] rounded-full pointer-events-none group-hover:bg-blue-600/20 transition-all"></div>
             <div>
               <div className="flex items-center justify-between mb-8">
-                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${styles.bg}`}>
+                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${styles.bg} border ${styles.border}`}>
                   <IconCheckCircular width={24} height={24} className={styles.text} />
                 </div>
-                <span className={`text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest border ${styles.border} ${styles.text}`}>
+                <span className={`text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-[0.15em] border font-label ${styles.border} ${styles.text}`}>
                   {styles.label}
                 </span>
               </div>
-              <h3 className="text-2xl font-black text-white uppercase tracking-tight">{auth.subscription.planCode}</h3>
-              <p className="text-slate-500 text-sm mt-2 font-medium">Suscripción SaaS Activa</p>
+              <h3 className="text-3xl font-black text-white uppercase tracking-wider font-tech">{auth.subscription.planCode}</h3>
+              <p className="text-slate-500 text-sm mt-2 font-label font-bold uppercase tracking-widest">Suscripción SaaS Activa</p>
             </div>
 
             {subStatus === "trialing" && (
-              <button 
+              <button
                 onClick={handleUpgrade}
                 disabled={upgrading}
-                className="mt-10 w-full bg-white text-black py-4 rounded-2xl font-black text-sm uppercase tracking-wider hover:bg-[#0066FF] hover:text-white transition-all transform active:scale-95 shadow-xl shadow-blue-500/10 border-none flex items-center justify-center gap-2"
+                className="mt-10 w-full bg-blue-600 hover:bg-blue-500 text-white py-4 rounded-2xl font-tech text-xs uppercase tracking-[0.2em] transition-all transform active:scale-95 shadow-xl shadow-blue-500/20 flex items-center justify-center gap-2 border border-blue-400/30"
               >
-                {upgrading ? "Conectando..." : "Mejorar a Profesional"}
-                <IconStar width={16} height={16} />
+                {upgrading ? "Sincronizando..." : "Mejorar a Profesional"}
+                <IconStar width={14} height={14} />
               </button>
             )}
           </div>
 
           {/* Portal Widget */}
-          <div className="sdmx-card-premium p-8 lg:col-span-2 flex flex-col justify-between border-white/5">
+          <div className="sdmx-glass p-8 rounded-[2.5rem] lg:col-span-2 flex flex-col justify-between">
             <div>
               <div className="flex items-center gap-3 mb-4">
                 <div className="p-2 bg-blue-500/10 rounded-lg">
-                  <IconStore width={20} height={20} className="text-[#0066FF]" />
+                  <IconStore width={20} height={20} className="text-blue-500" />
                 </div>
-                <h3 className="font-black text-white text-lg uppercase tracking-tight">Portal Público</h3>
+                <h3 className="font-tech text-white text-lg uppercase tracking-wider">Portal Público de Clientes</h3>
               </div>
-              <p className="text-slate-500 text-sm max-w-xl font-medium">
-                Comparte este enlace a tus clientes. Podrán rastrear el estado de sus reparaciones en tiempo real usando su folio único.
+              <p className="text-slate-400 text-sm max-w-xl font-medium leading-relaxed">
+                Tus clientes pueden consultar el estado de su equipo en tiempo real usando su folio único.
+                Copia y pega este enlace en tus comunicaciones oficiales.
               </p>
             </div>
-            
+
             <div className="mt-8 flex flex-col sm:flex-row gap-4">
-              <input 
-                type="text" 
-                readOnly 
-                value={`${typeof window !== 'undefined' ? window.location.origin : ''}/portal?shop=${auth.shop.slug}`} 
-                className="flex-1 rounded-2xl border border-white/10 bg-slate-900/50 px-6 py-4 text-slate-300 font-mono text-xs focus:border-[#0066FF] outline-none transition-all"
+              <input
+                type="text"
+                readOnly
+                value={`${typeof window !== 'undefined' ? window.location.origin : ''}/portal?shop=${auth.shop.slug}`}
+                className="flex-1 rounded-2xl border border-white/10 bg-slate-900/60 px-6 py-4 text-blue-400 font-mono text-[10px] focus:border-blue-500 outline-none transition-all shadow-inner"
               />
-              <button 
+              <button
                 onClick={() => window.open(`/portal?shop=${auth.shop.slug}`, '_blank')}
-                className="px-8 py-4 bg-slate-800 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-700 transition-all border border-white/5"
+                className="px-8 py-4 bg-slate-800 hover:bg-slate-700 text-white border border-white/5 rounded-2xl font-tech text-[10px] uppercase tracking-[0.2em] transition-all whitespace-nowrap shadow-lg"
               >
-                Abrir Portal
+                Ver Mi Portal
               </button>
             </div>
           </div>
 
           {/* Action Grid */}
-          <div className="lg:col-span-3 grid md:grid-cols-2 gap-8 pt-8">
-            <a href={`/interno?shop=${auth.shop.slug}`} className="group sdmx-card-premium p-10 hover:border-[#0066FF]/50 transition-all border-white/5">
-              <div className="w-14 h-14 bg-gradient-to-br from-[#0066FF] to-[#0044CC] text-white rounded-2xl flex items-center justify-center mb-8 shadow-lg shadow-blue-500/20 group-hover:scale-110 transition-transform">
+          <div className="lg:col-span-3 grid md:grid-cols-2 gap-8 pt-4">
+            <a href={`/interno?shop=${auth.shop.slug}`} className="group sdmx-glass p-10 rounded-[2.5rem] transition-all block border-white/5 hover:border-blue-500/30">
+              <div className="w-14 h-14 bg-gradient-to-br from-blue-600 to-blue-800 text-white rounded-2xl flex items-center justify-center mb-8 shadow-lg shadow-blue-500/20 group-hover:scale-110 transition-transform">
                 <IconDashboard width={28} height={28} />
               </div>
-              <h3 className="text-xl font-black text-white uppercase tracking-tight">Sistema Central</h3>
-              <p className="text-slate-500 text-sm mt-3 font-medium leading-relaxed">
-                Panel Técnico completo: Inventarios, Folios automáticos, Finanzas y Control de Gastos. Tu taller en la palma de tu mano.
+              <h3 className="text-2xl font-black text-white uppercase tracking-wider font-tech">Sistema Central</h3>
+              <p className="text-slate-400 text-sm mt-3 font-medium leading-relaxed">
+                Control total de tu taller: Inventarios, Folios automáticos, Finanzas y control de stock en tiempo real.
               </p>
             </a>
 
-            <a href="/billing" className="group sdmx-card-premium p-10 hover:border-slate-500 transition-all border-white/5">
+            <a href="/billing" className="group sdmx-glass p-10 rounded-[2.5rem] transition-all block border-white/5 hover:border-slate-500/30">
               <div className="w-14 h-14 bg-slate-800 text-slate-300 rounded-2xl flex items-center justify-center mb-8 border border-white/10 group-hover:bg-slate-700 transition-all">
                 <IconWallet width={28} height={28} />
               </div>
-              <h3 className="text-xl font-black text-white uppercase tracking-tight">Facturación</h3>
-              <p className="text-slate-500 text-sm mt-3 font-medium leading-relaxed">
-                Historial de pagos, administración de tarjetas y cambio de planes. Transparencia total en tu suscripción SaaS.
+              <h3 className="text-2xl font-black text-white uppercase tracking-wider font-tech">Facturación y Plan</h3>
+              <p className="text-slate-400 text-sm mt-3 font-medium leading-relaxed">
+                Administra tus métodos de pago, historial de facturas y escala tu suscripción conforme crezca tu negocio.
               </p>
             </a>
           </div>
         </div>
       </main>
-
-      <style jsx global>{`
-        body { background-color: #0F172A; margin: 0; font-family: 'Inter', sans-serif; }
-        .sdmx-dashboard-container {
-          background-color: #0F172A;
-          background-image: 
-            radial-gradient(circle at 0% 0%, rgba(0, 102, 255, 0.08) 0%, transparent 40%),
-            radial-gradient(circle at 100% 100%, rgba(99, 102, 241, 0.08) 0%, transparent 40%);
-        }
-        .sdmx-glass-header {
-          background-color: rgba(15, 23, 42, 0.7);
-          backdrop-filter: blur(16px);
-          -webkit-backdrop-filter: blur(16px);
-          border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-        }
-        .sdmx-card-premium {
-          background-color: rgba(30, 41, 59, 0.5);
-          backdrop-filter: blur(24px);
-          border-radius: 2.5rem;
-          transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-        .sdmx-card-premium:hover {
-          background-color: rgba(30, 41, 59, 0.8);
-          transform: translateY(-4px);
-        }
-      `}</style>
     </div>
   );
 }

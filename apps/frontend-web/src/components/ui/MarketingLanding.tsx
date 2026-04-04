@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { IconMicrochip, IconRobot, IconCheck, IconStar, IconCheckCircular } from "./Icons";
+import { IconRobot, IconCheck, IconStar, IconCheckCircular } from "./Icons";
 
 const MODULE_CHIPS = [
   "Panel Técnico",
@@ -33,6 +33,7 @@ const PLANS = [
     code: "esencial-350",
     price: "350",
     meta: "1 Usuario · 1 Sucursal",
+    audience: "Para el técnico independiente que quiere verse como empresa seria desde el día uno.",
     button: "Comenzar ahora",
     tone: "light",
     features: [
@@ -49,6 +50,7 @@ const PLANS = [
     code: "profesional-650",
     price: "549",
     meta: "1 Sucursal · Usuarios ilimitados",
+    audience: "Para operar con control, delegar mejor y crecer sin vivir pegado al mostrador.",
     button: "Lo quiero ya",
     tone: "featured",
     badge: "El más popular",
@@ -67,6 +69,7 @@ const PLANS = [
     code: "elite-1200",
     price: "850",
     meta: "Usuarios ilimitados · Multi-sucursal",
+    audience: "Para empresarios que necesitan visibilidad global, auditoría y control entre sucursales.",
     button: "Hablar con ventas",
     tone: "light",
     features: [
@@ -127,9 +130,9 @@ export function MarketingLanding() {
         <div className="sdmx-nav-container">
           <div className="sdmx-nav-brand">
             <div className="sdmx-nav-logo-box">
-              <IconMicrochip width={18} height={18} style={{color: 'white'}} />
+              <img src="/logo-sdmx-phone-transparent.png" alt="Servicios Digitales MX" className="sdmx-nav-brandmark" />
             </div>
-            <span>Servicios Digitales <span style={{color: '#0066FF', fontStyle: 'italic'}}>MX</span></span>
+            <span>Servicios Digitales <span>MX</span></span>
           </div>
           
           <div className="sdmx-nav-links">
@@ -145,12 +148,13 @@ export function MarketingLanding() {
       {/* HERO SECTION */}
       <section id="inicio" className="sdmx-hero">
         <div className="sdmx-container-6xl">
+          <div className="sdmx-hero-kicker">SOFTWARE OPERATIVO PARA TALLERES Y SERVICIOS TÉCNICOS</div>
           <h1 className="sdmx-hero-title" style={{ position: 'relative', zIndex: 10 }}>
-            Te presentamos el mejor software <br className="hidden md:block" />
-            para administrar tu <span style={{color: '#0066FF'}}>taller de reparación</span>{' '}
-            <span style={{display: 'inline-block', transform: 'translateY(12px)'}}>🔨</span>
+            Convierte tu taller en una <br className="hidden md:block" />
+            <span>operación profesional</span>{' '}
+            <span style={{display: 'inline-block', transform: 'translateY(12px)'}}>⚡</span>
           </h1>
-          <p className="sdmx-hero-subtitle">Toma el control de tu negocio con una sola aplicación.</p>
+          <p className="sdmx-hero-subtitle">Recepción, seguimiento técnico, archivo, clientes, inventario y finanzas en una sola cabina de mando.</p>
 
           {/* Pill Navigation */}
           <div className="sdmx-pills-row">
@@ -202,11 +206,52 @@ export function MarketingLanding() {
           </div>
 
           {/* Dashboard Preview */}
-          <div className="sdmx-mockups-wrapper">
-            <div className="sdmx-mockup-desktop">
-              <img src="/saas_dashboard_premium_1775008077938.png" alt="Dashboard Premium" />
+          <div className="sdmx-mockups-wrapper sdmx-glass" style={{borderRadius: 'var(--sdmx-radius-lg)', padding: '2rem'}}>
+            <div className="sdmx-mockup-desktop sdmx-brand-showcase">
+              <div className="sdmx-brand-board">
+                <div className="sdmx-brand-board-top">
+                  <div className="sdmx-brand-board-logo">
+                    <img src="/logo-sdmx-phone-transparent.png" alt="Servicios Digitales MX" />
+                  </div>
+                  <div>
+                    <span className="sdmx-brand-board-kicker">CABINA SDMX</span>
+                    <h3>Operación completa para talleres modernos</h3>
+                    <p>Recepción, técnico, clientes, archivo, inventario y finanzas conectados bajo una sola vista.</p>
+                  </div>
+                </div>
+
+                <div className="sdmx-brand-flow">
+                  <div className="sdmx-brand-step">
+                    <strong>Recepción</strong>
+                    <span>Folio, evidencia y alta rápida</span>
+                  </div>
+                  <div className="sdmx-brand-step">
+                    <strong>Mesa técnica</strong>
+                    <span>Prioridades, tareas y seguimiento</span>
+                  </div>
+                  <div className="sdmx-brand-step">
+                    <strong>Control total</strong>
+                    <span>Archivo, finanzas y trazabilidad</span>
+                  </div>
+                </div>
+
+                <div className="sdmx-brand-metrics">
+                  <div className="sdmx-brand-metric">
+                    <span>Expedientes claros</span>
+                    <strong>100%</strong>
+                  </div>
+                  <div className="sdmx-brand-metric">
+                    <span>Seguimiento visible</span>
+                    <strong>24/7</strong>
+                  </div>
+                  <div className="sdmx-brand-metric">
+                    <span>Control operativo</span>
+                    <strong>360°</strong>
+                  </div>
+                </div>
+              </div>
             </div>
-            <div className="sdmx-mockup-mobile">
+            <div className="sdmx-mockup-mobile" style={{border: '4px solid var(--sdmx-bg-deep)', boxShadow: '0 0 30px rgba(0,0,0,0.5)'}}>
               <img src="/mobile_app_mockup_1775008092391.png" alt="Mobile Tracking" />
             </div>
           </div>
@@ -243,7 +288,7 @@ export function MarketingLanding() {
         <div className="sdmx-container-7xl" style={{position: 'relative', zIndex: 10}}>
           <div className="sdmx-pricing-head">
             <h2>Planes de Pago</h2>
-            <p>Toma el control de tu negocio con una sola aplicacion</p>
+            <p>Elige el nivel de control que necesita tu taller hoy y escala sin cambiar de sistema mañana.</p>
           </div>
 
           <div className="sdmx-pricing-grid">
@@ -260,6 +305,7 @@ export function MarketingLanding() {
                 
                 <div className={plan.tone === 'featured' ? 'sdmx-pricing-featured-header' : 'sdmx-pricing-header'}>
                   <h3 className="sdmx-pricing-title">{plan.name}</h3>
+                  <p className="sdmx-pricing-audience">{plan.audience}</p>
                   <div className="sdmx-pricing-amount-row">
                     <span className="sdmx-pricing-currency">$</span>
                     <span className="sdmx-pricing-value">{plan.price}</span>
@@ -338,7 +384,7 @@ export function MarketingLanding() {
           <div className="sdmx-footer-top">
             <div className="sdmx-footer-brand">
               <div className="sdmx-footer-logo-box">
-                <IconMicrochip width={24} height={24} />
+                <img src="/logo-sdmx-phone-transparent.png" alt="Servicios Digitales MX" className="sdmx-footer-brandmark" />
               </div>
               <span className="sdmx-footer-brand-text">Servicios Digitales <span>MX</span></span>
             </div>

@@ -401,9 +401,9 @@ export function OperativoNative() {
     <section className="operativo-shell">
       <div className="operativo-header">
         <div className="flex-col">
-          <span className="hero-eyebrow">Operativo nativo</span>
-          <h1>Órdenes de servicio y Laboratorio</h1>
-          <p className="muted">Panel integral para dar seguimiento y administrar todas las recepciones.</p>
+          <span className="hero-eyebrow">Recepción y mostrador</span>
+          <h1>Control de ingreso de equipos</h1>
+          <p className="muted">Registra recepciones, ordena la carga del taller y mantén cada expediente listo desde el primer contacto.</p>
         </div>
         <div className="operativo-summary" style={{alignItems: 'center', marginTop: '16px'}}>
            <div className="flex-col" style={{gridColumn: '1 / -1', flexDirection: 'row', gap: '8px', marginBottom: '8px', width: '100%'}}>
@@ -528,7 +528,7 @@ export function OperativoNative() {
               <div style={{marginTop: '12px', padding: '16px', background: '#0f172a', borderRadius: '14px', color: 'white'}}>
                 <span className="hero-eyebrow" style={{color: '#93c5fd'}}>Recepción guiada</span>
                 <p style={{margin: '6px 0 0 0', fontSize: '0.9rem', color: 'rgba(255,255,255,0.82)'}}>
-                  Estamos dejando la captura del equipo más parecida al flujo profesional de `Sr-Fix`: más clara, más móvil y más ordenada para mostrador.
+                  Captura la información del equipo de forma clara, rápida y consistente para que mostrador y taller trabajen con el mismo contexto.
                 </p>
               </div>
 
@@ -613,7 +613,7 @@ export function OperativoNative() {
             {filteredOrders.length === 0 ? (
               <li className="empty-state">
                 <strong>No hay órdenes activas</strong>
-                <span>Genera las primeras recepciones de mostrador para poblar la tabla.</span>
+                <span>Crea la primera recepción para comenzar a construir el flujo operativo del taller.</span>
               </li>
             ) : (
               filteredOrders.map((order) => {
@@ -634,7 +634,7 @@ export function OperativoNative() {
                     <div className="flex-col">
                       <strong style={{fontSize: '1.05rem', color: '#1e3a8a'}}>{order.deviceType} {order.deviceModel ?? ""}</strong>
                       <div style={{display: 'flex', gap: '8px', alignItems: 'center'}}>
-                        <span style={{color: '#64748b', fontSize: '0.85rem'}}>Nivel Carga: {order.priority?.toUpperCase() || "NORMAL"} · Entrega: {formatDate(order.promisedDate)}</span>
+                        <span style={{color: '#64748b', fontSize: '0.85rem'}}>Prioridad: {order.priority?.toUpperCase() || "NORMAL"} · Promesa: {formatDate(order.promisedDate)}</span>
                         {delayed && <span style={{fontSize: '0.625rem', fontWeight: 900, color: '#dc2626', background: '#fee2e2', padding: '2px 6px', borderRadius: '4px'}}>⚠️ SIN AVANCE (+48H)</span>}
                       </div>
                     </div>
@@ -656,7 +656,7 @@ export function OperativoNative() {
                           cursor: 'pointer'
                         }}
                       >
-                        Expediente
+                        Ver expediente
                       </button>
                     </div>
                   </li>
@@ -671,7 +671,7 @@ export function OperativoNative() {
             <span className="hero-eyebrow">Expediente de Recepción</span>
             <h3 style={{margin: '6px 0 0 0'}}>Evidencias del equipo</h3>
             <p className="muted" style={{margin: '4px 0 0 0'}}>
-              Primer tramo de Storage desde mostrador: expediente visual ligado a la orden activa.
+              Mantén fotos y evidencias ligadas a la orden para reducir reclamos y mejorar el seguimiento desde recepción.
             </p>
           </div>
 

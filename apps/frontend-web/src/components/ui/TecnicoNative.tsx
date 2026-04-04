@@ -382,9 +382,9 @@ export function TecnicoNative() {
     <section className="module-native-shell">
       <div className="module-native-header">
         <div>
-          <span className="hero-eyebrow">Técnico nativo</span>
-          <h1>Cola de trabajo técnica</h1>
-          <p>Gestiona diagnósticos, reparaciones, prioridades y entregas con un tablero más claro.</p>
+          <span className="hero-eyebrow">Mesa técnica</span>
+          <h1>Cola de trabajo del taller</h1>
+          <p>Prioriza equipos, registra diagnósticos y mantén visible qué urge, qué sigue y qué ya está listo para entregar.</p>
         </div>
       </div>
       
@@ -559,7 +559,7 @@ export function TecnicoNative() {
           <div style={{display: 'flex', justifyContent: 'space-between', gap: '12px', alignItems: 'center', marginBottom: '1rem'}}>
             <div>
               <h3 style={{margin: 0, fontSize: '1.125rem', fontWeight: 800}}>Semáforo técnico</h3>
-              <p className="muted" style={{margin: '4px 0 0 0', fontSize: '0.85rem'}}>Visualizando {filteredOrders.length} orden(es) dentro de la cola filtrada.</p>
+              <p className="muted" style={{margin: '4px 0 0 0', fontSize: '0.85rem'}}>Visualizando {filteredOrders.length} orden(es) dentro de la cola filtrada y ordenadas por prioridad operativa.</p>
             </div>
           </div>
           <ul className="data-list" style={{listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.75rem'}}>
@@ -610,7 +610,7 @@ export function TecnicoNative() {
                         fontWeight: 700
                       }}
                     >
-                      Ver y editar
+                      Abrir orden
                     </button>
                   </li>
                 );
@@ -623,7 +623,7 @@ export function TecnicoNative() {
           <h3 style={{margin: '0 0 1rem 0', fontSize: '1.125rem', fontWeight: 800}}>Tareas del Taller</h3>
           <ul className="data-list" style={{listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.75rem'}}>
             {tasks.length === 0 ? (
-              <li style={{padding: '2rem', textAlign: 'center', color: '#94a3b8'}}>No hay tareas asignadas.</li>
+              <li style={{padding: '2rem', textAlign: 'center', color: '#94a3b8'}}>No hay tareas asignadas por ahora.</li>
             ) : (
               tasks.map((task) => (
                 <li key={task.id} style={{padding: '1rem', borderRadius: '0.75rem', border: '1px solid #f1f5f9', background: 'white'}}>

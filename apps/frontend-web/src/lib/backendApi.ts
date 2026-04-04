@@ -41,13 +41,14 @@ async function parseBackendBody(response: Response): Promise<ParsedBackendBody> 
     return { raw: rawText };
   }
 }
-
 export function getBackendApiResolution(): BackendApiResolution {
-  if (process.env.API_BASE_URL) {
+  const envBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || process.env.API_BASE_URL;
+
+  if (envBaseUrl) {
     return {
-      baseUrl: process.env.API_BASE_URL.replace(/\/+$/, ""),
-      mode: "explicit-server",
-      source: "API_BASE_URL",
+      baseUrl: envBaseUrl.replace(/\/+$/, ""),
+      mode: process.env.NODE_ENV === "production" ? "production-public" : "local-dev",
+      source: process.env.NEXT_PUBLIC_API_BASE_URL ? "NEXT_PUBLIC_API_BASE_URL" : "API_BASE_URL",
       configured: true
     };
   }

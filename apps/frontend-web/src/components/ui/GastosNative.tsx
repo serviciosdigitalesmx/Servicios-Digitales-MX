@@ -110,8 +110,8 @@ export function GastosNative() {
       <div className="module-native-header">
         <div className="flex-col">
           <span className="hero-eyebrow">Finanzas</span>
-          <h1>Deducciones y Gastos</h1>
-          <p className="muted">Lleva el control de los costos directos e indirectos operativos (Nóminas, Servicios, Rentas, etc).</p>
+          <h1>Gastos y salidas operativas</h1>
+          <p className="muted">Registra egresos con contexto claro para entender a dónde se va el dinero y mantener orden financiero del taller.</p>
         </div>
         <div className="module-native-actions flex-row-between" style={{flex: 1, justifyContent: 'flex-end', gap: '12px'}}>
            <div style={{ position: "relative", width: "100%", maxWidth: "340px" }}>
@@ -120,7 +120,7 @@ export function GastosNative() {
               placeholder="Buscar por concepto o proveedor..." value={search} onChange={(event) => setSearch(event.target.value)} />
            </div>
            <button type="button" disabled={loading} className="product-button" onClick={() => void loadData()}>
-             Refrescar Datos
+             Actualizar gastos
           </button>
         </div>
       </div>
@@ -131,34 +131,34 @@ export function GastosNative() {
       <div className="module-native-grid module-native-grid-wide">
         <form className="sdmx-card-premium" onSubmit={handleSubmit}>
           <div style={{borderBottom: '1px solid rgba(15,23,42,0.08)', paddingBottom: '16px', marginBottom: '16px'}}>
-             <h3 style={{fontSize: '1.25rem', margin: 0}}>Alta de Gasto</h3>
-             <p className="muted" style={{margin: '4px 0 0 0', fontSize: '0.85rem'}}>Registra debidamente cada erogación.</p>
+             <h3 style={{fontSize: '1.25rem', margin: 0}}>Nuevo gasto</h3>
+             <p className="muted" style={{margin: '4px 0 0 0', fontSize: '0.85rem'}}>Documenta cada salida con fecha, categoría y método de pago.</p>
           </div>
           {formError && <div className="form-message is-warning">{formError}</div>}
           
           <div className="flex-col" style={{marginBottom: '10px'}}>
-             <label style={{fontWeight: 'bold'}}>Concepto del Gasto *</label>
+             <label style={{fontWeight: 'bold'}}>Concepto del gasto *</label>
              <input required value={form.concept} onChange={(e) => setForm({ ...form, concept: e.target.value })} placeholder="Ej. Pago Recibo de Luz o Compra Desayuno" />
           </div>
 
           <div className="grid-cols-2" style={{marginBottom: '10px'}}>
              <div className="flex-col"><label style={{margin:0, color: '#b91c1c', fontWeight: 'bold'}}>Importe ($) *</label><input type="number" min="0" step="0.01" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} /></div>
-             <div className="flex-col"><label style={{margin:0}}>Fecha del Gasto</label><input type="date" value={form.expenseDate} onChange={(e) => setForm({ ...form, expenseDate: e.target.value })} /></div>
+             <div className="flex-col"><label style={{margin:0}}>Fecha del gasto</label><input type="date" value={form.expenseDate} onChange={(e) => setForm({ ...form, expenseDate: e.target.value })} /></div>
           </div>
           
           <div className="grid-cols-3" style={{background: '#f8fafc', padding: '16px', borderRadius: '8px', marginBottom: '10px'}}>
-             <div className="flex-col"><label style={{margin:0}}>Clasificación</label>
+             <div className="flex-col"><label style={{margin:0}}>Categoría</label>
                 <select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>
                    <option value="insumos">Equipos Insumos</option><option value="refacciones">Stock Secundario</option><option value="servicios">Servicios Básicos</option>
                    <option value="nomina">Nómina Directa</option><option value="transporte">Viáticos CFE / Domicilio</option><option value="otros">Otros</option>
                 </select>
              </div>
-             <div className="flex-col"><label style={{margin:0}}>Método de Pago</label>
+             <div className="flex-col"><label style={{margin:0}}>Método de pago</label>
                 <select value={form.paymentMethod} onChange={(e) => setForm({ ...form, paymentMethod: e.target.value })}>
                    <option value="efectivo">Caja / Cash</option><option value="transferencia">SPEI Transfer</option><option value="tarjeta">Crédito o Terminal</option>
                 </select>
              </div>
-             <div className="flex-col"><label style={{margin:0}}>Tipo de Gasto</label>
+             <div className="flex-col"><label style={{margin:0}}>Tipo de gasto</label>
                 <select value={form.expenseType} onChange={(e) => setForm({ ...form, expenseType: e.target.value })}>
                    <option value="variable">Fuga Esporádica</option><option value="fijo">Carga Fija Ordinaria</option>
                 </select>
@@ -166,30 +166,30 @@ export function GastosNative() {
           </div>
 
           <div className="flex-col" style={{marginBottom: '10px'}}>
-             <label style={{fontWeight: 'bold'}}>Vincular a Proveedor (Opcional)</label>
+             <label style={{fontWeight: 'bold'}}>Vincular a proveedor</label>
             <select value={form.supplierId} onChange={(e) => setForm({ ...form, supplierId: e.target.value })}>
-              <option value="">-- Consumo al Público General --</option>
+              <option value="">-- Sin proveedor asociado --</option>
               {suppliers.map((supplier) => (<option key={supplier.id} value={supplier.id}>{supplier.businessName}</option>))}
             </select>
           </div>
           <div className="flex-col" style={{marginBottom: '10px'}}>
-             <label>Comentarios / Descripción</label>
-            <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Describe la causa y el folio fiscal del evento." style={{minHeight: "80px"}} />
+             <label>Descripción o contexto</label>
+            <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Describe la causa, el comprobante o el contexto del gasto." style={{minHeight: "80px"}} />
           </div>
           
-          <button type="submit" disabled={loading} className="product-button is-primary" style={{marginTop: '16px'}}>Registrar Gasto</button>
+          <button type="submit" disabled={loading} className="product-button is-primary" style={{marginTop: '16px'}}>Registrar gasto</button>
         </form>
 
         <article className="sdmx-card-premium" style={{display: "flex", flexDirection: "column"}}>
            <div style={{borderBottom: '1px solid rgba(15,23,42,0.08)', paddingBottom: '16px', marginBottom: '16px'}}>
-              <h3 style={{fontSize: '1.25rem', margin: 0}}>Historial de Gastos</h3>
-              <p className="muted" style={{margin: 0, fontSize: '0.85rem'}}>Mostrando {filteredExpenses.length} evento(s) de gasto.</p>
+              <h3 style={{fontSize: '1.25rem', margin: 0}}>Historial de gastos</h3>
+              <p className="muted" style={{margin: 0, fontSize: '0.85rem'}}>Mostrando {filteredExpenses.length} registro(s) visibles.</p>
            </div>
           <ul className="data-list scrollable-list">
             {filteredExpenses.length === 0 ? (
                <li className="empty-state">
                   <strong>No hay gastos registrados</strong>
-                  <span>Actualmente no hay salidas de capital documentadas.</span>
+                  <span>Registra el primer egreso para empezar a construir tu historial financiero.</span>
                </li>
             ) : (
               filteredExpenses.map((expense) => (
@@ -197,10 +197,10 @@ export function GastosNative() {
                   <div className="flex-col">
                     <strong style={{ fontSize: '1.1rem', color: '#0f172a' }}>{expense.concept}</strong>
                     <span style={{ fontSize: '0.85rem', color: '#64748b' }}>
-                      Punto clave: {expense.category.toUpperCase()} ({expense.expenseType}) 
-                      {expense.supplierName ? ` · Pagado a: ${expense.supplierName}` : ""}
+                      Categoría: {expense.category.toUpperCase()} · Tipo: {expense.expenseType}
+                      {expense.supplierName ? ` · Proveedor: ${expense.supplierName}` : ""}
                     </span>
-                    <span style={{fontSize: '0.75rem', color: '#94a3b8', marginTop: '2px'}}>🗓 Acuse {formatDate(expense.expenseDate)} mediante {expense.paymentMethod}</span>
+                    <span style={{fontSize: '0.75rem', color: '#94a3b8', marginTop: '2px'}}>🗓 Registrado el {formatDate(expense.expenseDate)} vía {expense.paymentMethod}</span>
                   </div>
                   <div style={{ textAlign: 'right' }}>
                     <span style={{color: '#ef4444', backgroundColor: 'rgba(239, 68, 68, 0.05)', padding: '6px 14px', borderRadius: '12px', fontSize: '1.2rem', fontWeight: '900', border: '1px solid rgba(239, 68, 68, 0.1)' }}>

@@ -128,18 +128,18 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
         </div>
         
         <div className="space-y-4 animate-fadeIn">
-          <h2 className="text-white text-xl font-black uppercase tracking-[0.2em] opacity-80">Sincronizando Acceso</h2>
-          <p className="text-[#0066FF] text-sm font-bold animate-pulse">Verificando credenciales de seguridad...</p>
+          <h2 className="text-white text-xl font-black uppercase tracking-[0.2em] opacity-80">Cargando tu panel</h2>
+          <p className="text-[#0066FF] text-sm font-bold animate-pulse">Estamos validando tu sesión y preparando tu contexto de trabajo...</p>
         </div>
 
         {showRetry && (
           <div className="mt-8 animate-fadeIn delay-700">
-            <p className="text-slate-500 text-xs mb-4 max-w-xs mx-auto">Si la carga demora demasiado, es posible que tu sesión necesite un empujón.</p>
+            <p className="text-slate-500 text-xs mb-4 max-w-xs mx-auto">Si esto tarda demasiado, refresca la vista para volver a sincronizar tu acceso.</p>
             <button 
               onClick={() => window.location.reload()}
               className="px-8 py-3 rounded-xl bg-white/5 border border-white/10 text-white text-xs font-bold uppercase tracking-widest hover:bg-white/10 transition-all hover:border-[#0066FF]/50"
             >
-              Refrescar Sistema
+              Reintentar carga
             </button>
           </div>
         )}
@@ -162,7 +162,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
              onClick={() => window.location.href = "/billing"}
              className="w-full bg-red-600 text-white py-4 rounded-2xl font-black text-sm uppercase tracking-widest hover:bg-red-500 transition-all shadow-lg shadow-red-900/20"
            >
-             Resolver Facturación
+             Ir a facturación
            </button>
         </div>
       </div>

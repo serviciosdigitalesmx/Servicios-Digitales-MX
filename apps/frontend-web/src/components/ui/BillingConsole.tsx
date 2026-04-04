@@ -72,7 +72,7 @@ export function BillingConsole({ initialPlanCode }: { initialPlanCode?: string }
   const [loading, setLoading] = useState(false);
   const [targetPlan, setTargetPlan] = useState<BillingPlan | null>(null);
   const [view, setView] = useState<"overview" | "checkout">("overview");
-  
+
   const [plans, setPlans] = useState<BillingPlan[]>(DEFAULT_BILLING_PLANS);
   const [selectedPlanCode, setSelectedPlanCode] = useState(initialPlanCode ?? "esencial-350");
   const [message, setMessage] = useState("");
@@ -171,212 +171,208 @@ export function BillingConsole({ initialPlanCode }: { initialPlanCode?: string }
 
   if (auth && !["owner", "admin"].includes(auth.user.role.toLowerCase())) {
     return (
-      <section className="billing-shell" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '80vh' }}>
-        <div className="flex flex-col items-center justify-center p-8 text-center bg-white rounded-2xl shadow-sm border border-[#E2E8F0]" style={{maxWidth: '500px'}}>
-           <div className="w-20 h-20 bg-[#E2E8F0] flex items-center justify-center rounded-full mb-6 text-4xl">
-              ⛔
-           </div>
-           <h2 className="text-2xl font-bold text-[#1A202C] mb-2">Acceso Denegado</h2>
-           <p className="text-[#4A5568] mb-8">
-             El módulo de Facturación y Planes es de carácter administrativo y exclusivo para el dueño. Tu puesto (<strong className="uppercase">{auth.user.role}</strong>) no tiene permisos para consultar información comercial o modificar suscripciones.
-           </p>
-           <a href="/hub" className="bg-[#1A202C] hover:bg-[#2D3748] text-white px-8 py-3 rounded-xl font-bold transition">
-             Volver al Hub
-           </a>
+      <section className="min-h-[80vh] flex items-center justify-center p-6">
+        <div className="sdmx-glass max-w-md w-full p-10 rounded-[2.5rem] border-red-500/20 text-center relative overflow-hidden group">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-red-600/5 blur-[60px] rounded-full pointer-events-none group-hover:bg-red-600/10 transition-all"></div>
+          <div className="w-20 h-20 bg-red-500/10 border border-red-500/20 flex items-center justify-center rounded-2xl mb-8 mx-auto text-4xl shadow-lg shadow-red-500/5">
+            <span className="grayscale contrast-125">⛔</span>
+          </div>
+          <h2 className="text-2xl font-tech font-black text-white mb-3 uppercase tracking-wider">Acceso Restringido</h2>
+          <p className="text-slate-400 font-label font-medium uppercase tracking-widest text-sm mb-10 leading-relaxed">
+            Módulo administrativo financiero. Tu rol (<span className="text-red-400">{auth.user.role}</span>) no tiene permisos de gestión comercial.
+          </p>
+          <a href="/hub" className="block w-full py-4 bg-slate-800 hover:bg-slate-700 text-white rounded-2xl font-tech text-xs uppercase tracking-[0.2em] transition-all border border-white/5">
+            Volver al Panel
+          </a>
         </div>
       </section>
     );
   }
 
   return (
-    <section className="billing-shell">
-      <div className="billing-hero" style={{ position: 'relative' }}>
-        <a href="/hub" style={{ position: 'absolute', top: '-30px', left: '0', color: '#0066FF', textDecoration: 'none', fontWeight: 600, fontSize: '14px' }}>← Volver al Hub</a>
-        <span className="hero-eyebrow">Cuenta y Suscripción</span>
-        <h1>Control comercial del Shop</h1>
-        <p>
-          Revisa el estado de la suscripción, el monto mensual, el periodo actual y el acceso
-          operativo del local.
+    <section className="billing-shell max-w-7xl mx-auto px-6 py-12">
+      <div className="mb-12 relative">
+        <a href="/hub" className="text-blue-500 hover:text-blue-400 transition-all font-tech text-[10px] uppercase tracking-[0.2em] mb-8 block">
+          ← Dashboard Principal
+        </a>
+        <span className="text-blue-500/60 font-tech text-[10px] uppercase tracking-[0.3em] font-bold block mb-4">Módulo Comercial</span>
+        <h1 className="text-4xl lg:text-5xl font-black text-white mb-4 font-tech tracking-wider uppercase">Estado de Cuenta</h1>
+        <p className="text-slate-400 font-label font-medium uppercase tracking-widest text-sm leading-relaxed max-w-2xl">
+          Control financiero de tu suscripción SaaS. Monitorea cortes, pagos y niveles de acceso operativo.
         </p>
       </div>
 
       {message ? (
-        <div className="console-message is-warning">{message}</div>
+        <div className="mb-8 p-6 bg-amber-500/10 border border-amber-500/20 rounded-2xl text-amber-500 font-label font-bold uppercase tracking-widest text-center text-xs">
+          {message}
+        </div>
       ) : null}
 
-      <div className="billing-grid">
-        <article className="card billing-card billing-card-primary">
-          <div className="billing-card-header">
-            <div>
-              <span className="billing-kicker">Shop</span>
-              <h2>{auth?.shop.name ?? "Cargando..."}</h2>
+      <div className="grid lg:grid-cols-3 gap-8 mb-12">
+        <article className="sdmx-glass p-8 rounded-[2.5rem] lg:col-span-2 flex flex-col justify-between border-blue-500/10">
+          <div>
+            <div className="flex items-center justify-between mb-8">
+              <div>
+                <span className="text-blue-500/60 font-tech text-[10px] uppercase tracking-[0.2em] block mb-1">Empresa Registrada</span>
+                <h2 className="text-2xl font-tech font-black text-white tracking-wider uppercase">{auth?.shop.name ?? "..."}</h2>
+              </div>
+              <span className={`px-4 py-1.5 rounded-full text-[10px] font-tech font-black uppercase tracking-[0.15em] border ${statusCopy.tone === 'is-success' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500' : 'bg-amber-500/10 border-amber-500/20 text-amber-500'}`}>
+                {statusCopy.label}
+              </span>
             </div>
-            <span className={`status-pill ${statusCopy.tone}`}>{statusCopy.label}</span>
+            <p className="text-slate-400 text-sm font-medium mb-10 leading-relaxed border-l-2 border-white/5 pl-6">
+              {statusCopy.description}
+            </p>
           </div>
-          <p className="billing-description">{statusCopy.description}</p>
-          <dl className="billing-facts">
+
+          <dl className="grid grid-cols-2 md:grid-cols-4 gap-6 pt-8 border-t border-white/5">
             <div>
-              <dt>Slug</dt>
-              <dd>{auth?.shop.slug ?? "..."}</dd>
+              <dt className="text-[10px] font-tech text-slate-500 uppercase tracking-widest mb-1">Socio</dt>
+              <dd className="text-white font-label font-bold text-sm tracking-wide">{auth?.shop.slug}</dd>
             </div>
             <div>
-              <dt>Administrador</dt>
-              <dd>{auth?.user.fullName ?? "..."}</dd>
+              <dt className="text-[10px] font-tech text-slate-500 uppercase tracking-widest mb-1">Admin</dt>
+              <dd className="text-white font-label font-bold text-sm tracking-wide truncate">{auth?.user.fullName}</dd>
             </div>
             <div>
-              <dt>Correo</dt>
-              <dd>{auth?.user.email ?? "..."}</dd>
+              <dt className="text-[10px] font-tech text-slate-500 uppercase tracking-widest mb-1">Acceso</dt>
+              <dd className={`font-label font-bold text-sm tracking-wide ${auth?.subscription.operationalAccess ? 'text-emerald-400' : 'text-red-400'}`}>
+                {auth?.subscription.operationalAccess ? "ACTIVO" : "BLOQUEADO"}
+              </dd>
             </div>
             <div>
-              <dt>Acceso operativo</dt>
-              <dd>{auth ? (auth.subscription.operationalAccess ? "Habilitado" : "Suspendido") : "..."}</dd>
+              <dt className="text-[10px] font-tech text-slate-500 uppercase tracking-widest mb-1">Soporte</dt>
+              <dd className="text-blue-400 font-label font-bold text-sm tracking-wide">ID-{auth?.shop.id.slice(0, 5)}</dd>
             </div>
           </dl>
         </article>
 
-      <article className="card billing-card">
-        <span className="billing-kicker">Plan seleccionado</span>
-        <h3>{selectedPlan?.name ?? auth?.subscription.planName ?? "Plan Esencial"}</h3>
-        <p className="billing-price">{selectedPlan ? formatMoney(selectedPlan.priceMxn) : auth ? formatMoney(auth.subscription.priceMxn) : "$350 MXN"}<small>/mes</small></p>
-        <dl className="billing-facts compact">
-          <div>
-            <dt>Código</dt>
-            <dd>{selectedPlan?.code ?? auth?.subscription.planCode ?? "esencial-350"}</dd>
-          </div>
-          <div>
-            <dt>Periodo</dt>
-            <dd>{selectedPlan?.billingInterval ?? auth?.subscription.billingInterval ?? "monthly"}</dd>
-          </div>
-          <div>
-            <dt>Inicio</dt>
-              <dd>{formatDate(auth?.subscription.currentPeriodStart)}</dd>
-            </div>
-            <div>
-              <dt>Corte</dt>
-              <dd>{formatDate(auth?.subscription.currentPeriodEnd)}</dd>
-            </div>
-            <div>
-              <dt>Gracia</dt>
-            <dd>{formatDate(auth?.subscription.graceUntil)}</dd>
-          </div>
-        </dl>
-      </article>
+        <article className="sdmx-glass p-8 rounded-[2.5rem] border-white/5 bg-gradient-to-br from-slate-900 to-slate-950">
+          <span className="text-blue-500/60 font-tech text-[10px] uppercase tracking-[0.2em] block mb-6">Plan Contratado</span>
+          <h3 className="text-3xl font-tech font-black text-white uppercase tracking-wider mb-2">
+            {selectedPlan?.name ?? auth?.subscription.planName ?? "Esencial"}
+          </h3>
+          <p className="text-4xl font-label font-black text-white mb-10">
+            {selectedPlan ? formatMoney(selectedPlan.priceMxn) : auth ? formatMoney(auth.subscription.priceMxn) : "$350"}
+            <span className="text-lg text-slate-500 font-medium ml-1">/MXN</span>
+          </p>
 
-        <article className="card billing-card">
-          <span className="billing-kicker">Acciones</span>
-          <h3>Regularizar cuenta</h3>
-          <p className="billing-description">
-            Este espacio ya está listo para conectarse al flujo real de cobro, validación y
-            reactivación automática.
-          </p>
-          <div className="billing-actions">
-            <a
-              className="billing-button is-primary"
-              href="https://wa.me/528181234567?text=Hola%2C%20quiero%20pagar%20o%20reactivar%20mi%20suscripci%C3%B3n%20de%20Servicios%20Digitales%20MX."
-              target="_blank"
-              rel="noreferrer"
-            >
-              Contactar a Soporte
-            </a>
-            <button
-              className="billing-button is-secondary"
-              type="button"
-              onClick={() => void handleCheckout()}
-              disabled={paying || loading}
-            >
-              {paying
-                ? "Redirigiendo..."
-                : `Contratar ${selectedPlan?.name ?? "plan"}`}
-            </button>
-          </div>
-          <p className="billing-footnote">
-            El pago será procesado de forma segura a través de Mercado Pago.
-          </p>
+          <dl className="space-y-4">
+            <div className="flex justify-between items-center py-3 border-b border-white/5">
+              <dt className="text-[10px] font-tech text-slate-500 uppercase tracking-widest">Corte de Mes</dt>
+              <dd className="text-white font-label font-bold text-sm">{formatDate(auth?.subscription.currentPeriodEnd)}</dd>
+            </div>
+            <div className="flex justify-between items-center py-3 border-b border-white/5">
+              <dt className="text-[10px] font-tech text-slate-500 uppercase tracking-widest">Periodo</dt>
+              <dd className="text-white font-label font-bold text-sm uppercase tracking-widest">{selectedPlan?.billingInterval ?? "MENSUAL"}</dd>
+            </div>
+            <div className="flex justify-between items-center py-3">
+              <dt className="text-[10px] font-tech text-slate-500 uppercase tracking-widest">Fecha Gracia</dt>
+              <dd className="text-amber-500 font-label font-bold text-sm">{formatDate(auth?.subscription.graceUntil)}</dd>
+            </div>
+          </dl>
         </article>
       </div>
 
-      <article className="card billing-card billing-card-wide">
-        <div className="billing-card-header">
-          <div>
-            <span className="billing-kicker">Planes disponibles</span>
-            <h3>Elige cómo quieres operar tu negocio</h3>
-          </div>
-        </div>
-        <div className="billing-plan-grid">
-          {plans.map((plan) => (
+      <div className="grid lg:grid-cols-2 gap-8 mb-12">
+        <article className="sdmx-glass p-8 rounded-[2.5rem] border-white/5">
+          <h3 className="text-xl font-tech font-black text-white uppercase tracking-wider mb-4">Gestión de Pago</h3>
+          <p className="text-slate-400 text-sm font-medium mb-8 leading-relaxed">
+            Utiliza la pasarela segura para renovar tu acceso o cambiar de plan. Los cambios se aplican de forma inmediata al detectar el pago.
+          </p>
+          <div className="grid sm:grid-cols-2 gap-4">
             <button
-              key={plan.code}
-              type="button"
-              className={`billing-plan-option ${selectedPlanCode === plan.code ? "is-selected" : ""}`}
-              onClick={() => setSelectedPlanCode(plan.code)}
+              onClick={() => void handleCheckout()}
+              disabled={paying || loading}
+              className="py-4 bg-white hover:bg-blue-600 text-slate-950 hover:text-white rounded-2xl font-tech text-[10px] uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-2 shadow-xl shadow-white/5"
             >
-              <span className="billing-plan-name">{plan.name}</span>
-              <strong>{formatMoney(plan.priceMxn)}<small>/mes</small></strong>
-              <ul>
-                {plan.modules.map((module) => (
-                  <li key={module}>{module}</li>
-                ))}
-              </ul>
+              {paying ? "Conectando..." : `Contratar ${selectedPlan?.name.split(' ')[1] || "Plan"}`}
             </button>
-          ))}
-        </div>
-      </article>
-
-      <article className="card billing-card billing-card-wide">
-        <div className="billing-card-header">
-          <div>
-            <span className="billing-kicker">Último pago acreditado</span>
-            <h3>
-              {auth?.lastPayment
-                ? `${formatMoney(auth.lastPayment.amount ?? auth.subscription.priceMxn)} confirmado`
-                : "Aún no hay pagos registrados"}
-            </h3>
+            <a
+              href="https://wa.me/528181234567?text=Soporte%20SDMX"
+              target="_blank"
+              rel="noreferrer"
+              className="py-4 bg-slate-800 hover:bg-slate-700 text-white rounded-2xl font-tech text-[10px] uppercase tracking-[0.2em] transition-all text-center border border-white/5"
+            >
+              Contactar Soporte
+            </a>
           </div>
+          <p className="mt-6 text-center text-[10px] font-label font-bold text-slate-500 uppercase tracking-widest">
+            🔐 Transacción protegida por Mercado Pago
+          </p>
+        </article>
+
+        <article className="sdmx-glass p-8 rounded-[2.5rem] border-white/5">
+          <h3 className="text-xl font-tech font-black text-white uppercase tracking-wider mb-4">Último Pago Confirmado</h3>
           {auth?.lastPayment ? (
-            <span className={`status-pill ${getStatusCopy(auth.lastPayment.providerPaymentStatus).tone}`}>
-              {getStatusCopy(auth.lastPayment.providerPaymentStatus).label}
-            </span>
-          ) : null}
+            <>
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <p className="text-3xl font-label font-black text-white">
+                    {formatMoney(auth.lastPayment.amount ?? auth.subscription.priceMxn)}
+                  </p>
+                  <p className="text-[10px] font-tech text-emerald-400 uppercase tracking-[0.2em] font-bold mt-1">Suscripción Acreditada</p>
+                </div>
+                <div className="p-4 bg-slate-800 rounded-2xl border border-white/5">
+                  <img src="/mercadopago.svg" alt="MP" className="h-4 opacity-50 grayscale contrast-200" />
+                </div>
+              </div>
+              <dl className="grid grid-cols-2 gap-4 pt-6 border-t border-white/5">
+                <div>
+                  <dt className="text-[10px] font-tech text-slate-500 uppercase tracking-widest mb-1">Referencia</dt>
+                  <dd className="text-white font-mono text-[10px] truncate">{auth.lastPayment.providerPaymentId}</dd>
+                </div>
+                <div>
+                  <dt className="text-[10px] font-tech text-slate-500 uppercase tracking-widest mb-1">Fecha</dt>
+                  <dd className="text-white font-label font-bold text-[11px] truncate">{formatDateTime(auth.lastPayment.paidAt)}</dd>
+                </div>
+              </dl>
+            </>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-10 opacity-50">
+              <span className="text-4xl mb-4">🧾</span>
+              <p className="text-sm font-label font-bold text-slate-400 uppercase tracking-widest text-center">Sin historial de pagos registrados en este local.</p>
+            </div>
+          )}
+        </article>
+      </div>
+
+      <article className="sdmx-glass p-10 rounded-[2.5rem] border-blue-500/10 mb-8">
+        <div className="flex flex-col lg:flex-row items-center justify-between gap-8 py-10">
+          <div className="text-center lg:text-left">
+            <h3 className="text-3xl font-tech font-black text-white uppercase tracking-wider mb-2">Planes Disponibles</h3>
+            <p className="text-slate-400 font-label uppercase tracking-[0.2em] font-bold text-xs">Escala tu negocio con módulos de alta gama</p>
+          </div>
+          <div className="w-full lg:w-auto grid md:grid-cols-3 gap-6 flex-1 max-w-4xl">
+            {plans.map((plan) => (
+              <button
+                key={plan.code}
+                type="button"
+                className={`p-8 rounded-[2rem] border transition-all text-left group relative overflow-hidden ${selectedPlanCode === plan.code ? 'bg-blue-600 border-blue-400 text-white shadow-2xl shadow-blue-500/20' : 'bg-slate-900/50 border-white/5 hover:border-white/20 text-slate-300'}`}
+                onClick={() => setSelectedPlanCode(plan.code)}
+              >
+                <span className={`text-[10px] font-tech uppercase tracking-[0.2em] font-bold block mb-4 ${selectedPlanCode === plan.code ? 'text-white/80' : 'text-blue-500'}`}>
+                  Plan {plan.name.split(' ')[1]}
+                </span>
+                <p className="text-2xl font-label font-black mb-1">{formatMoney(plan.priceMxn)}</p>
+                <p className="text-[10px] font-tech uppercase tracking-widest opacity-60 mb-6">Monto Mensual</p>
+                <ul className="text-[10px] font-label font-bold space-y-2 uppercase tracking-wider opacity-80">
+                  {plan.modules.slice(0, 3).map(m => (
+                    <li key={m}>+ {m}</li>
+                  ))}
+                  <li className="italic opacity-50">+ Ver todo</li>
+                </ul>
+                {selectedPlanCode === plan.code && (
+                  <div className="absolute top-2 right-4 text-white text-xs">●</div>
+                )}
+              </button>
+            ))}
+          </div>
         </div>
-        <dl className="billing-facts compact">
-          <div>
-            <dt>Referencia de pago</dt>
-            <dd>{auth?.lastPayment?.providerPaymentId ?? "Sin referencia"}</dd>
-          </div>
-          <div>
-            <dt>Proveedor</dt>
-            <dd>{auth?.lastPayment?.provider ?? "Mercado Pago"}</dd>
-          </div>
-          <div>
-            <dt>Fecha acreditada</dt>
-            <dd>{formatDateTime(auth?.lastPayment?.paidAt)}</dd>
-          </div>
-          <div>
-            <dt>Monto</dt>
-            <dd>
-              {auth?.lastPayment
-                ? formatMoney(auth.lastPayment.amount ?? auth.subscription.priceMxn)
-                : "Sin monto"}
-            </dd>
-          </div>
-          <div>
-            <dt>Correo pagador</dt>
-            <dd>{auth?.lastPayment?.payerEmail ?? "No disponible"}</dd>
-          </div>
-        </dl>
       </article>
 
-      <article className="card billing-card billing-notes">
-        <span className="billing-kicker">Estado técnico</span>
-        <h3>Backend listo para enforcement</h3>
-        <ul className="billing-note-list">
-          <li>El backend ya bloquea rutas operativas cuando la suscripción cae en `suspended`.</li>
-          <li>`auth/me` ya expone el estado comercial del Shop en tiempo real.</li>
-          <li>El portal público por folio se mantiene abierto aunque la operación interna se bloquee.</li>
-        </ul>
-      </article>
-
-      {loading ? <div className="billing-loading">Cargando cuenta...</div> : null}
+      {loading && <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center font-tech text-white uppercase tracking-widest">Sincronizando Cuenta...</div>}
     </section>
   );
+}
 }

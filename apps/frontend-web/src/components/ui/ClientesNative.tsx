@@ -117,9 +117,9 @@ export function ClientesNative() {
     <section className="module-native-shell">
       <div className="module-native-header">
         <div className="flex-col">
-          <span className="hero-eyebrow">Directorio</span>
-          <h1>Directorio de Clientes</h1>
-          <p className="muted">Gestiona tu base de clientes y prospectos.</p>
+          <span className="hero-eyebrow">Clientes</span>
+          <h1>Base comercial y de atención</h1>
+          <p className="muted">Organiza prospectos, clientes frecuentes y contactos clave para que mostrador, ventas y seguimiento trabajen sobre la misma ficha.</p>
         </div>
         <div className="module-native-actions flex-row-between" style={{ flex: 1, justifyContent: "flex-end", gap: "12px" }}>
           <div style={{ position: "relative", width: "100%", maxWidth: "340px" }}>
@@ -127,7 +127,7 @@ export function ClientesNative() {
             <input
               className="module-search-input"
               style={{ width: "100%", paddingLeft: "42px", paddingRight: "16px", height: "48px" }}
-              placeholder="Filtro rápido por persona o medio..."
+              placeholder="Buscar por nombre, teléfono o correo..."
               value={search}
               onChange={(event) => setSearch(event.target.value)}
             />
@@ -139,7 +139,7 @@ export function ClientesNative() {
             style={{ height: "48px", background: "#f8fafc", color: "#0f172a", border: "1px solid #cbd5e1" }}
             onClick={() => void loadCustomers()}
           >
-            {loading ? "Refrescando..." : "Recargar Lista"}
+            {loading ? "Actualizando..." : "Actualizar listado"}
           </button>
         </div>
       </div>
@@ -150,9 +150,9 @@ export function ClientesNative() {
       <div className="module-native-grid module-native-grid-wide">
         <form className="sdmx-card-premium" onSubmit={handleSubmit}>
           <div style={{ borderBottom: "1px solid rgba(15,23,42,0.08)", paddingBottom: "16px", marginBottom: "16px" }}>
-            <h3 style={{ fontSize: "1.25rem", margin: 0 }}>Crear Nuevo Cliente</h3>
+            <h3 style={{ fontSize: "1.25rem", margin: 0 }}>Nueva ficha de cliente</h3>
             <p className="muted" style={{ margin: "4px 0 0 0", fontSize: "0.85rem" }}>
-              Registra la información de contacto para futuras atenciones.
+              Registra una ficha clara para seguimiento, nuevas órdenes y comunicación futura.
             </p>
           </div>
 
@@ -160,23 +160,23 @@ export function ClientesNative() {
           {formNotice && !formError && <div className="form-message is-warning">{formNotice}</div>}
 
           <div className="flex-col" style={{ marginBottom: "10px" }}>
-            <label style={{ fontWeight: "bold" }}>Nombre o Razón Social *</label>
+            <label style={{ fontWeight: "bold" }}>Nombre o razón social *</label>
             <input required value={form.fullName} onChange={(event) => setForm({ ...form, fullName: event.target.value })} placeholder="Ej. Instituto Cultural Norte. SA" />
           </div>
 
           <div className="grid-cols-2" style={{ background: "#f8fafc", padding: "16px", borderRadius: "8px", marginBottom: "10px" }}>
             <div className="flex-col">
-              <label style={{ margin: 0 }}>Teléfono / WhatsApp</label>
+              <label style={{ margin: 0 }}>Teléfono o WhatsApp</label>
               <input value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} placeholder="Ej. 811..." />
             </div>
             <div className="flex-col">
-              <label style={{ margin: 0 }}>Correo Electrónico</label>
+              <label style={{ margin: 0 }}>Correo electrónico</label>
               <input type="email" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} placeholder="titular@comercio.mx" />
             </div>
           </div>
 
           <div className="flex-col" style={{ marginBottom: "10px" }}>
-            <label style={{ fontWeight: "bold" }}>Categoría de Cliente</label>
+            <label style={{ fontWeight: "bold" }}>Categoría del cliente</label>
             <select value={form.tag} onChange={(event) => setForm({ ...form, tag: event.target.value })}>
               <option value="nuevo">Cliente Nuevo</option>
               <option value="frecuente">Cliente Frecuente</option>
@@ -185,26 +185,26 @@ export function ClientesNative() {
           </div>
 
           <div className="flex-col" style={{ marginBottom: "10px" }}>
-            <label>Notas u Observaciones</label>
-            <textarea value={form.notes} onChange={(event) => setForm({ ...form, notes: event.target.value })} placeholder="Garantías directas, referencias directas..." style={{ minHeight: "80px" }} />
+            <label>Notas internas</label>
+            <textarea value={form.notes} onChange={(event) => setForm({ ...form, notes: event.target.value })} placeholder="Preferencias, contexto comercial, referencias o alertas internas..." style={{ minHeight: "80px" }} />
           </div>
 
           <button type="submit" disabled={loading} style={{ padding: "14px", fontSize: "1rem", marginTop: "16px", fontWeight: "bold" }}>
-            Guardar Cliente
+            Guardar ficha
           </button>
         </form>
 
         <article className="sdmx-card-premium" style={{ display: "flex", flexDirection: "column" }}>
           <div style={{ borderBottom: "1px solid rgba(15,23,42,0.08)", paddingBottom: "16px", marginBottom: "16px" }}>
-            <h3 style={{ fontSize: "1.25rem", margin: 0 }}>Listado de Clientes</h3>
-            <p className="muted" style={{ margin: 0, fontSize: "0.85rem" }}>{customers.length} clientes registrados.</p>
+            <h3 style={{ fontSize: "1.25rem", margin: 0 }}>Directorio activo</h3>
+            <p className="muted" style={{ margin: 0, fontSize: "0.85rem" }}>{customers.length} ficha(s) visibles en el directorio.</p>
           </div>
 
           <ul className="data-list scrollable-list">
             {customers.length === 0 ? (
               <li className="empty-state">
-                <strong>No hay clientes registrados</strong>
-                <span>Agrega tu primer cliente usando el formulario de lado izquierdo.</span>
+                <strong>No hay fichas registradas</strong>
+                <span>Crea la primera ficha para comenzar a construir tu base comercial y de atención.</span>
               </li>
             ) : (
               customers.map((customer) => (
@@ -212,13 +212,13 @@ export function ClientesNative() {
                   <div className="flex-col">
                     <strong style={{ fontSize: "1.1rem", color: "#0f172a" }}>{customer.fullName}</strong>
                     <span style={{ fontSize: "0.85rem", color: "#64748b", display: "flex", gap: "16px" }}>
-                      <span>📞 {customer.phone || "Sin Fon"}</span>
-                      <span>📧 {customer.email || "Sin Correo Institucional"}</span>
+                      <span>📞 {customer.phone || "Sin teléfono"}</span>
+                      <span>📧 {customer.email || "Sin correo"}</span>
                     </span>
                   </div>
                   <div style={{ textAlign: "right" }}>
                     <span className={`badge-${customer.tag === "vip" ? "warning" : customer.tag === "nuevo" ? "info" : "success"}`}>
-                      SECTOR: {customer.tag.toUpperCase()}
+                      PERFIL: {customer.tag.toUpperCase()}
                     </span>
                   </div>
                 </li>

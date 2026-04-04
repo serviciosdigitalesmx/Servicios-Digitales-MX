@@ -116,8 +116,8 @@ export function SucursalesNative() {
       <div className="module-native-header">
         <div>
            <span className="hero-eyebrow">Sucursales</span>
-           <h1>Gestión de Sucursales</h1>
-           <p>Administra las sucursales y puntos de venta activos.</p>
+           <h1>Red de sucursales</h1>
+           <p>Organiza puntos de atención, laboratorios y sedes activas para operar con contexto claro por ubicación.</p>
         </div>
       </div>
 
@@ -126,11 +126,11 @@ export function SucursalesNative() {
 
       <div className="module-native-grid module-native-grid-wide">
         <form className="sdmx-card-premium" onSubmit={handleSubmit}>
-          <h3>Nueva Sucursal</h3>
+          <h3>Nueva sucursal</h3>
           {formError && <div className="form-message is-warning">{formError}</div>}
           
           <div className="grid-cols-auto">
-             <label>Nombre de la Sucursal *
+             <label>Nombre de la sucursal *
                <input value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} placeholder="Ej. Laboratorio Tech"/>
              </label>
              <label>Código *
@@ -151,18 +151,21 @@ export function SucursalesNative() {
             <input value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} />
           </label>
           
-          <button type="submit" disabled={loading} >Guardar Sucursal</button>
+          <button type="submit" disabled={loading} >Guardar sucursal</button>
         </form>
 
         <article className="sdmx-card-premium" style={{display: 'flex', flexDirection: 'column'}}>
            <div className="flex-row-between">
-              <h3>Directorio de Sucursales</h3>
+              <div className="flex-col">
+                <h3 style={{margin: 0}}>Sucursales activas</h3>
+                <p className="muted" style={{margin: 0, fontSize: '0.85rem'}}>{branches.length} sucursal(es) visibles.</p>
+              </div>
            </div>
           <ul className="data-list scrollable-list">
             {branches.length === 0 ? (
                <li className="empty-state">
                   <strong>No hay sucursales registradas.</strong>
-                  <span>Agrega tu primera sucursal usando el formulario.</span>
+                  <span>Crea la primera sede para empezar a operar con contexto multiubicación.</span>
                </li>
             ) : (
               branches.map((branch) => (

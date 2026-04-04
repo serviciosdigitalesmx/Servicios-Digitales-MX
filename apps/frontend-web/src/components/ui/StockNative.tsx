@@ -157,18 +157,18 @@ export function StockNative() {
     <section className="module-native-shell">
       <div className="module-native-header">
         <div className="flex-col">
-          <span className="hero-eyebrow">Almacén General</span>
-          <h1>Stock y Refacciones</h1>
-          <p className="muted">Administra recepciones de mercancía física, existencias mínimas y altas base.</p>
+          <span className="hero-eyebrow">Inventario</span>
+          <h1>Stock y refacciones</h1>
+          <p className="muted">Controla catálogo, existencias mínimas y costos para que compras, mostrador y taller trabajen con el mismo inventario.</p>
         </div>
         <div className="module-native-actions flex-row-between" style={{flex: 1, justifyContent: 'flex-end', gap: '12px'}}>
            <div style={{ position: "relative", width: "100%", maxWidth: "340px" }}>
             <span style={{ position: "absolute", top: "14px", left: "14px", opacity: 0.5, fontSize: "1.1rem" }}>🔍</span>
             <input className="module-search-input" style={{ width: "100%", paddingLeft: "42px", paddingRight: "16px", height: "48px" }}
-              placeholder="Buscar insumo o código universal..." value={searchProduct} onChange={(e) => setSearchProduct(e.target.value)} />
+              placeholder="Buscar por SKU, nombre o proveedor..." value={searchProduct} onChange={(e) => setSearchProduct(e.target.value)} />
            </div>
            <button type="button" disabled={loading} className="product-button" onClick={() => void loadData()}>
-             Actualizar Catálogo
+             Actualizar inventario
           </button>
         </div>
       </div>
@@ -179,66 +179,66 @@ export function StockNative() {
       <div className="module-native-grid module-native-grid-wide">
         <form className="sdmx-card-premium" onSubmit={handleSupplierSubmit}>
           <div style={{borderBottom: '1px solid rgba(15,23,42,0.08)', paddingBottom: '16px', marginBottom: '16px'}}>
-             <h3 style={{fontSize: '1.25rem', margin: 0}}>Catálogo de Proveedores</h3>
-             <p className="muted" style={{margin: '4px 0 0 0', fontSize: '0.85rem'}}>Añade contactos y orígenes de refacciones.</p>
+             <h3 style={{fontSize: '1.25rem', margin: 0}}>Proveedor de inventario</h3>
+             <p className="muted" style={{margin: '4px 0 0 0', fontSize: '0.85rem'}}>Registra contactos que abastecen stock y refacciones clave.</p>
           </div>
           {formErrorSupplier && <div className="form-message is-warning">{formErrorSupplier}</div>}
           <div className="flex-col" style={{marginBottom: '10px'}}>
-             <label style={{fontWeight: 'bold'}}>Nombre Comercial *</label>
+             <label style={{fontWeight: 'bold'}}>Nombre comercial *</label>
              <input value={supplierForm.businessName} onChange={(e) => setSupplierForm({ ...supplierForm, businessName: e.target.value })} placeholder="Ej. Mayoristas GSM"/>
           </div>
           <div className="grid-cols-2" style={{marginBottom: '10px'}}>
              <div className="flex-col"><label style={{margin:0}}>Teléfono</label><input value={supplierForm.phone} onChange={(e) => setSupplierForm({ ...supplierForm, phone: e.target.value })} placeholder="Cel/Tel"/></div>
              <div className="flex-col"><label style={{margin:0}}>Correo</label><input type="email" value={supplierForm.email} onChange={(e) => setSupplierForm({ ...supplierForm, email: e.target.value })} placeholder="Ej. ventas@mayor.com"/></div>
           </div>
-          <button type="submit" disabled={loading} className="product-button is-primary" style={{marginTop: '16px'}}>Guardar Proveedor</button>
+          <button type="submit" disabled={loading} className="product-button is-primary" style={{marginTop: '16px'}}>Guardar proveedor</button>
         </form>
 
         <form className="sdmx-card-premium" onSubmit={handleProductSubmit}>
           <div style={{borderBottom: '1px solid rgba(15,23,42,0.08)', paddingBottom: '16px', marginBottom: '16px'}}>
-             <h3 style={{fontSize: '1.25rem', margin: 0}}>Alta de Producto / Refacción</h3>
-             <p className="muted" style={{margin: '4px 0 0 0', fontSize: '0.85rem'}}>Agrega inventario a las existencias para consumirlo en órdenes o venta suelta.</p>
+             <h3 style={{fontSize: '1.25rem', margin: 0}}>Nueva ficha de producto</h3>
+             <p className="muted" style={{margin: '4px 0 0 0', fontSize: '0.85rem'}}>Da de alta artículos y refacciones para consumo interno o venta directa.</p>
           </div>
           {formErrorProduct && <div className="form-message is-warning">{formErrorProduct}</div>}
           
           <div className="grid-cols-auto" style={{marginBottom: '10px'}}>
              <div className="flex-col"><label style={{margin:0, fontWeight: 'bold'}}>Código (SKU) *</label><input value={productForm.sku} onChange={(e) => setProductForm({ ...productForm, sku: e.target.value })} placeholder="BARR-1029"/></div>
-             <div className="flex-col"><label style={{margin:0, fontWeight: 'bold'}}>Nombre o Descripción *</label><input value={productForm.name} onChange={(e) => setProductForm({ ...productForm, name: e.target.value })} placeholder="Placa Base, Circuito..."/></div>
+             <div className="flex-col"><label style={{margin:0, fontWeight: 'bold'}}>Nombre o descripción *</label><input value={productForm.name} onChange={(e) => setProductForm({ ...productForm, name: e.target.value })} placeholder="Placa base, display, batería..."/></div>
           </div>
           
           <div className="grid-cols-3" style={{marginBottom: '10px'}}>
              <div className="flex-col"><label style={{margin:0}}>Marca</label><input value={productForm.brand} onChange={(e) => setProductForm({ ...productForm, brand: e.target.value })} /></div>
              <div className="flex-col"><label style={{margin:0}}>Categoría</label><input value={productForm.category} onChange={(e) => setProductForm({ ...productForm, category: e.target.value })} placeholder="Familia" /></div>
-             <div className="flex-col"><label style={{margin:0, color: '#b91c1c', fontWeight: 'bold'}}>Costo Proveedor</label><input type="number" min="0" step="0.01" value={productForm.cost} onChange={(e) => setProductForm({ ...productForm, cost: e.target.value })} /></div>
+             <div className="flex-col"><label style={{margin:0, color: '#b91c1c', fontWeight: 'bold'}}>Costo proveedor</label><input type="number" min="0" step="0.01" value={productForm.cost} onChange={(e) => setProductForm({ ...productForm, cost: e.target.value })} /></div>
           </div>
 
           <div className="flex-col" style={{background: '#f8fafc', padding: '16px', borderRadius: '8px', marginBottom: '10px'}}>
-             <label style={{margin:0}}>Vincular a Proveedor (Opcional)</label>
+             <label style={{margin:0}}>Vincular a proveedor</label>
              <select value={productForm.primarySupplierId} onChange={(e) => setProductForm({ ...productForm, primarySupplierId: e.target.value })}>
-               <option value="">-- No adjudicar a Proveedor --</option>
+               <option value="">-- Sin proveedor asignado --</option>
                {suppliers.map((sup) => (<option key={sup.id} value={sup.id}>{sup.businessName}</option>))}
              </select>
           </div>
           
           <div className="grid-cols-3">
-             <div className="flex-col"><label style={{margin:0, color: '#10b981', fontWeight: 'bold'}}>Precio Público</label><input type="number" min="0" step="0.01" value={productForm.salePrice} onChange={(e) => setProductForm({ ...productForm, salePrice: e.target.value })} /></div>
-             <div className="flex-col"><label style={{margin:0}}>Stock Mínimo</label><input type="number" min="0" step="0.01" value={productForm.minimumStock} onChange={(e) => setProductForm({ ...productForm, minimumStock: e.target.value })} /></div>
-             <div className="flex-col"><label style={{margin:0}}>Existencia Inicial</label><input type="number" min="0" step="0.01" value={productForm.initialStock} onChange={(e) => setProductForm({ ...productForm, initialStock: e.target.value })} /></div>
+             <div className="flex-col"><label style={{margin:0, color: '#10b981', fontWeight: 'bold'}}>Precio público</label><input type="number" min="0" step="0.01" value={productForm.salePrice} onChange={(e) => setProductForm({ ...productForm, salePrice: e.target.value })} /></div>
+             <div className="flex-col"><label style={{margin:0}}>Stock mínimo</label><input type="number" min="0" step="0.01" value={productForm.minimumStock} onChange={(e) => setProductForm({ ...productForm, minimumStock: e.target.value })} /></div>
+             <div className="flex-col"><label style={{margin:0}}>Existencia inicial</label><input type="number" min="0" step="0.01" value={productForm.initialStock} onChange={(e) => setProductForm({ ...productForm, initialStock: e.target.value })} /></div>
           </div>
-          <button type="submit" disabled={loading} className="product-button is-primary" style={{marginTop: '16px'}}>Guardar Producto</button>
+          <button type="submit" disabled={loading} className="product-button is-primary" style={{marginTop: '16px'}}>Guardar producto</button>
         </form>
       </div>
       
       <article className="sdmx-card-premium" style={{display: "flex", flexDirection: "column", marginTop: '20px'}}>
         <div style={{borderBottom: '1px solid rgba(15,23,42,0.08)', paddingBottom: '16px', marginBottom: '16px'}}>
-           <h3 style={{fontSize: '1.25rem', margin: 0}}>Catálogo de Productos</h3>
-           <p className="muted" style={{margin: 0, fontSize: '0.85rem'}}>Mostrando {filteredProducts.length} producto(s).</p>
+           <h3 style={{fontSize: '1.25rem', margin: 0}}>Catálogo activo</h3>
+           <p className="muted" style={{margin: 0, fontSize: '0.85rem'}}>Mostrando {filteredProducts.length} producto(s) visibles.</p>
         </div>
         <ul className="data-list scrollable-list">
           {filteredProducts.length === 0 ? (
             <li className="empty-state">
                <strong>No hay productos registrados</strong>
-               <span>Agrega refacciones o artículos en el formulario lateral.</span>
+               <span>Crea la primera ficha de inventario para empezar a controlar stock y compras.</span>
             </li>
           ) : (
             filteredProducts.map((p) => {
@@ -251,7 +251,7 @@ export function StockNative() {
                 <div className="flex-col">
                   <strong style={{fontSize: '1.05rem', color: '#0f172a'}}>SKU: {p.sku} | {p.name}</strong>
                   <span style={{ fontSize: '0.85rem', color: '#64748b' }}>
-                    Ensamblador: {p.brand || "Generico"} · Categoria: {p.category || "Ninguna"}
+                    Marca: {p.brand || "Genérica"} · Categoría: {p.category || "Sin categoría"}
                     {p.supplierName ? ` · Prov: ${p.supplierName}` : ""}
                   </span>
                 </div>
