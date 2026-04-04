@@ -11,6 +11,16 @@ var allowedOrigins = new[]
 {
     "http://localhost:3000",
     "http://127.0.0.1:3000",
+    "http://localhost:3001",
+    "http://127.0.0.1:3001",
+    "http://localhost:3002",
+    "http://127.0.0.1:3002",
+    "http://localhost:3003",
+    "http://127.0.0.1:3003",
+    "http://localhost:3004",
+    "http://127.0.0.1:3004",
+    "http://localhost:3005",
+    "http://127.0.0.1:3005",
     builder.Configuration["MercadoPago:BaseUrl"],
     builder.Configuration["Frontend:BaseUrl"],
     builder.Configuration["NEXT_PUBLIC_APP_URL"]
@@ -397,6 +407,19 @@ app.MapPost("/api/auth/register", async (RegisterRequest request, SupabaseServic
             }
         });
     }
+    catch (Exception ex)
+    {
+        return Results.Json(new
+        {
+            success = false,
+            error = new
+            {
+                code = "REGISTRATION_UNEXPECTED_ERROR",
+                message = ex.Message
+            }
+        }, statusCode: StatusCodes.Status500InternalServerError);
+    }
+
 })
 .WithName("Register");
 

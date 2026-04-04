@@ -1,0 +1,102 @@
+
+> frontend-web@0.1.0 dev
+> next dev --port 3005
+
+   ▲ Next.js 15.5.14
+   - Local:        http://localhost:3005
+   - Network:      http://192.168.0.138:3005
+   - Environments: .env.local
+   - Experiments (use with caution):
+     ⨯ devtoolSegmentExplorer
+
+ ✓ Starting...
+ ✓ Ready in 3.2s
+ ○ Compiling /login ...
+ ✓ Compiled /login in 3.8s (553 modules)
+ GET /login 200 in 4753ms
+ ○ Compiling /hub ...
+ ✓ Compiled /hub in 2.7s (552 modules)
+ GET /hub 200 in 4369ms
+ ⚠ Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+ GET /login 200 in 1034ms
+ GET /hub 200 in 2135ms
+ ○ Compiling /interno ...
+ ✓ Compiled /interno in 7.6s (673 modules)
+ GET /interno?shop=audit-success-corp 200 in 9906ms
+ ⚠ Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+ GET /hub 200 in 1324ms
+ ○ Compiling /billing ...
+ ✓ Compiled /billing in 6.4s (681 modules)
+ GET /billing 200 in 10172ms
+ ○ Compiling /api/payments/plans ...
+ ✓ Compiled /api/payments/plans in 2.5s (702 modules)
+ GET /api/payments/plans 200 in 5377ms
+ GET /api/payments/plans 200 in 5450ms
+ ○ Compiling /api/payments/subscribe ...
+ ✓ Compiled /api/payments/subscribe in 4.8s (704 modules)
+ POST /api/payments/subscribe 200 in 7044ms
+ ○ Compiling / ...
+ ✓ Compiled / in 1707ms (690 modules)
+ HEAD / 200 in 2810ms
+ GET / 200 in 245ms
+ GET /login 200 in 926ms
+ ○ Compiling /register ...
+ ✓ Compiled /register in 5.2s (754 modules)
+ GET /register 200 in 6720ms
+ GET /login 200 in 602ms
+ GET /hub 200 in 353ms
+ GET /interno?shop=auditoria-taller-1 200 in 602ms
+ GET /hub 200 in 899ms
+ GET /interno?shop=auditoria-taller-1 200 in 125ms
+ GET /billing 200 in 509ms
+ ✓ Compiled /api/payments/plans in 292ms (475 modules)
+ GET /api/payments/plans 200 in 481ms
+ GET /api/payments/plans 200 in 485ms
+ ○ Compiling /api/payments/subscribe ...
+ ✓ Compiled /api/payments/subscribe in 1372ms (469 modules)
+ POST /api/payments/subscribe 200 in 2390ms
+ GET /billing 200 in 466ms
+ ✓ Compiled /api/payments/plans in 228ms (469 modules)
+ GET /api/payments/plans 200 in 320ms
+ GET /api/payments/plans 200 in 322ms
+ ⨯ ./src/components/ui/MarketingLanding.tsx
+Error:   [31mx[0m Expression expected
+     ,-[[36;1;4m/Users/jesusvilla/Desktop/clonando y mejorando sr fix/servicios-digitales-mx/apps/frontend-web/src/components/ui/MarketingLanding.tsx[0m:367:1]
+ [2m364[0m |   );
+ [2m365[0m | }
+ [2m366[0m | 
+ [2m367[0m |     </div>
+     : [35;1m    ^[0m
+ [2m368[0m |   );
+ [2m369[0m | }
+     `----
+  [31mx[0m Unterminated regexp literal
+     ,-[[36;1;4m/Users/jesusvilla/Desktop/clonando y mejorando sr fix/servicios-digitales-mx/apps/frontend-web/src/components/ui/MarketingLanding.tsx[0m:367:1]
+ [2m364[0m |   );
+ [2m365[0m | }
+ [2m366[0m | 
+ [2m367[0m |     </div>
+     : [35;1m     ^^^^^[0m
+ [2m368[0m |   );
+ [2m369[0m | }
+     `----
+  [31mx[0m Expression expected
+     ,-[[36;1;4m/Users/jesusvilla/Desktop/clonando y mejorando sr fix/servicios-digitales-mx/apps/frontend-web/src/components/ui/MarketingLanding.tsx[0m:367:1]
+ [2m364[0m |   );
+ [2m365[0m | }
+ [2m366[0m | 
+ [2m367[0m |     </div>
+     : [35;1m      ^^^^[0m
+ [2m368[0m |   );
+ [2m369[0m | }
+     `----
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./src/components/ui/MarketingLanding.tsx
+ ✓ Compiled in 316ms (299 modules)
+ ✓ Compiled in 1965ms (762 modules)
+ GET /billing 200 in 851ms
+ ○ Compiling / ...

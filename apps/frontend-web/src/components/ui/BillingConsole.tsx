@@ -375,4 +375,3 @@ export function BillingConsole({ initialPlanCode }: { initialPlanCode?: string }
     </section>
   );
 }
-}

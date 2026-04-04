@@ -123,89 +123,98 @@ export function ProductDashboard({ initialModule = "operativo", shopSlug }: Prod
   ].filter(group => group.items.length > 0);
 
   return (
-    <div className="sdmx-admin-body">
-      <aside className={`sdmx-admin-sidebar ${isSidebarOpen ? '' : 'collapsed'}`}>
-        <div className="sdmx-sidebar-header">
-          <div className="sdmx-sidebar-logo-box"><IconWrench width={20} height={20} /></div>
+    <div className="sdmx-admin-body bg-slate-950 min-h-screen text-slate-100">
+      <aside className={`sdmx-admin-sidebar border-r border-white/5 transition-all duration-300 ${isSidebarOpen ? 'w-[280px]' : 'w-[80px]'}`} style={{background: 'rgba(15, 23, 42, 0.95)', backdropFilter: 'blur(20px)'}}>
+        <div className="sdmx-sidebar-header p-6 flex items-center gap-4 border-b border-white/5">
+          <div className="sdmx-sidebar-logo-box bg-blue-600 p-2 rounded-xl shadow-lg shadow-blue-500/20">
+            <IconWrench width={20} height={20} className="text-white" />
+          </div>
           {isSidebarOpen && (
-            <div className="sdmx-sidebar-brand" style={{animation: 'fade-in 0.5s ease'}}>
-              <div style={{display: 'flex', alignItems: 'center', lineHeight: 1}}>
-                 <span>SR</span><span className="fix">FIX</span>
+            <div className="sdmx-sidebar-brand animate-fadeIn">
+              <div className="font-tech font-black text-xl flex items-center tracking-tighter">
+                 <span className="text-white">SR</span><span className="text-blue-500 italic">FIX</span>
               </div>
-              <span className="sdmx-sidebar-subtitle">Management Pro</span>
+              <p className="font-label uppercase tracking-[0.2em] text-[9px] text-slate-500 font-bold leading-none">Management Pro</p>
             </div>
           )}
         </div>
 
-        <nav className="sdmx-sidebar-nav sdmx-scrollbar">
+        <nav className="sdmx-sidebar-nav sdmx-scrollbar overflow-y-auto overflow-x-hidden py-4 flex-1">
           {navigationGroups.map((group, idx) => (
-            <div key={idx} style={{marginBottom: '0.5rem'}}>
-               {isSidebarOpen && <div className="sdmx-sidebar-group-label">{group.group}</div>}
-               {group.items.map((module) => (
-                 <button
-                   key={module.key}
-                   type="button"
-                   onClick={() => handleModuleSelect(module.key)}
-                   className={`sdmx-sidebar-link ${activeModule === module.key ? "is-active" : ""}`}
-                   title={`${module.label} · ${module.summary}`}
-                 >
-                   <div style={{width: '24px', display: 'flex', justifyContent: 'center'}}>{getIconForModule(module.key)}</div>
-                   {isSidebarOpen && <span>{module.label}</span>}
-                 </button>
-               ))}
+            <div key={idx} className="mb-6 px-4">
+               {isSidebarOpen && <div className="font-label uppercase tracking-[0.2em] text-[10px] text-slate-600 font-bold mb-4 ml-2">{group.group}</div>}
+               <div className="space-y-1">
+                 {group.items.map((module) => (
+                   <button
+                     key={module.key}
+                     type="button"
+                     onClick={() => handleModuleSelect(module.key)}
+                     className={`w-full flex items-center gap-4 px-4 py-3 rounded-xl transition-all group relative ${activeModule === module.key ? "bg-blue-600 text-white shadow-xl shadow-blue-500/20" : "text-slate-400 hover:bg-white/5 hover:text-white"}`}
+                     title={module.label}
+                   >
+                     <div className="shrink-0">{getIconForModule(module.key)}</div>
+                     {isSidebarOpen && <span className="font-label font-bold uppercase tracking-wider text-[11px]">{module.label}</span>}
+                     {activeModule === module.key && <div className="absolute right-3 w-1.5 h-1.5 bg-white rounded-full shadow-glow" />}
+                   </button>
+                 ))}
+               </div>
             </div>
           ))}
         </nav>
 
-        <div className="sdmx-sidebar-footer">
-           <a href="/hub" className="sdmx-logout-btn">
-              <IconLogOut width={18} height={18} />
-              {isSidebarOpen && <span className="sdmx-logout-text">Volver al Hub</span>}
+        <div className="p-4 border-t border-white/5">
+           <a href="/hub" className="flex items-center gap-4 px-4 py-4 rounded-xl text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-all group overflow-hidden">
+              <IconLogOut width={18} height={18} className="shrink-0" />
+              {isSidebarOpen && <span className="font-tech text-[10px] uppercase tracking-widest font-black">Panel de Control</span>}
            </a>
         </div>
       </aside>
 
-      <main style={{flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0}}>
-        <header className="sdmx-topbar">
-          <div className="sdmx-topbar-left">
-            <button className="sdmx-topbar-toggle" onClick={() => setSidebarOpen(!isSidebarOpen)}><IconMenu width={20} height={20} /></button>
-            <div className="sdmx-topbar-divider"></div>
-            <h2 className="sdmx-topbar-title">{moduleLabel}</h2>
+      <main className="flex-1 flex flex-col min-w-0 bg-slate-950 relative">
+        <header className="sdmx-topbar h-[72px] flex items-center justify-between px-8 bg-slate-900/50 backdrop-blur-md border-b border-white/5 sticky top-0 z-50">
+          <div className="flex items-center gap-6">
+            <button className="p-2 text-slate-500 hover:text-white transition-colors" onClick={() => setSidebarOpen(!isSidebarOpen)}>
+              <IconMenu width={20} height={20} />
+            </button>
+            <div className="w-px h-6 bg-white/10"></div>
+            <h2 className="font-tech text-white text-base uppercase tracking-[0.2em]">{moduleLabel}</h2>
           </div>
 
-          <div className="sdmx-topbar-right">
-             <div className="sdmx-branch-selector">
-                <IconStore width={14} height={14} style={{color: '#94a3b8'}} />
-                <select value={branchFilter} onChange={(e) => setBranchFilter(e.target.value)}>
-                   <option value="GLOBAL">Sucursal: Todas</option>
-                   {branches.map(b => <option key={b.id} value={b.id}>Sucursal: {b.name}</option>)}
+          <div className="flex items-center gap-6">
+             <div className="sdmx-branch-selector bg-slate-800/50 border border-white/5 px-4 py-2 rounded-full flex items-center gap-2">
+                <IconStore width={14} height={14} className="text-blue-500" />
+                <select className="bg-transparent text-[10px] font-label font-bold text-slate-400 uppercase tracking-widest focus:outline-none cursor-pointer" value={branchFilter} onChange={(e) => setBranchFilter(e.target.value)}>
+                   <option value="GLOBAL">Todas las Sucursales</option>
+                   {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
                 </select>
              </div>
-             <div className="sdmx-user-profile">
-                <div className="sdmx-user-info">
-                   <p className="sdmx-user-name">{businessName}</p>
-                   <p className="sdmx-user-role">{subscriptionStatus}</p>
+             <div className="flex items-center gap-3">
+                <div className="text-right">
+                   <p className="font-tech text-[10px] text-white uppercase tracking-wider">{businessName}</p>
+                   <p className="font-label text-[9px] text-blue-400 font-bold uppercase tracking-widest leading-none mt-1">{subscriptionStatus}</p>
                 </div>
-                <div className="sdmx-user-avatar"><IconUser width={16} height={16} /></div>
+                <div className="w-10 h-10 rounded-full bg-slate-800 border border-white/5 flex items-center justify-center text-slate-400 overflow-hidden shadow-inner">
+                  <IconUser width={16} height={16} />
+                </div>
              </div>
           </div>
         </header>
 
-        <section className="sdmx-workspace sdmx-scrollbar">
-          <div className="sdmx-workspace-container">
+        <section className="flex-1 overflow-y-auto p-4 lg:p-8 sdmx-scrollbar">
+          <div className="max-w-[1600px] mx-auto">
             {!session?.subscription?.operationalAccess ? (
-              <div className="flex flex-col items-center justify-center p-8 text-center bg-white rounded-2xl shadow-sm border border-[#E53E3E]/20" style={{minHeight: '60vh'}}>
-                 <div className="w-20 h-20 bg-[#E53E3E]/10 flex items-center justify-center rounded-full mb-6 text-4xl">🔒</div>
-                 <h2 className="text-2xl font-bold text-[#1A202C] mb-2">Acceso Operativo Suspendido</h2>
-                 <p className="text-[#4A5568] max-w-md mb-8">Tu suscripción actual no permite el acceso a las funciones operativas del taller. Por favor regulariza tu estado de facturación para restaurar el tablero.</p>
-                 <a href="/billing" className="bg-[#0066FF] hover:bg-[#0052CC] text-white px-8 py-3 rounded-xl font-bold transition">Ir a Facturación</a>
+              <div className="sdmx-glass flex flex-col items-center justify-center p-12 text-center rounded-[3rem] border-red-500/20" style={{minHeight: '60vh'}}>
+                 <div className="w-24 h-24 bg-red-500/10 flex items-center justify-center rounded-full mb-8 text-5xl shadow-2xl shadow-red-500/10">🔒</div>
+                 <h2 className="font-tech text-3xl text-white uppercase tracking-tighter mb-4">Acceso Operativo Suspendido</h2>
+                 <p className="font-label text-slate-400 max-w-md mb-10 text-lg">Tu cuenta requiere regularizar pagos pendientes para restaurar la operación técnica de tus sucursales.</p>
+                 <a href="/billing" className="bg-blue-600 hover:bg-blue-500 text-white px-10 py-5 rounded-2xl font-tech text-xs uppercase tracking-[0.2em] shadow-xl shadow-blue-500/20 transition-all transform hover:scale-105">Ir a Facturación</a>
               </div>
             ) : !hasAccess ? (
-              <div className="flex flex-col items-center justify-center p-8 text-center bg-white rounded-2xl shadow-sm border border-[#E2E8F0]" style={{minHeight: '60vh'}}>
-                 <div className="w-20 h-20 bg-[#E2E8F0] flex items-center justify-center rounded-full mb-6 text-4xl">⛔</div>
-                 <h2 className="text-2xl font-bold text-[#1A202C] mb-2">Permiso Denegado</h2>
-                 <p className="text-[#4A5568] max-w-md mb-8">Tu rol actual corporativo (<strong className="uppercase">{userRole}</strong>) carece de los privilegios necesarios para acceder a este módulo.</p>
-                 <a href="/interno" className="bg-[#1A202C] hover:bg-[#2D3748] text-white px-8 py-3 rounded-xl font-bold transition">Volver al autorizado</a>
+              <div className="sdmx-glass flex flex-col items-center justify-center p-12 text-center rounded-[3rem] border-white/5" style={{minHeight: '60vh'}}>
+                 <div className="w-24 h-24 bg-slate-800 flex items-center justify-center rounded-full mb-8 text-5xl opacity-50">⛔</div>
+                 <h2 className="font-tech text-3xl text-white uppercase tracking-tighter mb-4">Módulo de Acceso Restringido</h2>
+                 <p className="font-label text-slate-400 max-w-md mb-10 text-lg">Tu perfil de <strong className="text-blue-400 uppercase tracking-widest">{userRole}</strong> no tiene privilegios para visualizar o gestionar este segmento.</p>
+                 <a href="/interno" className="bg-slate-800 hover:bg-slate-700 text-white px-10 py-5 rounded-2xl font-tech text-xs uppercase tracking-[0.2em] transition-all">Volver al Dashboard</a>
               </div>
             ) : activeModule === "operativo" ? <OperativoNative /> 
               : activeModule === "tecnico" ? <TecnicoNative />
@@ -220,7 +229,7 @@ export function ProductDashboard({ initialModule = "operativo", shopSlug }: Prod
               : activeModule === "finanzas" ? <FinanzasNative />
               : activeModule === "reportes" ? <ReportesNative />
               : activeModule === "sucursales" ? <SucursalesNative />
-              : <div className="p-12 text-center text-[#64748b]">Módulo en preparación...</div>
+              : <div className="p-12 text-center font-label text-slate-500 uppercase tracking-[0.3em]">Cabina en Preparación...</div>
             }
           </div>
         </section>

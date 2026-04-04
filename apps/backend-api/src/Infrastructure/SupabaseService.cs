@@ -236,7 +236,14 @@ public sealed class SupabaseService
     public async Task<RegistrationResult> RegisterShopAsync(RegisterRequest request, CancellationToken cancellationToken = default)
     {
         var normalizedEmail = request.Email.Trim().ToLowerInvariant();
-        var normalizedSlug = request.ShopSlug.Trim().ToLowerInvariant();
+        var rawSlug = string.IsNullOrWhiteSpace(request.ShopSlug) 
+            ? request.ShopName.Trim().ToLowerInvariant().Replace(" ", "-") 
+            : request.ShopSlug.Trim().ToLowerInvariant();
+        
+        // Remove non-alphanumeric characters except hyphens
+        var normalizedSlug = System.Text.RegularExpressions.Regex.Replace(rawSlug, @"[^a-z0-9-]", "");
+        normalizedSlug = normalizedSlug.Trim('-');
+
 
         if (await ExistsAsync($"tenants?slug=eq.{Uri.EscapeDataString(normalizedSlug)}&select=id", cancellationToken))
         {
