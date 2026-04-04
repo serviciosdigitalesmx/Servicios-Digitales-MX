@@ -3902,3 +3902,123 @@ html.scroll-smooth { scroll-behavior: smooth; }
 }
 
 @keyframes sdmx-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+/* Landing Page Audit Fixes: Relocated from MarketingLanding.tsx to fix hydration */
+.sdmx-landing-page {
+  background-color: #0F172A !important;
+  color: white !important;
+  min-height: 100vh !important;
+  position: relative !important;
+}
+.sdmx-nav-fixed {
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  z-index: 100 !important;
+  padding: 0 !important;
+}
+.sdmx-nav-container {
+  max-width: 100% !important;
+  height: 4.5rem !important;
+  background-color: rgba(15, 23, 42, 0.9) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  padding: 0 2rem !important;
+  border-radius: 0 !important;
+}
+.sdmx-nav-brand {
+  color: white !important;
+  font-weight: 900 !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 0.5rem !important;
+  font-size: 1.25rem !important;
+}
+.sdmx-nav-brand span {
+  color: #0066FF !important;
+}
+.sdmx-hero {
+  padding-top: 10rem !important;
+  padding-bottom: 8rem !important;
+  background-color: #0F172A !important;
+  text-align: center !important;
+}
+.sdmx-hero-title {
+  font-size: 3rem !important;
+  font-weight: 800 !important;
+  line-height: 1.1 !important;
+  margin-bottom: 2rem !important;
+  color: white !important;
+}
+@media (min-width: 768px) {
+  .sdmx-hero-title { font-size: 5.5rem !important; }
+}
+.sdmx-hero-subtitle {
+  font-size: 1.5rem !important;
+  color: rgba(255, 255, 255, 0.6) !important;
+  margin-bottom: 4rem !important;
+}
+.sdmx-pill-button {
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  color: rgba(255, 255, 255, 0.6) !important;
+  font-weight: 700 !important;
+}
+.sdmx-pill-button.is-active {
+  background-color: white !important;
+  color: #0F172A !important;
+  border-color: white !important;
+}
+.sdmx-central-action {
+  background-color: rgba(255, 255, 255, 0.03) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  backdrop-filter: blur(12px) !important;
+  padding: 4rem 2rem !important;
+  border-radius: 2rem !important;
+  margin-top: 4rem !important;
+  margin-bottom: 6rem !important;
+}
+.sdmx-pricing-card, .sdmx-pricing-card-featured {
+  background-color: rgba(255, 255, 255, 0.03) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  backdrop-filter: blur(24px) !important;
+  color: white !important;
+  box-shadow: 0 40px 100px -20px rgba(0,0,0,0.4) !important;
+}
+.sdmx-pricing-title, .sdmx-pricing-value {
+  color: white !important;
+}
+.sdmx-pricing-desc, .sdmx-pricing-period, .sdmx-pricing-list li {
+  color: rgba(255, 255, 255, 0.7) !important;
+}
+.sdmx-pricing-icon-brand { color: #0066FF !important; }
+.sdmx-stats-section {
+  background-color: #0F172A !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.05) !important;
+  padding-top: 10rem !important;
+}
+.sdmx-stat-val { color: white !important; font-weight: 800 !important; }
+.sdmx-stat-val.brand { color: #0066FF !important; }
+.sdmx-stat-label, .sdmx-stat-desc { color: rgba(255, 255, 255, 0.6) !important; }
+.sdmx-testimonial-card {
+  background-color: rgba(255, 255, 255, 0.02) !important;
+  border: 1px solid rgba(255, 255, 255, 0.05) !important;
+  padding: 2.5rem !important;
+}
+.sdmx-testimonial-body { color: rgba(255, 255, 255, 0.8) !important; font-style: italic !important; }
+.sdmx-testimonial-name { color: white !important; font-weight: 700 !important; }
+.sdmx-testimonial-role { color: rgba(255, 255, 255, 0.5) !important; }
+.sdmx-features-title { color: white !important; }
+.sdmx-features-title span { color: #0066FF !important; }
+.sdmx-features-lead, .sdmx-features-subtitle { color: rgba(255, 255, 255, 0.6) !important; }
+.sdmx-footer { 
+  background-color: #0F172A !important; 
+  border-top: 1px solid rgba(255, 255, 255, 0.05) !important;
+  padding: 6rem 0 !important;
+}
+.sdmx-footer-brand-text, .sdmx-footer-links a, .sdmx-footer-legal a, .sdmx-footer-bottom span {
+  color: rgba(255, 255, 255, 0.5) !important;
+}
