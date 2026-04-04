@@ -1,215 +1,134 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { fetchWithAuth } from "../../lib/apiClient";
-import { IconMoneyUp, IconMoneyDown, IconReceipt, IconVault, IconChart, IconUsers, IconSync, IconDownload, IconWarning } from "./Icons";
+import React from "react";
+import { 
+  IconWallet, 
+  IconCheckCircular, 
+  IconDashboard, 
+  IconMicrochip,
+  IconStar,
+  IconStore
+} from "./Icons";
 
-type FinanceSummary = {
-  projectedRevenue: number;
-  expenseTotal: number;
-  purchaseCommitted: number;
-  netProjected: number;
-  activeOrders: number;
-  customers: number;
-  averageTicket: number;
-  monthlyRevenue: Array<{ label: string; revenue: number }>;
-  monthlyExpenses: Array<{ label: string; expenses: number }>;
-};
-import { useAuth } from "./AuthGuard";
-
-function formatMoney(value: number) {
-  return new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN", maximumFractionDigits: 0 }).format(value || 0);
-}
-
-export function FinanzasNative() {
-  const { session } = useAuth();
-  const [summary, setSummary] = useState<FinanceSummary | null>(null);
-  const [apiStateMessage, setApiStateMessage] = useState("");
-  const [apiStateError, setApiStateError] = useState("");
-  const [loading, setLoading] = useState(false);
-
-  async function loadSummary() {
-    if (!session?.shop.id) return;
-    setLoading(true);
-    setApiStateMessage("");
-    setApiStateError("");
-    try {
-      const response = await fetchWithAuth("/api/finance/summary");
-      const payload = await response.json();
-
-      if (!response.ok) {
-        throw new Error(payload?.error?.message || "Error al obtener el consolidado.");
-      }
-
-      const data = payload?.data;
-      setSummary({
-        projectedRevenue: Number(data?.projectedRevenue || 0),
-        expenseTotal: Number(data?.expenseTotal || 0),
-        purchaseCommitted: Number(data?.purchaseCommitted || 0),
-        netProjected: Number(data?.netProjected || 0),
-        activeOrders: Number(data?.activeOrders || 0),
-        customers: Number(data?.customers || 0),
-        averageTicket: Number(data?.averageTicket || 0),
-        monthlyRevenue: Array.isArray(data?.monthlyRevenue) ? data.monthlyRevenue.map((item: any) => ({
-          label: item.label,
-          revenue: Number(item.revenue || 0)
-        })) : [],
-        monthlyExpenses: Array.isArray(data?.monthlyExpenses) ? data.monthlyExpenses.map((item: any) => ({
-          label: item.label,
-          expenses: Number(item.expenses || 0)
-        })) : []
-      });
-
-    } catch (error: unknown) {
-       setApiStateError(error instanceof Error ? error.message : "Error al obtener el consolidado.");
-    } finally {
-       setLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    if (session) void loadSummary();
-  }, [session]);
-
+export default function FinanzasNative({ tenantId }: { tenantId: string }) {
   return (
-    <div style={{display: 'flex', flexDirection: 'column', gap: '2rem'}}>
+    <div className="w-full space-y-8 animate-in fade-in duration-700">
       
-      {/* HEADER */}
-      <div className="finanzas-header">
-         <div>
-            <h1>Finanzas</h1>
-            <p>Resumen ejecutivo de ingresos, egresos y margen operativo para entender rápido cómo va el negocio.</p>
-         </div>
-         <div style={{display: 'flex', gap: '1rem', alignItems: 'center'}}>
-           {loading && <span style={{fontSize: '0.875rem', color: '#64748b'}}><IconSync style={{marginRight: '0.5rem', width: '16px', height: '16px', animation: 'sdmx-spin 1s linear infinite', display: 'inline-block'}} />Cargando...</span>}
-           <button onClick={() => void loadSummary()} className="sdmx-btn-primary" disabled={loading}>
-              <IconSync style={{width:'16px', height:'16px'}} />
-              Actualizar
-           </button>
-           <button className="sdmx-btn-ghost">
-              <IconDownload style={{width:'16px', height:'16px'}} />
-              Exportar resumen
-            </button>
-         </div>
+      {/* FILTROS DE FECHA */}
+      <div className="card-srf p-5 flex flex-col md:flex-row gap-4 items-center justify-between border-white/5 bg-slate-900/40">
+        <div className="flex gap-4 w-full md:w-auto">
+           <div className="flex-1">
+              <label className="text-[9px] text-slate-500 uppercase font-black tracking-widest block mb-1">Desde</label>
+              <input type="date" className="w-full bg-slate-950 border border-blue-500/20 rounded-xl px-4 py-2 text-xs text-white outline-none" />
+           </div>
+           <div className="flex-1">
+              <label className="text-[9px] text-slate-500 uppercase font-black tracking-widest block mb-1">Hasta</label>
+              <input type="date" className="w-full bg-slate-950 border border-blue-500/20 rounded-xl px-4 py-2 text-xs text-white outline-none" />
+           </div>
+        </div>
+        <p className="text-[10px] text-slate-500 uppercase tracking-widest font-label font-bold text-center md:text-right">
+           Resumen consolidado de ingresos, egresos y utilidad técnica.
+        </p>
       </div>
 
-      {apiStateMessage && <div style={{padding: '1rem', background: '#ecfdf5', color: '#059669', borderRadius: '0.75rem', fontWeight: 600, fontSize: '0.875rem', display:'flex', alignItems:'center', gap:'0.5rem'}}>{apiStateMessage}</div>}
-      {apiStateError && <div style={{padding: '1rem', background: '#fef2f2', color: '#dc2626', borderRadius: '0.75rem', fontWeight: 600, fontSize: '0.875rem', display:'flex', alignItems:'center', gap:'0.5rem'}}><IconWarning style={{width:'16px', height:'16px'}}/> {apiStateError}</div>}
-
-      {/* PRIMARY KPI GRID */}
-      <div className="finanzas-kpi-grid">
-         <div className="finanzas-kpi-box" style={{borderLeft: '4px solid #3b82f6'}}>
-            <div style={{display: 'flex', justifyContent: 'space-between', marginBottom: '1rem'}}>
-               <span className="finanzas-kpi-label">Ingresos</span>
-               <div style={{background: '#eff6ff', color: '#3b82f6', width: '2.5rem', height: '2.5rem', borderRadius: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center'}}>
-                  <IconMoneyUp style={{width:'20px', height:'20px'}} />
-               </div>
-            </div>
-            <p className="finanzas-kpi-val">{formatMoney(summary?.projectedRevenue ?? 0)}</p>
-            <p style={{fontSize: '0.75rem', color: '#64748b', marginTop: '0.5rem', fontWeight: 500}}>Valor estimado de entrada</p>
-         </div>
-
-         <div className="finanzas-kpi-box" style={{borderLeft: '4px solid #ef4444'}}>
-            <div style={{display: 'flex', justifyContent: 'space-between', marginBottom: '1rem'}}>
-               <span className="finanzas-kpi-label">Egresos</span>
-               <div style={{background: '#fef2f2', color: '#ef4444', width: '2.5rem', height: '2.5rem', borderRadius: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center'}}>
-                  <IconMoneyDown style={{width:'20px', height:'20px'}} />
-               </div>
-            </div>
-            <p className="finanzas-kpi-val">{formatMoney(summary?.expenseTotal ?? 0)}</p>
-            <p style={{fontSize: '0.75rem', color: '#64748b', marginTop: '0.5rem', fontWeight: 500}}>Salidas registradas</p>
-         </div>
-
-         <div className="finanzas-kpi-box" style={{borderLeft: '4px solid #f59e0b'}}>
-            <div style={{display: 'flex', justifyContent: 'space-between', marginBottom: '1rem'}}>
-               <span className="finanzas-kpi-label">Por pagar</span>
-               <div style={{background: '#fffbeb', color: '#f59e0b', width: '2.5rem', height: '2.5rem', borderRadius: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center'}}>
-                  <IconReceipt style={{width:'20px', height:'20px'}} />
-               </div>
-            </div>
-            <p className="finanzas-kpi-val">{formatMoney(summary?.purchaseCommitted ?? 0)}</p>
-            <p style={{fontSize: '0.75rem', color: '#64748b', marginTop: '0.5rem', fontWeight: 500}}>Compromisos abiertos</p>
-         </div>
-
-         <div className="finanzas-kpi-box" style={{background: '#0f172a', border: 'none', color: 'white'}}>
-            <div style={{display: 'flex', justifyContent: 'space-between', marginBottom: '1rem'}}>
-               <span className="finanzas-kpi-label" style={{color: '#94a3b8'}}>Balance</span>
-               <div style={{background: 'rgba(255,255,255,0.1)', color: '#10b981', width: '2.5rem', height: '2.5rem', borderRadius: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center'}}>
-                  <IconVault style={{width:'20px', height:'20px'}} />
-               </div>
-            </div>
-            <p className="finanzas-kpi-val" style={{color: 'white'}}>{formatMoney(summary?.netProjected ?? 0)}</p>
-            <p style={{fontSize: '0.75rem', color: '#94a3b8', marginTop: '0.5rem', fontWeight: 500}}>Margen proyectado</p>
-         </div>
+      {/* KPIs FINANCIEROS (Paleta Sr-Fix Master) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="card-srf p-6 border-emerald-500/30 bg-emerald-500/5 relative overflow-hidden group">
+          <div className="absolute top-0 right-0 w-20 h-20 bg-emerald-500/10 blur-3xl group-hover:bg-emerald-500/20 transition-all"></div>
+          <p className="text-[10px] text-emerald-500 font-tech uppercase tracking-widest mb-1">Ingresos Brutos</p>
+          <div className="flex justify-between items-end">
+            <span className="text-3xl font-tech text-white">$45,200</span>
+            <span className="text-[9px] text-emerald-400 font-label font-bold uppercase">MXN</span>
+          </div>
+        </div>
+        <div className="card-srf p-6 border-red-500/30 bg-red-500/5 relative overflow-hidden group">
+          <div className="absolute top-0 right-0 w-20 h-20 bg-red-500/10 blur-3xl group-hover:bg-red-500/20 transition-all"></div>
+          <p className="text-[10px] text-red-500 font-tech uppercase tracking-widest mb-1">Egresos / Costos</p>
+          <div className="flex justify-between items-end">
+            <span className="text-3xl font-tech text-white">$12,850</span>
+            <span className="text-[9px] text-red-400 font-label font-bold uppercase">MXN</span>
+          </div>
+        </div>
+        <div className="card-srf p-6 border-blue-500/30 bg-blue-500/5 relative overflow-hidden group">
+          <div className="absolute top-0 right-0 w-20 h-20 bg-blue-500/10 blur-3xl group-hover:bg-blue-500/20 transition-all"></div>
+          <p className="text-[10px] text-blue-500 font-tech uppercase tracking-widest mb-1">Utilidad Neta</p>
+          <div className="flex justify-between items-end">
+            <span className="text-3xl font-tech text-white">$32,350</span>
+            <span className="text-[9px] text-blue-400 font-label font-bold uppercase">MARGEN</span>
+          </div>
+        </div>
+        <div className="card-srf p-6 border-yellow-500/30 bg-yellow-500/5 relative overflow-hidden group">
+          <div className="absolute top-0 right-0 w-20 h-20 bg-yellow-500/10 blur-3xl group-hover:bg-yellow-500/20 transition-all"></div>
+          <p className="text-[10px] text-yellow-500 font-tech uppercase tracking-widest mb-1">Ticket Promedio</p>
+          <div className="flex justify-between items-end">
+            <span className="text-3xl font-tech text-white">$1,850</span>
+            <span className="text-[9px] text-yellow-400 font-label font-bold uppercase">UNITARIO</span>
+          </div>
+        </div>
       </div>
 
-      {/* SECONDARY KPIs & METRICS */}
-      <div style={{display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', gap: '1.5rem'}}>
-         
-         <div className="sdmx-card-premium">
-            <div className="sdmx-card-header">
-               <div>
-                  <h3>Señales de operación</h3>
-                  <p>Indicadores rápidos del tamaño y ritmo actual del taller.</p>
-               </div>
-            </div>
-            <div className="sdmx-card-body">
-               <div className="finanzas-kpi-secondary" style={{marginBottom: 0}}>
-                  <div className="finanzas-kpi-box" style={{boxShadow: 'none', border: '1px solid #f1f5f9', background: '#f8fafc'}}>
-                     <span className="finanzas-kpi-label">Tickets activos</span>
-                     <p className="finanzas-kpi-val" style={{fontSize: '1.5rem'}}>{summary?.activeOrders ?? 0}</p>
-                  </div>
-                  <div className="finanzas-kpi-box" style={{boxShadow: 'none', border: '1px solid #f1f5f9', background: '#f8fafc'}}>
-                     <span className="finanzas-kpi-label">Base comercial</span>
-                     <p className="finanzas-kpi-val" style={{fontSize: '1.5rem'}}>{summary?.customers ?? 0}</p>
-                  </div>
-                  <div className="finanzas-kpi-box" style={{boxShadow: 'none', border: '1px solid #f1f5f9', background: '#f8fafc', gridColumn: 'span 2'}}>
-                     <span className="finanzas-kpi-label">Ticket promedio</span>
-                     <p className="finanzas-kpi-val" style={{fontSize: '1.5rem', color: '#3b82f6'}}>{formatMoney(summary?.averageTicket ?? 0)}</p>
-                  </div>
-               </div>
-            </div>
-         </div>
-
-         <div className="sdmx-card-premium">
-            <div className="sdmx-card-header">
-               <div>
-                  <h3>Histórico mensual</h3>
-                  <p>Comparativo simple entre ingresos y egresos por periodo.</p>
-               </div>
-            </div>
-            <div className="sdmx-card-body" style={{padding: 0}}>
-               <ul style={{listStyle: 'none', margin: 0, padding: 0}}>
-                  {(summary?.monthlyRevenue ?? []).length === 0 && (summary?.monthlyExpenses ?? []).length === 0 ? (
-                    <li style={{padding: '3rem 2rem', textAlign: 'center', color: '#94a3b8', fontSize: '0.875rem'}}>
-                      <IconChart style={{width:'32px', height:'32px', marginBottom: '1rem', opacity: 0.5}} />
-                      <br/>Sin información disponible por ahora.
-                    </li>
-                  ) : (
-                    (summary?.monthlyRevenue ?? []).map((item, idx) => {
-                      const expenseMatch = summary?.monthlyExpenses.find((expense) => expense.label === item.label);
-                      return (
-                        <li key={item.label} style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1.25rem 1.5rem', borderBottom: '1px solid #f1f5f9', background: idx % 2 === 0 ? 'white' : '#f8fafc'}}>
-                           <div>
-                              <strong style={{color: '#0f172a', fontWeight: 700, fontSize: '0.875rem'}}>{item.label}</strong>
-                           </div>
-                           <div style={{display: 'flex', gap: '1rem', alignItems: 'center'}}>
-                              <div style={{textAlign: 'right'}}>
-                                 <span className="sdmx-badge sdmx-badge-emerald">+{formatMoney(item.revenue)}</span>
-                              </div>
-                              <div style={{textAlign: 'right'}}>
-                                 <span className="sdmx-badge sdmx-badge-red">-{formatMoney(expenseMatch?.expenses ?? 0)}</span>
-                              </div>
-                           </div>
-                        </li>
-                      );
-                    })
-                  )}
-               </ul>
-            </div>
-         </div>
-
+      {/* MONITOR OPERATIVO */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {[
+          { label: "Órdenes Entregadas", val: "24", icon: IconCheckCircular, color: "text-white" },
+          { label: "Conversión Cotiz", val: "85%", icon: IconStar, color: "text-orange-500" },
+          { label: "CxC (Por Cobrar)", val: "$4,500", icon: IconWallet, color: "text-blue-500" },
+          { label: "Pendiente Pago", val: "03", icon: IconDashboard, color: "text-slate-500" },
+        ].map((kpi, i) => (
+          <div key={i} className="card-srf p-5 border-white/5 flex items-center justify-between">
+             <div>
+                <span className="text-[9px] text-slate-500 uppercase font-black tracking-widest block mb-1 font-label">{kpi.label}</span>
+                <span className={`text-xl font-tech ${kpi.color}`}>{kpi.val}</span>
+             </div>
+             <kpi.icon width={20} height={20} className="text-slate-700" />
+          </div>
+        ))}
       </div>
+
+      {/* COMPARATIVOS */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div className="card-srf p-8 border-white/5 min-h-[300px]">
+           <h3 className="text-lg font-tech text-white uppercase tracking-wider mb-6 flex items-center gap-3">
+              <IconDashboard width={18} height={18} className="text-blue-500" /> Comparativo Mensual
+           </h3>
+           <div className="space-y-6">
+              {[
+                { m: "Marzo", val: 100, color: "bg-blue-600" },
+                { m: "Febrero", val: 75, color: "bg-slate-700" },
+                { m: "Enero", val: 88, color: "bg-slate-700" },
+              ].map((row, i) => (
+                <div key={i} className="space-y-2">
+                   <div className="flex justify-between text-[10px] text-slate-400 uppercase font-bold tracking-widest font-label">
+                      <span>{row.m}</span>
+                      <span className="text-white">${(row.val * 450).toLocaleString()}</span>
+                   </div>
+                   <div className="w-full h-2 bg-slate-900 rounded-full overflow-hidden border border-white/5">
+                      <div className={`h-full ${row.color} transition-all duration-1000`} style={{ width: `${row.val}%` }}></div>
+                   </div>
+                </div>
+              ))}
+           </div>
+        </div>
+
+        <div className="card-srf p-8 border-white/5 min-h-[300px]">
+           <h3 className="text-lg font-tech text-white uppercase tracking-wider mb-6 flex items-center gap-3">
+              <IconStore width={18} height={18} className="text-orange-500" /> Utilidad por Categoría
+           </h3>
+           <div className="space-y-4">
+              {[
+                { cat: "Smartphone", count: 18, color: "border-blue-500/40" },
+                { cat: "Laptop", count: 4, color: "border-orange-500/40" },
+                { cat: "Tablet", count: 2, color: "border-emerald-500/40" },
+              ].map((cat, i) => (
+                <div key={i} className={`p-4 rounded-xl border ${cat.color} bg-slate-900/30 flex justify-between items-center group hover:bg-slate-900/50 transition-all cursor-pointer`}>
+                   <span className="text-xs text-slate-300 font-label font-bold uppercase tracking-widest">{cat.cat}</span>
+                   <span className="text-sm font-tech text-white">{cat.count} Equipos</span>
+                </div>
+              ))}
+           </div>
+        </div>
+      </div>
+
     </div>
   );
 }

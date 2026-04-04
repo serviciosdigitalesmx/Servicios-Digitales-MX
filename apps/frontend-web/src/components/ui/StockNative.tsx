@@ -1,269 +1,170 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
-import { fetchWithAuth } from "../../lib/apiClient";
+import React, { useState } from "react";
+import { 
+  IconStore, 
+  IconCheckCircular, 
+  IconDashboard, 
+  IconMicrochip,
+  IconWallet,
+  IconChevronRight
+} from "./Icons";
 
-type Supplier = { id: string; businessName: string; };
+// ----------------------------------------------------------------------
+// Mock Data
+// ----------------------------------------------------------------------
+const MOCK_STOCK = [
+  { sku: "DISP-IP13-ORG", nombre: "Pantalla iPhone 13 OLED", categoria: "Displays", marca: "Apple", stock: 2, min: 5, precio: 2450, estatus: "Alerta" },
+  { sku: "BATT-IP12-OEM", nombre: "Batería iPhone 12 OEM", categoria: "Baterías", marca: "Apple", stock: 0, min: 3, precio: 850, estatus: "Agotado" },
+  { sku: "FLEX-CHR-S21", nombre: "Flex de Carga Samsung S21", categoria: "Flexores", marca: "Samsung", stock: 15, min: 5, precio: 320, estatus: "OK" },
+];
 
-type Product = {
-  id: string; sku: string; name: string; category?: string; brand?: string;
-  cost: number; salePrice: number; minimumStock: number; stockCurrent: number; supplierName?: string;
-};
+export default function StockNative({ tenantId }: { tenantId: string }) {
+  const [searchTerm, setSearchTerm] = useState("");
+  const [showModal, setShowModal] = useState(false);
 
-import { useAuth } from "./AuthGuard";
-
-function formatMoney(value: number) { return new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN", maximumFractionDigits: 0 }).format(value || 0); }
-function getErrorMessage(error: unknown, fallback: string) {
-  return error instanceof Error ? error.message : fallback;
-}
-
-export function StockNative() {
-  const { session } = useAuth();
-  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
-  const [products, setProducts] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(false);
-  
-  const [apiStateMessage, setApiStateMessage] = useState("");
-  const [apiStateError, setApiStateError] = useState("");
-  
-  const [formErrorSupplier, setFormErrorSupplier] = useState("");
-  const [formErrorProduct, setFormErrorProduct] = useState("");
-  
-  const [searchProduct, setSearchProduct] = useState("");
-
-  const [supplierForm, setSupplierForm] = useState({ businessName: "", contactName: "", phone: "", email: "", categories: "", notes: "" });
-  const [productForm, setProductForm] = useState({ sku: "", name: "", category: "", brand: "", compatibleModel: "", primarySupplierId: "", cost: "0", salePrice: "0", minimumStock: "0", unit: "pieza", location: "", notes: "", initialStock: "0" });
-
-  async function loadData() {
-    if (!session?.shop.id) return;
-    setLoading(true); setApiStateError(""); setApiStateMessage("");
-    try {
-      const [suppliersRes, productsRes] = await Promise.all([
-        fetchWithAuth("/api/suppliers"),
-        fetchWithAuth("/api/products?page=1&pageSize=100")
-      ]);
-
-      const suppliersPayload = await suppliersRes.json();
-      const productsPayload = await productsRes.json();
-
-      if (!suppliersRes.ok) throw new Error(suppliersPayload?.error?.message || "Error al cargar proveedores.");
-      if (!productsRes.ok) throw new Error(productsPayload?.error?.message || "Error al cargar productos.");
-
-      setSuppliers((Array.isArray(suppliersPayload?.data) ? suppliersPayload.data : []).map((supplier: any) => ({
-        id: supplier.id,
-        businessName: supplier.businessName
-      })));
-      setProducts((Array.isArray(productsPayload?.data) ? productsPayload.data : []).map((product: any) => ({
-        id: product.id,
-        sku: product.sku,
-        name: product.name,
-        category: product.category ?? undefined,
-        brand: product.brand ?? undefined,
-        cost: Number(product.cost || 0),
-        salePrice: Number(product.salePrice || 0),
-        minimumStock: Number(product.minimumStock || 0),
-        stockCurrent: Number(product.stockCurrent || 0),
-        supplierName: product.supplierName ?? undefined
-      })));
-    } catch (error: unknown) {
-      setApiStateError(getErrorMessage(error, "Error de red al conectar con el servidor."));
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => { 
-    if (session) void loadData(); 
-  }, [session]);
-
-  async function handleSupplierSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault(); setFormErrorSupplier(""); setApiStateMessage(""); setApiStateError("");
-    if (!session?.shop.id) return;
-    if (!supplierForm.businessName.trim()) return setFormErrorSupplier("⚠️ El nombre del proveedor es obligatorio.");
-    
-    setLoading(true);
-    try {
-      const response = await fetchWithAuth("/api/suppliers", {
-        method: "POST",
-        body: JSON.stringify({
-          businessName: supplierForm.businessName.trim(),
-          contactName: supplierForm.contactName.trim() || null,
-          phone: supplierForm.phone.trim() || null,
-          email: supplierForm.email.trim() || null,
-          categories: supplierForm.categories.trim() || null,
-          notes: supplierForm.notes.trim() || null
-        })
-      });
-      const payload = await response.json();
-      if (!response.ok) throw new Error(payload?.error?.message || "El sistema rechazó al proveedor.");
-
-      setSupplierForm({ businessName: "", contactName: "", phone: "", email: "", categories: "", notes: "" });
-      await loadData();
-      setApiStateMessage("✅ Nuevo proveedor integrado.");
-    } catch (error: unknown) {
-      setApiStateError(getErrorMessage(error, "El sistema rechazó al proveedor."));
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function handleProductSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault(); setFormErrorProduct(""); setApiStateMessage(""); setApiStateError("");
-    if (!session?.shop.id) return;
-    if (!productForm.sku.trim()) return setFormErrorProduct("⚠️ SKU obligatorio para rastrear stock.");
-    if (!productForm.name.trim()) return setFormErrorProduct("⚠️ Es obligatorio titular tu ficha de inventario.");
-
-    setLoading(true);
-    try {
-      const cost = Number(productForm.cost || 0);
-      const salePrice = Number(productForm.salePrice || 0);
-      const minStock = Number(productForm.minimumStock || 0);
-      const initStock = Number(productForm.initialStock || 0);
-
-      const response = await fetchWithAuth("/api/products", {
-        method: "POST",
-        body: JSON.stringify({
-          sku: productForm.sku.trim(),
-          name: productForm.name.trim(),
-          category: productForm.category.trim() || null,
-          brand: productForm.brand.trim() || null,
-          compatibleModel: productForm.compatibleModel.trim() || null,
-          primarySupplierId: productForm.primarySupplierId || null,
-          cost,
-          salePrice,
-          minimumStock: minStock,
-          unit: productForm.unit,
-          location: productForm.location.trim() || null,
-          notes: productForm.notes.trim() || null,
-          initialStock: initStock
-        })
-      });
-      const payload = await response.json();
-      if (!response.ok) throw new Error(payload?.error?.message || "Falla al crear ficha. Posible SKU duplicado.");
-
-      setProductForm({ sku: "", name: "", category: "", brand: "", compatibleModel: "", primarySupplierId: "", cost: "0", salePrice: "0", minimumStock: "0", unit: "pieza", location: "", notes: "", initialStock: "0" });
-      await loadData();
-      setApiStateMessage("✅ Unidad indexada al stock general.");
-    } catch (error: unknown) {
-      setApiStateError(getErrorMessage(error, "Falla al crear ficha. Posible SKU duplicado."));
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  const filteredProducts = products.filter(p => !searchProduct || p.name.toLowerCase().includes(searchProduct.toLowerCase()) || p.sku.toLowerCase().includes(searchProduct.toLowerCase()));
+  const getStockBadge = (stock: number, min: number) => {
+    if (stock === 0) return "bg-red-500/10 text-red-500 border-red-500/20";
+    if (stock <= min) return "bg-yellow-500/10 text-yellow-500 border-yellow-500/20";
+    return "bg-green-500/10 text-green-500 border-green-500/20";
+  };
 
   return (
-    <section className="module-native-shell">
-      <div className="module-native-header">
-        <div className="flex-col">
-          <span className="hero-eyebrow">Inventario</span>
-          <h1>Stock y refacciones</h1>
-          <p className="muted">Controla catálogo, existencias mínimas y costos para que compras, mostrador y taller trabajen con el mismo inventario.</p>
+    <div className="w-full space-y-8 animate-in fade-in duration-700">
+      
+      {/* KPIs DE INVENTARIO */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+        <div className="card-srf p-6 border-blue-500/30 relative overflow-hidden">
+          <p className="text-[10px] text-blue-500 font-tech uppercase tracking-widest mb-1">Productos</p>
+          <div className="flex justify-between items-end">
+            <span className="text-3xl font-tech text-white">42</span>
+            <span className="text-[9px] text-slate-500 font-label font-bold uppercase">CATÁLOGO</span>
+          </div>
         </div>
-        <div className="module-native-actions flex-row-between" style={{flex: 1, justifyContent: 'flex-end', gap: '12px'}}>
-           <div style={{ position: "relative", width: "100%", maxWidth: "340px" }}>
-            <span style={{ position: "absolute", top: "14px", left: "14px", opacity: 0.5, fontSize: "1.1rem" }}>🔍</span>
-            <input className="module-search-input" style={{ width: "100%", paddingLeft: "42px", paddingRight: "16px", height: "48px" }}
-              placeholder="Buscar por SKU, nombre o proveedor..." value={searchProduct} onChange={(e) => setSearchProduct(e.target.value)} />
-           </div>
-           <button type="button" disabled={loading} className="product-button" onClick={() => void loadData()}>
-             Actualizar inventario
+        <div className="card-srf p-6 border-yellow-500/30 relative overflow-hidden">
+          <p className="text-[10px] text-yellow-500 font-tech uppercase tracking-widest mb-1">Stock Bajo</p>
+          <div className="flex justify-between items-end">
+            <span className="text-3xl font-tech text-white">08</span>
+            <span className="text-[9px] text-slate-500 font-label font-bold uppercase">REORDENAR</span>
+          </div>
+        </div>
+        <div className="card-srf p-6 border-red-500/30 relative overflow-hidden">
+          <p className="text-[10px] text-red-500 font-tech uppercase tracking-widest mb-1">Agotados</p>
+          <div className="flex justify-between items-end">
+            <span className="text-3xl font-tech text-white">03</span>
+            <span className="text-[9px] text-slate-500 font-label font-bold uppercase">SIN PIEZAS</span>
+          </div>
+        </div>
+      </div>
+
+      {/* BARRA DE ACCIONES */}
+      <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
+        <div className="relative flex-1 w-full max-w-md">
+          <input 
+            type="text" 
+            placeholder="Buscar por SKU, nombre o categoría..."
+            value={searchTerm}
+            onChange={e => setSearchTerm(e.target.value)}
+            className="w-full bg-slate-900 border border-blue-500/20 rounded-2xl px-5 py-4 text-sm text-white focus:border-orange-500 outline-none transition-all"
+          />
+        </div>
+        <div className="flex gap-3 w-full md:w-auto">
+          <button className="flex-1 md:flex-none bg-slate-800 text-slate-300 font-tech text-[10px] uppercase tracking-widest px-6 py-4 rounded-xl border border-white/5">
+            Reporte
+          </button>
+          <button 
+            onClick={() => setShowModal(true)}
+            className="flex-1 md:flex-none btn-naranja font-tech text-xs uppercase tracking-[0.15em] px-8 py-4 rounded-xl"
+          >
+            + Nuevo Producto
           </button>
         </div>
       </div>
 
-      {apiStateMessage && <div className="form-message is-success">{apiStateMessage}</div>}
-      {apiStateError && <div className="form-message is-error">{apiStateError}</div>}
-
-      <div className="module-native-grid module-native-grid-wide">
-        <form className="sdmx-card-premium" onSubmit={handleSupplierSubmit}>
-          <div style={{borderBottom: '1px solid rgba(15,23,42,0.08)', paddingBottom: '16px', marginBottom: '16px'}}>
-             <h3 style={{fontSize: '1.25rem', margin: 0}}>Proveedor de inventario</h3>
-             <p className="muted" style={{margin: '4px 0 0 0', fontSize: '0.85rem'}}>Registra contactos que abastecen stock y refacciones clave.</p>
-          </div>
-          {formErrorSupplier && <div className="form-message is-warning">{formErrorSupplier}</div>}
-          <div className="flex-col" style={{marginBottom: '10px'}}>
-             <label style={{fontWeight: 'bold'}}>Nombre comercial *</label>
-             <input value={supplierForm.businessName} onChange={(e) => setSupplierForm({ ...supplierForm, businessName: e.target.value })} placeholder="Ej. Mayoristas GSM"/>
-          </div>
-          <div className="grid-cols-2" style={{marginBottom: '10px'}}>
-             <div className="flex-col"><label style={{margin:0}}>Teléfono</label><input value={supplierForm.phone} onChange={(e) => setSupplierForm({ ...supplierForm, phone: e.target.value })} placeholder="Cel/Tel"/></div>
-             <div className="flex-col"><label style={{margin:0}}>Correo</label><input type="email" value={supplierForm.email} onChange={(e) => setSupplierForm({ ...supplierForm, email: e.target.value })} placeholder="Ej. ventas@mayor.com"/></div>
-          </div>
-          <button type="submit" disabled={loading} className="product-button is-primary" style={{marginTop: '16px'}}>Guardar proveedor</button>
-        </form>
-
-        <form className="sdmx-card-premium" onSubmit={handleProductSubmit}>
-          <div style={{borderBottom: '1px solid rgba(15,23,42,0.08)', paddingBottom: '16px', marginBottom: '16px'}}>
-             <h3 style={{fontSize: '1.25rem', margin: 0}}>Nueva ficha de producto</h3>
-             <p className="muted" style={{margin: '4px 0 0 0', fontSize: '0.85rem'}}>Da de alta artículos y refacciones para consumo interno o venta directa.</p>
-          </div>
-          {formErrorProduct && <div className="form-message is-warning">{formErrorProduct}</div>}
-          
-          <div className="grid-cols-auto" style={{marginBottom: '10px'}}>
-             <div className="flex-col"><label style={{margin:0, fontWeight: 'bold'}}>Código (SKU) *</label><input value={productForm.sku} onChange={(e) => setProductForm({ ...productForm, sku: e.target.value })} placeholder="BARR-1029"/></div>
-             <div className="flex-col"><label style={{margin:0, fontWeight: 'bold'}}>Nombre o descripción *</label><input value={productForm.name} onChange={(e) => setProductForm({ ...productForm, name: e.target.value })} placeholder="Placa base, display, batería..."/></div>
-          </div>
-          
-          <div className="grid-cols-3" style={{marginBottom: '10px'}}>
-             <div className="flex-col"><label style={{margin:0}}>Marca</label><input value={productForm.brand} onChange={(e) => setProductForm({ ...productForm, brand: e.target.value })} /></div>
-             <div className="flex-col"><label style={{margin:0}}>Categoría</label><input value={productForm.category} onChange={(e) => setProductForm({ ...productForm, category: e.target.value })} placeholder="Familia" /></div>
-             <div className="flex-col"><label style={{margin:0, color: '#b91c1c', fontWeight: 'bold'}}>Costo proveedor</label><input type="number" min="0" step="0.01" value={productForm.cost} onChange={(e) => setProductForm({ ...productForm, cost: e.target.value })} /></div>
-          </div>
-
-          <div className="flex-col" style={{background: '#f8fafc', padding: '16px', borderRadius: '8px', marginBottom: '10px'}}>
-             <label style={{margin:0}}>Vincular a proveedor</label>
-             <select value={productForm.primarySupplierId} onChange={(e) => setProductForm({ ...productForm, primarySupplierId: e.target.value })}>
-               <option value="">-- Sin proveedor asignado --</option>
-               {suppliers.map((sup) => (<option key={sup.id} value={sup.id}>{sup.businessName}</option>))}
-             </select>
-          </div>
-          
-          <div className="grid-cols-3">
-             <div className="flex-col"><label style={{margin:0, color: '#10b981', fontWeight: 'bold'}}>Precio público</label><input type="number" min="0" step="0.01" value={productForm.salePrice} onChange={(e) => setProductForm({ ...productForm, salePrice: e.target.value })} /></div>
-             <div className="flex-col"><label style={{margin:0}}>Stock mínimo</label><input type="number" min="0" step="0.01" value={productForm.minimumStock} onChange={(e) => setProductForm({ ...productForm, minimumStock: e.target.value })} /></div>
-             <div className="flex-col"><label style={{margin:0}}>Existencia inicial</label><input type="number" min="0" step="0.01" value={productForm.initialStock} onChange={(e) => setProductForm({ ...productForm, initialStock: e.target.value })} /></div>
-          </div>
-          <button type="submit" disabled={loading} className="product-button is-primary" style={{marginTop: '16px'}}>Guardar producto</button>
-        </form>
-      </div>
-      
-      <article className="sdmx-card-premium" style={{display: "flex", flexDirection: "column", marginTop: '20px'}}>
-        <div style={{borderBottom: '1px solid rgba(15,23,42,0.08)', paddingBottom: '16px', marginBottom: '16px'}}>
-           <h3 style={{fontSize: '1.25rem', margin: 0}}>Catálogo activo</h3>
-           <p className="muted" style={{margin: 0, fontSize: '0.85rem'}}>Mostrando {filteredProducts.length} producto(s) visibles.</p>
+      {/* TABLA DE PRODUCTOS (Master UI) */}
+      <div className="card-srf overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="bg-slate-900/50 border-b border-white/5">
+                <th className="px-6 py-4 text-[10px] text-slate-500 uppercase font-black tracking-widest font-label">SKU</th>
+                <th className="px-6 py-4 text-[10px] text-slate-500 uppercase font-black tracking-widest font-label">Producto</th>
+                <th className="px-6 py-4 text-[10px] text-slate-500 uppercase font-black tracking-widest font-label">Estatus</th>
+                <th className="px-6 py-4 text-[10px] text-slate-500 uppercase font-black tracking-widest font-label text-right">Existencia</th>
+                <th className="px-6 py-4 text-[10px] text-slate-500 uppercase font-black tracking-widest font-label text-right">Precio</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-white/5">
+              {MOCK_STOCK.map((item) => (
+                <tr key={item.sku} className="hover:bg-white/5 transition-colors cursor-pointer group">
+                  <td className="px-6 py-5 font-tech text-xs text-blue-500">{item.sku}</td>
+                  <td className="px-6 py-5">
+                    <p className="text-sm text-white font-label font-bold">{item.nombre}</p>
+                    <p className="text-[10px] text-slate-500 uppercase tracking-widest">{item.categoria} · {item.marca}</p>
+                  </td>
+                  <td className="px-6 py-5">
+                    <span className={`text-[9px] px-3 py-1 rounded-full border uppercase font-black tracking-widest ${getStockBadge(item.stock, item.min)}`}>
+                      {item.stock === 0 ? "Agotado" : item.stock <= item.min ? "Bajo" : "Disponible"}
+                    </span>
+                  </td>
+                  <td className="px-6 py-5 text-right font-tech text-sm text-slate-300">
+                    {item.stock} <span className="text-slate-600 text-[10px]">/ {item.min}</span>
+                  </td>
+                  <td className="px-6 py-5 text-right font-tech text-sm text-orange-500">
+                    ${item.precio.toLocaleString()}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
-        <ul className="data-list scrollable-list">
-          {filteredProducts.length === 0 ? (
-            <li className="empty-state">
-               <strong>No hay productos registrados</strong>
-               <span>Crea la primera ficha de inventario para empezar a controlar stock y compras.</span>
-            </li>
-          ) : (
-            filteredProducts.map((p) => {
-               const lowStock = p.stockCurrent <= p.minimumStock;
-               return (
-              <li key={p.id} className="list-item-grid">
-                <span className={`badge-${lowStock ? 'danger' : 'success'}`} style={{minWidth: '60px'}}>
-                   {p.stockCurrent} pzas.
-                </span>
-                <div className="flex-col">
-                  <strong style={{fontSize: '1.05rem', color: '#0f172a'}}>SKU: {p.sku} | {p.name}</strong>
-                  <span style={{ fontSize: '0.85rem', color: '#64748b' }}>
-                    Marca: {p.brand || "Genérica"} · Categoría: {p.category || "Sin categoría"}
-                    {p.supplierName ? ` · Prov: ${p.supplierName}` : ""}
-                  </span>
-                </div>
-                <div style={{textAlign: 'right'}}>
-                  <span style={{fontWeight: '900', color: '#10b981', background: '#ecfdf5', padding: '6px 14px', borderRadius: '8px', fontSize: '1.1rem'}}>{formatMoney(p.salePrice)}</span>
-                </div>
-              </li>
-            )})
-          )}
-        </ul>
-      </article>
+      </div>
 
-    </section>
+      {/* MODAL NUEVO PRODUCTO */}
+      {showModal && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-300">
+          <div className="card-srf w-full max-w-xl shadow-2xl p-8">
+            <header className="flex justify-between items-center mb-8">
+               <h3 className="text-xl font-tech text-white uppercase tracking-wider flex items-center gap-3">
+                  <IconStore width={20} height={20} className="text-blue-500" />
+                  Registro de Producto
+               </h3>
+               <button onClick={() => setShowModal(false)} className="text-slate-500 hover:text-white">
+                  <IconCheckCircular width={24} height={24} />
+               </button>
+            </header>
+            
+            <div className="grid grid-cols-2 gap-6 mb-8">
+               <div className="col-span-2 md:col-span-1">
+                  <label className="block text-[10px] text-slate-500 uppercase font-black tracking-widest mb-2 font-label">Nombre del Producto</label>
+                  <input type="text" className="w-full input-srf rounded-xl p-4 text-sm" placeholder="Ej: Batería iPhone X" />
+               </div>
+               <div className="col-span-2 md:col-span-1">
+                  <label className="block text-[10px] text-slate-500 uppercase font-black tracking-widest mb-2 font-label">Código (SKU)</label>
+                  <input type="text" className="w-full input-srf rounded-xl p-4 text-sm uppercase" placeholder="BATT-IPX" />
+               </div>
+               <div>
+                  <label className="block text-[10px] text-slate-500 uppercase font-black tracking-widest mb-2 font-label">Costo Unitario</label>
+                  <input type="number" className="w-full input-srf rounded-xl p-4 text-sm font-tech" placeholder="$0.00" />
+               </div>
+               <div>
+                  <label className="block text-[10px] text-slate-500 uppercase font-black tracking-widest mb-2 font-label">Stock Mínimo</label>
+                  <input type="number" className="w-full input-srf rounded-xl p-4 text-sm font-tech" placeholder="5" />
+               </div>
+            </div>
+
+            <div className="flex gap-4">
+               <button onClick={() => setShowModal(false)} className="flex-1 bg-slate-800 text-slate-400 font-tech text-[10px] uppercase py-4 rounded-xl tracking-widest">
+                  Cancelar
+               </button>
+               <button className="flex-[2] btn-naranja font-tech text-xs uppercase py-4 rounded-xl tracking-[0.15em]">
+                  Guardar Producto
+               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+    </div>
   );
 }
