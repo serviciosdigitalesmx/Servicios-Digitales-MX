@@ -15,6 +15,7 @@ import { OperativoNative } from "../../../components/ui/OperativoNative";
 import { TecnicoNative } from "../../../components/ui/TecnicoNative";
 import { StockNative } from "../../../components/ui/StockNative";
 import { FinanzasNative } from "../../../components/ui/FinanzasNative";
+import { supabase } from "../../../lib/supabase";
 
 // ----------------------------------------------------------------------
 // Sidebar Item Component
