@@ -11,10 +11,10 @@ import {
   IconCheckCircular 
 } from "../../../components/ui/Icons";
 import { AuthGuard, useAuth } from "../../../components/ui/AuthGuard";
-import OperativoNative from "../../../components/ui/OperativoNative";
-import TecnicoNative from "../../../components/ui/TecnicoNative";
-import StockNative from "../../../components/ui/StockNative";
-import FinanzasNative from "../../../components/ui/FinanzasNative";
+import { OperativoNative } from "../../../components/ui/OperativoNative";
+import { TecnicoNative } from "../../../components/ui/TecnicoNative";
+import { StockNative } from "../../../components/ui/StockNative";
+import { FinanzasNative } from "../../../components/ui/FinanzasNative";
 
 // ----------------------------------------------------------------------
 // Sidebar Item Component

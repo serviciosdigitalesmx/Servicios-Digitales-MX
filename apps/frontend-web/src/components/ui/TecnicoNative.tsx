@@ -19,7 +19,7 @@ const MOCK_EQUIPOS = [
   { id: 3, folio: "SRF-24003", cliente: "Pedro Soto", equipo: "GPU RTX 3080", falla: "Reballing", estado: "Listo", dias: 6, color: "verde" },
 ];
 
-export default function TecnicoNative({ tenantId }: { tenantId: string }) {
+export function TecnicoNative({ tenantId }: { tenantId: string }) {
   const [filter, setFilter] = useState("todos");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedEquipo, setSelectedEquipo] = useState<any>(null);
