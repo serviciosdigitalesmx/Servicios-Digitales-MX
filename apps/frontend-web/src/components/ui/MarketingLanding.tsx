@@ -131,7 +131,7 @@ export function MarketingLanding() {
             </div>
             <span>Servicios Digitales <span style={{color: '#0066FF', fontStyle: 'italic'}}>MX</span></span>
           </div>
-          
+
           <div className="sdmx-nav-links">
             <a href="#inicio">Inicio</a>
             <a href="#caracteristicas">Características</a>
@@ -154,32 +154,32 @@ export function MarketingLanding() {
 
           {/* Pill Navigation */}
           <div className="sdmx-pills-row">
-            <button 
-              onClick={() => setTab("recepcion")} 
+            <button
+              onClick={() => setTab("recepcion")}
               className={`sdmx-pill-button ${tab === "recepcion" ? "is-active" : ""}`}
             >
               Recepción
             </button>
             <span className="sdmx-pill-separator"></span>
-            
-            <button 
-              onClick={() => setTab("inventario")} 
+
+            <button
+              onClick={() => setTab("inventario")}
               className={`sdmx-pill-button ${tab === "inventario" ? "is-active" : ""}`}
             >
               Inventario
             </button>
             <span className="sdmx-pill-separator"></span>
 
-            <button 
-              onClick={() => setTab("finanzas")} 
+            <button
+              onClick={() => setTab("finanzas")}
               className={`sdmx-pill-button ${tab === "finanzas" ? "is-active" : ""}`}
             >
               Finanzas
             </button>
             <span className="sdmx-pill-separator"></span>
 
-            <button 
-              onClick={() => setTab("clientes")} 
+            <button
+              onClick={() => setTab("clientes")}
               className={`sdmx-pill-button ${tab === "clientes" ? "is-active" : ""}`}
             >
               Clientes
@@ -248,8 +248,8 @@ export function MarketingLanding() {
 
           <div className="sdmx-pricing-grid">
             {PLANS.map((plan, i) => (
-              <div 
-                key={plan.name} 
+              <div
+                key={plan.name}
                 className={plan.tone === 'featured' ? 'sdmx-pricing-card-featured' : `sdmx-pricing-card ${i === 0 ? 'left' : 'right'}`}
               >
                 {plan.badge && (
@@ -257,7 +257,7 @@ export function MarketingLanding() {
                     <span className="sdmx-pricing-badge">{plan.badge}</span>
                   </div>
                 )}
-                
+
                 <div className={plan.tone === 'featured' ? 'sdmx-pricing-featured-header' : 'sdmx-pricing-header'}>
                   <h3 className="sdmx-pricing-title">{plan.name}</h3>
                   <div className="sdmx-pricing-amount-row">
@@ -271,7 +271,7 @@ export function MarketingLanding() {
                 <ul className="sdmx-pricing-list">
                   {plan.features.map((feature, j) => (
                     <li key={feature}>
-                      {feature} 
+                      {feature}
                       {j === plan.features.length - 1 ? (
                         <IconStar width={16} height={16} className={plan.tone === 'featured' ? '' : 'sdmx-pricing-feature-special'} />
                       ) : (
@@ -281,8 +281,8 @@ export function MarketingLanding() {
                   ))}
                 </ul>
 
-                <a 
-                  href={`/register?plan=${plan.code}`} 
+                <a
+                  href={`/register?plan=${plan.code}`}
                   className={plan.tone === 'featured' ? 'sdmx-pricing-btn-white' : 'sdmx-pricing-btn-primary'}
                 >
                   {plan.button}
@@ -478,8 +478,8 @@ export function MarketingLanding() {
         .sdmx-features-title { color: white !important; }
         .sdmx-features-title span { color: #0066FF !important; }
         .sdmx-features-lead, .sdmx-features-subtitle { color: rgba(255, 255, 255, 0.6) !important; }
-        .sdmx-footer { 
-          background-color: #0F172A !important; 
+        .sdmx-footer {
+          background-color: #0F172A !important;
           border-top: 1px solid rgba(255, 255, 255, 0.05) !important;
           padding: 6rem 0 !important;
         }

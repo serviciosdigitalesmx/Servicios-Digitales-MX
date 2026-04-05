@@ -22,6 +22,8 @@ public sealed class SupabaseBootstrapContext
     public DateTimeOffset? CurrentPeriodEnd { get; set; }
     public DateTimeOffset? GraceUntil { get; set; }
 
+    public string AccessToken { get; set; } = string.Empty;
+
     public bool HasOperationalAccess =>
         SubscriptionStatus is "trialing" or "active" or "past_due";
 }

@@ -2,8 +2,46 @@ import { supabase } from './supabase';
 
 export type SubscriptionStatus = 'trialing' | 'active' | 'past_due' | 'suspended' | 'cancelled';
 
+export enum PlanLevel {
+  INICIAL = 'inicial-0',
+  PROFESIONAL = 'profesional-350',
+  AVANZADO = 'avanzado-450',
+  INTEGRAL = 'integral-550'
+}
+
+export const PLAN_METADATA: Record<PlanLevel, { name: string; price: number; features: string[] }> = {
+  [PlanLevel.INICIAL]: {
+    name: 'Plan Inicial',
+    price: 0,
+    features: ['Gestión de Clientes', 'Órdenes de Servicio', 'Portal Público']
+  },
+  [PlanLevel.PROFESIONAL]: {
+    name: 'Plan Profesional',
+    price: 350,
+    features: ['Notas Privadas', 'Rastreo de IP (Seguridad)']
+  },
+  [PlanLevel.AVANZADO]: {
+    name: 'Plan Avanzado',
+    price: 450,
+    features: ['Semáforo de 48h (Alertas)', 'Evidencia Fotográfica', 'PDF de Entrega']
+  },
+  [PlanLevel.INTEGRAL]: {
+    name: 'Plan Integral',
+    price: 550,
+    features: ['Inventario / Stock', 'Flujo de Caja (Finanzas)']
+  }
+};
+
+export const PLAN_HIERARCHY = [
+  PlanLevel.INICIAL,
+  PlanLevel.PROFESIONAL,
+  PlanLevel.AVANZADO,
+  PlanLevel.INTEGRAL
+];
+
 export interface Subscription {
   status: SubscriptionStatus;
+  plan_code: PlanLevel; // Updated to use PlanLevel
   current_period_end: string;
   grace_until?: string;
 }

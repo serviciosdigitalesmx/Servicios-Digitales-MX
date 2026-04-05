@@ -1,5 +1,6 @@
 import { BillingConsole } from "../../components/ui/BillingConsole";
 import { AuthGuard } from "../../components/ui/AuthGuard";
+import { PlanLevel } from "../../lib/subscription";
 
 type BillingPageProps = {
   searchParams: Promise<{
@@ -13,7 +14,7 @@ export default async function BillingPage({ searchParams }: BillingPageProps) {
   return (
     <AuthGuard>
       <main className="page-shell">
-        <BillingConsole initialPlanCode={params.plan} />
+        <BillingConsole initialPlanCode={params.plan as PlanLevel} />
       </main>
     </AuthGuard>
   );

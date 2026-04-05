@@ -34,8 +34,8 @@ function HubDashboardContent() {
   const subStatus = auth.subscription.status;
   const styles = getStatusStyle(subStatus);
 
-  const handleLogout = () => {
-    localStorage.removeItem("sdmx_session");
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
     window.location.href = "/login";
   };
 

@@ -3,9 +3,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../../lib/supabase";
 import { useAuth, AuthMeResponse } from "./AuthGuard";
+import { apiFetch } from "../../lib/api";
+
+import { PlanLevel, PLAN_METADATA } from "../../lib/subscription";
 
 type BillingPlan = {
-  code: string;
+  code: PlanLevel;
   name: string;
   priceMxn: number;
   billingInterval: string;
@@ -14,25 +17,32 @@ type BillingPlan = {
 
 const DEFAULT_BILLING_PLANS: BillingPlan[] = [
   {
-    code: "esencial-350",
-    name: "Plan Esencial",
+    code: PlanLevel.INICIAL,
+    name: 'Plan Inicial',
+    priceMxn: 0,
+    billingInterval: "monthly",
+    modules: ["Clientes", "Operativo Básico", "Portal por folio"]
+  },
+  {
+    code: PlanLevel.PROFESIONAL,
+    name: 'Plan Profesional',
     priceMxn: 350,
     billingInterval: "monthly",
-    modules: ["Operativo", "Técnico", "Solicitudes", "Clientes", "Portal por folio"]
+    modules: ["Todo lo del Inicial", "Notas Privadas", "Rastreo de IP (Seguridad)"]
   },
   {
-    code: "profesional-650",
-    name: "Plan Profesional",
-    priceMxn: 650,
+    code: PlanLevel.AVANZADO,
+    name: 'Plan Avanzado',
+    priceMxn: 450,
     billingInterval: "monthly",
-    modules: ["Todo lo del Esencial", "Stock", "Compras", "Proveedores", "Gastos", "Reportes"]
+    modules: ["Todo lo del Profesional", "Semáforo 48h", "Evidencia Fotográfica", "PDF de Entrega"]
   },
   {
-    code: "elite-1200",
-    name: "Plan Elite",
-    priceMxn: 1200,
+    code: PlanLevel.INTEGRAL,
+    name: 'Plan Integral',
+    priceMxn: 550,
     billingInterval: "monthly",
-    modules: ["Todo lo del Profesional", "Multi-sucursal", "Branding", "Dashboard ejecutivo"]
+    modules: ["Todo lo del Avanzado", "Control de Stock", "Flujo de Caja (Finanzas)"]
   }
 ];
 
@@ -67,7 +77,7 @@ function getStatusCopy(status: string) {
   }
 }
 
-export function BillingConsole({ initialPlanCode }: { initialPlanCode?: string }) {
+export function BillingConsole({ initialPlanCode }: { initialPlanCode?: PlanLevel }) {
   const { session } = useAuth();
   const auth = session as AuthMeResponse | null;
   const [loading, setLoading] = useState(false);
@@ -75,7 +85,7 @@ export function BillingConsole({ initialPlanCode }: { initialPlanCode?: string }
   const [view, setView] = useState<"overview" | "checkout">("overview");
   
   const [plans, setPlans] = useState<BillingPlan[]>(DEFAULT_BILLING_PLANS);
-  const [selectedPlanCode, setSelectedPlanCode] = useState(initialPlanCode ?? "esencial-350");
+  const [selectedPlanCode, setSelectedPlanCode] = useState<PlanLevel>(initialPlanCode ?? PlanLevel.PROFESIONAL);
   const [message, setMessage] = useState("");
   const [paying, setPaying] = useState(false);
 
@@ -105,8 +115,34 @@ export function BillingConsole({ initialPlanCode }: { initialPlanCode?: string }
   }, [plans, selectedPlanCode]);
 
   async function handleCheckout() {
-    setMessage("⚠️ La pasarela de pagos nativa de Supabase está en configuración. Por favor, contacta a soporte vía WhatsApp para renovar tu suscripción.");
-    setPaying(false);
+    if (!selectedPlan || !auth) return;
+    
+    setPaying(true);
+    setMessage("");
+
+    try {
+      const res = await apiFetch("/api/payments/create", {
+        method: "POST",
+        body: JSON.stringify({
+          planCode: selectedPlan.code,
+          tenantId: auth.shop.id,
+          amount: selectedPlan.priceMxn
+        }),
+      });
+
+      const data = await res.json();
+
+      if (data.paymentUrl) {
+        window.location.href = data.paymentUrl;
+      } else {
+        throw new Error(data.error || "Error al crear la preferencia de pago");
+      }
+    } catch (err: any) {
+      console.error("❌ Error en checkout:", err);
+      setMessage(`Ocurrió un error: ${err.message}`);
+    } finally {
+      setPaying(false);
+    }
   }
 
   if (auth && !["owner", "admin"].includes(auth.user.role.toLowerCase())) {

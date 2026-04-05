@@ -32,9 +32,17 @@ public sealed class SupabaseService
         }
         if (!string.IsNullOrWhiteSpace(_options.ServiceKey))
         {
-            _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _options.ServiceKey);
             _httpClient.DefaultRequestHeaders.Remove("apikey");
             _httpClient.DefaultRequestHeaders.Add("apikey", _options.ServiceKey);
+            
+            if (!string.IsNullOrWhiteSpace(_bootstrap.AccessToken))
+            {
+                _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _bootstrap.AccessToken);
+            }
+            else
+            {
+                _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _options.ServiceKey);
+            }
         }
     }
 

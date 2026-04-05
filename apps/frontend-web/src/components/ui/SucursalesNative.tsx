@@ -1,6 +1,8 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useState } from "react";
+import { apiClient } from "../../lib/apiClient";
+import { useApiData } from "../../hooks/useApiData";
 
 type Branch = {
   id: string;
@@ -12,15 +14,16 @@ type Branch = {
   isActive: boolean;
 };
 
-import { supabase } from "../../lib/supabase";
-import { useAuth } from "./AuthGuard";
-
 export function SucursalesNative() {
-  const { session } = useAuth();
-  const [branches, setBranches] = useState<Branch[]>([]);
-  const [loading, setLoading] = useState(false);
+  // 1. Hook genérico para carga de datos
+  const { 
+    data: branches, 
+    loading, 
+    error: apiStateError, 
+    refresh: loadBranches 
+  } = useApiData<Branch[]>('/api/branches');
+
   const [apiStateMessage, setApiStateMessage] = useState("");
-  const [apiStateError, setApiStateError] = useState("");
   const [formError, setFormError] = useState("");
 
   const [form, setForm] = useState({
@@ -32,46 +35,11 @@ export function SucursalesNative() {
     phone: ""
   });
 
-  async function loadBranches() {
-    if (!session?.shop.id) return;
-    setLoading(true);
-    setApiStateMessage("");
-    setApiStateError("");
-    try {
-      const { data, error } = await supabase
-        .from('branches')
-        .select('*')
-        .eq('tenant_id', session.shop.id)
-        .order('created_at', { ascending: true });
-
-      if (error) throw error;
-      setBranches((data || []).map((b: any) => ({
-        id: b.id,
-        name: b.name,
-        code: b.code,
-        city: b.city,
-        state: b.state,
-        phone: b.phone,
-        isActive: b.is_active
-      })));
-    } catch (error: any) {
-       setApiStateError(error.message || "Error al cargar las sucursales.");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    if (session) void loadBranches();
-  }, [session]);
-
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setFormError("");
     setApiStateMessage("");
-    setApiStateError("");
 
-    if (!session?.shop.id) return;
     if (!form.name.trim()) {
       setFormError("⚠️ El nombre de la sucursal es obligatorio.");
       return;
@@ -81,21 +49,21 @@ export function SucursalesNative() {
        return;
     }
 
-    setLoading(true);
     try {
-      const { error } = await supabase.from('branches').insert({
-        tenant_id: session.shop.id,
+      // Hardening: No enviamos tenant_id, el backend lo resuelve del JWT
+      const result = await apiClient.post('/api/branches', {
         name: form.name.trim(),
         code: form.code.trim(),
         address: form.address,
         city: form.city,
         state: form.state,
         phone: form.phone,
-        is_active: true,
-        created_by: session.user.id
+        isActive: true
       });
 
-      if (error) throw error;
+      if (!result.success) {
+        throw new Error(result.error?.message || "Error al guardar la sucursal.");
+      }
 
       setForm({
         name: "", code: "", address: "", city: "", state: "", phone: ""
@@ -103,9 +71,7 @@ export function SucursalesNative() {
       await loadBranches();
       setApiStateMessage("✅ Sucursal guardada exitosamente.");
     } catch (error: any) {
-       setApiStateError(error.message || "Error al guardar la sucursal.");
-    } finally {
-      setLoading(false);
+       setFormError(error.message);
     }
   }
 
@@ -129,10 +95,10 @@ export function SucursalesNative() {
           
           <div className="grid-cols-auto">
              <label>Nombre de la Sucursal *
-               <input value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} placeholder="Ej. Laboratorio Tech"/>
+                <input value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} placeholder="Ej. Laboratorio Tech"/>
              </label>
              <label>Código *
-               <input value={form.code} onChange={(event) => setForm({ ...form, code: event.target.value })} placeholder="Ej. LAB-01"/>
+                <input value={form.code} onChange={(event) => setForm({ ...form, code: event.target.value })} placeholder="Ej. LAB-01"/>
              </label>
           </div>
           
@@ -149,41 +115,48 @@ export function SucursalesNative() {
             <input value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} />
           </label>
           
-          <button type="submit" disabled={loading} >Guardar Sucursal</button>
+          <button type="submit" disabled={loading} >
+            {loading ? "Guardando..." : "Guardar Sucursal"}
+          </button>
         </form>
 
         <article className="sdmx-card-premium" style={{display: 'flex', flexDirection: 'column'}}>
            <div className="flex-row-between">
               <h3>Directorio de Sucursales</h3>
            </div>
-          <ul className="data-list scrollable-list">
-            {branches.length === 0 ? (
-               <li className="empty-state">
-                  <strong>No hay sucursales registradas.</strong>
-                  <span>Agrega tu primera sucursal usando el formulario.</span>
-               </li>
-            ) : (
-              branches.map((branch) => (
-                <li key={branch.id} className="list-item-grid">
-                  <div style={{ background: '#3b82f6', color: 'white', padding: '6px 14px', borderRadius: '8px', fontWeight: 'bold', fontSize: '0.85rem' }}>
-                    {branch.code || "NA"}
-                  </div>
-                  <div className="flex-col">
-                    <strong style={{ fontSize: '1.05rem', color: '#0f172a' }}>{branch.name}</strong>
-                    <span style={{ fontSize: '0.85rem', color: '#64748b' }}>
-                      {branch.city || "Sin ciudad"}, {branch.state || "NA"} 
-                      {branch.phone ? ` · Contacto: ${branch.phone}` : ""}
-                    </span>
-                  </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <span className={`status-pill ${branch.isActive ? 'is-success' : 'is-warning'}`} style={{minWidth: '50px', textAlign: 'center'}}>
-                       {branch.isActive ? 'Activa' : 'Inactiva'}
-                    </span>
-                  </div>
-                </li>
-              ))
-            )}
-          </ul>
+          
+          {loading && !branches ? (
+            <div className="text-center py-10 opacity-50">Sincronizando red...</div>
+          ) : (
+            <ul className="data-list scrollable-list">
+              {(!branches || branches.length === 0) ? (
+                 <li className="empty-state">
+                    <strong>No hay sucursales registradas.</strong>
+                    <span>Agrega tu primera sucursal usando el formulario.</span>
+                 </li>
+              ) : (
+                branches.map((branch) => (
+                  <li key={branch.id} className="list-item-grid">
+                    <div style={{ background: '#3b82f6', color: 'white', padding: '6px 14px', borderRadius: '8px', fontWeight: 'bold', fontSize: '0.85rem' }}>
+                      {branch.code || "NA"}
+                    </div>
+                    <div className="flex-col">
+                      <strong style={{ fontSize: '1.05rem', color: '#0f172a' }}>{branch.name}</strong>
+                      <span style={{ fontSize: '0.85rem', color: '#64748b' }}>
+                        {branch.city || "Sin ciudad"}, {branch.state || "NA"} 
+                        {branch.phone ? ` · Contacto: ${branch.phone}` : ""}
+                      </span>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <span className={`status-pill ${branch.isActive ? 'is-success' : 'is-warning'}`} style={{minWidth: '50px', textAlign: 'center'}}>
+                         {branch.isActive ? 'Activa' : 'Inactiva'}
+                      </span>
+                    </div>
+                  </li>
+                ))
+              )}
+            </ul>
+          )}
         </article>
       </div>
     </section>

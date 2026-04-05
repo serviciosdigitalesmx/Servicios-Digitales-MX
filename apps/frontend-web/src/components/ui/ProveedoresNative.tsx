@@ -1,6 +1,8 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useState } from "react";
+import { apiClient } from "../../lib/apiClient";
+import { useApiData } from "../../hooks/useApiData";
 
 type Supplier = {
   id: string;
@@ -11,15 +13,16 @@ type Supplier = {
   categories?: string;
 };
 
-import { supabase } from "../../lib/supabase";
-import { useAuth } from "./AuthGuard";
-
 export function ProveedoresNative() {
-  const { session } = useAuth();
-  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
-  const [loading, setLoading] = useState(false);
+  // 1. Hook genérico para carga de datos
+  const { 
+    data: suppliers, 
+    loading, 
+    error: apiStateError, 
+    refresh: loadSuppliers 
+  } = useApiData<Supplier[]>('/api/suppliers');
+
   const [apiStateMessage, setApiStateMessage] = useState("");
-  const [apiStateError, setApiStateError] = useState("");
   const [formError, setFormError] = useState("");
   const [search, setSearch] = useState("");
   
@@ -32,77 +35,44 @@ export function ProveedoresNative() {
     notes: ""
   });
 
-  async function loadSuppliers() {
-    if (!session?.shop.id) return;
-    setLoading(true);
-    setApiStateMessage("");
-    setApiStateError("");
-    try {
-      const { data, error } = await supabase
-        .from('suppliers')
-        .select('*')
-        .eq('tenant_id', session.shop.id)
-        .eq('is_active', true)
-        .order('business_name');
-
-      if (error) throw error;
-      setSuppliers(data.map((s: any) => ({
-        id: s.id,
-        businessName: s.business_name,
-        contactName: s.contact_name,
-        phone: s.phone,
-        email: s.email,
-        categories: s.categories
-      })));
-    } catch (error: any) {
-       setApiStateError(error.message || "Error al cargar los proveedores.");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    if (session) void loadSuppliers();
-  }, [session]);
-
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setFormError("");
     setApiStateMessage("");
-    setApiStateError("");
 
     if (!form.businessName.trim()) {
        setFormError("⚠️ Ingrese al menos la Razón Social o Nombre Comercial del proveedor.");
        return;
     }
 
-    setLoading(true);
     try {
-      const { error } = await supabase.from('suppliers').insert({
-        tenant_id: session?.shop.id,
-        business_name: form.businessName,
-        contact_name: form.contactName,
-        phone: form.phone,
-        email: form.email,
-        categories: form.categories,
-        notes: form.notes,
-        created_by: session?.user.id,
-        updated_by: session?.user.id
+      // Hardening: No enviamos tenant_id, el backend lo resuelve del JWT
+      const result = await apiClient.post('/api/suppliers', {
+        businessName: form.businessName.trim(),
+        contactName: form.contactName.trim() || null,
+        phone: form.phone.trim() || null,
+        email: form.email.trim() || null,
+        categories: form.categories.trim() || null,
+        notes: form.notes.trim() || null
       });
 
-      if (error) throw error;
+      if (!result.success) {
+        throw new Error(result.error?.message || "Error al guardar el proveedor.");
+      }
       
       setForm({ businessName: "", contactName: "", phone: "", email: "", categories: "", notes: "" });
       await loadSuppliers();
       setApiStateMessage("✅ Proveedor registrado exitosamente.");
     } catch (error: any) {
-      setApiStateError(error.message || "Error al guardar el proveedor.");
-    } finally {
-      setLoading(false);
+      setFormError(error.message);
     }
   }
 
-  const filteredSuppliers = suppliers.filter(s => !search || s.businessName.toLowerCase().includes(search.toLowerCase()) || (s.categories && s.categories.toLowerCase().includes(search.toLowerCase())));
+  const filteredSuppliers = (suppliers || []).filter(s => 
+    !search || 
+    s.businessName.toLowerCase().includes(search.toLowerCase()) || 
+    (s.categories && s.categories.toLowerCase().includes(search.toLowerCase()))
+  );
 
   return (
     <section className="module-native-shell">
@@ -145,36 +115,43 @@ export function ProveedoresNative() {
              <label>Representante Directo<input value={form.contactName} onChange={(event) => setForm({ ...form, contactName: event.target.value })} placeholder="Ej. Lic. Martínez"/></label>
              <label>Categorías Distribuidas<input value={form.categories} onChange={(event) => setForm({ ...form, categories: event.target.value })} placeholder="Refacciones, Displays, Insumos..."/></label>
           </div>
-          <button type="submit" disabled={loading} >Integrar Proveedor al Catálogo</button>
+          <button type="submit" disabled={loading} >
+            {loading ? "Registrando..." : "Integrar Proveedor al Catálogo"}
+          </button>
         </form>
 
         <article className="sdmx-card-premium" style={{display: 'flex', flexDirection: 'column'}}>
           <h3>Directorio de Distribuidores</h3>
           <p className="muted" style={{borderBottom: '1px solid rgba(15,23,42,0.08)', paddingBottom: '12px', marginBottom: '14px'}}>Listado con {filteredSuppliers.length} entidad(es) halladas.</p>
-          <ul className="data-list scrollable-list">
-            {filteredSuppliers.length === 0 ? (
-               <li className="empty-state">
-                  <strong>Busqueda Vacía</strong>
-                  <span>Registra a la izquierda un nuevo flujo logístico.</span>
-               </li>
-            ) : (
-              filteredSuppliers.map((supplier) => (
-                <li key={supplier.id} className="list-item-grid">
-                  <div className="flex-col">
-                    <strong style={{ fontSize: '1.05rem', color: '#0f172a' }}>{supplier.businessName}</strong>
-                    <span style={{ fontSize: '0.85rem', color: '#64748b' }}>
-                      👤 Rep: {supplier.contactName || "NA"} · 📞 {supplier.phone || "Sin Teléfono"} · 📧 {supplier.email || "Sin Email"}
-                    </span>
-                  </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <span style={{color: '#1e3a8a', backgroundColor: 'rgba(30,58,138,0.06)', padding: '4px 10px', borderRadius: '12px', fontSize: '0.8rem', fontWeight: 'bold' }}>
-                       {supplier.categories || "Cat. Múltiple"}
-                    </span>
-                  </div>
-                </li>
-              ))
-            )}
-          </ul>
+          
+          {loading && !suppliers ? (
+            <div className="text-center py-10 opacity-50">Cargando catálogo...</div>
+          ) : (
+            <ul className="data-list scrollable-list">
+              {filteredSuppliers.length === 0 ? (
+                 <li className="empty-state">
+                    <strong>Búsqueda Vacía</strong>
+                    <span>Registra a la izquierda un nuevo flujo logístico.</span>
+                 </li>
+              ) : (
+                filteredSuppliers.map((supplier) => (
+                  <li key={supplier.id} className="list-item-grid">
+                    <div className="flex-col">
+                      <strong style={{ fontSize: '1.05rem', color: '#0f172a' }}>{supplier.businessName}</strong>
+                      <span style={{ fontSize: '0.85rem', color: '#64748b' }}>
+                        👤 Rep: {supplier.contactName || "NA"} · 📞 {supplier.phone || "Sin Teléfono"} · 📧 {supplier.email || "Sin Email"}
+                      </span>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <span style={{color: '#1e3a8a', backgroundColor: 'rgba(30,58,138,0.06)', padding: '4px 10px', borderRadius: '12px', fontSize: '0.8rem', fontWeight: 'bold' }}>
+                         {supplier.categories || "Cat. Múltiple"}
+                      </span>
+                    </div>
+                  </li>
+                ))
+              )}
+            </ul>
+          )}
         </article>
       </div>
     </section>

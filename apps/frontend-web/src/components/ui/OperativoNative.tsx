@@ -2,14 +2,9 @@
 
 import { FormEvent, useEffect, useState, useMemo } from "react";
 import { useAuth } from "./AuthGuard";
-
-type AuthResponse = {
-  data: {
-    user: { branchId: string; fullName: string; };
-    shop: { name: string; };
-    subscription: { operationalAccess: boolean; status: string; };
-  };
-};
+import { FeatureGuard } from "./FeatureGuard";
+import { PlanLevel } from "../../lib/subscription";
+import { supabase } from "../../lib/supabase";
 
 type Customer = { id: string; fullName: string; phone?: string; email?: string; tag: string; };
 
@@ -18,8 +13,6 @@ type Order = {
   priority?: string; customerName?: string; assignedTechnician?: string; estimatedCost?: number;
   promisedDate?: string; createdAt: string;
 };
-
-import { supabase } from "../../lib/supabase";
 
 function formatDate(value?: string) {
   if (!value) return "Sin promesa";
@@ -105,7 +98,6 @@ export function OperativoNative() {
   }, [session]);
 
   const generateFolio = async () => {
-    // Basic folio generation: find last and increment
     const { data: lastOrder } = await supabase
       .from('service_orders')
       .select('folio')
@@ -276,7 +268,8 @@ export function OperativoNative() {
                   <li key={order.id} className="list-item-grid" style={{
                     background: order.status === 'entregado' ? '#f0fdf4' : '#fff',
                     borderLeft: delayed ? '4px solid #ef4444' : '4px solid transparent',
-                    paddingLeft: delayed ? '8px' : '12px'
+                    paddingLeft: delayed ? '8px' : '12px',
+                    position: 'relative'
                   }}>
                     <div style={{ background: delayed ? '#ef4444' : '#0f172a', color: 'white', padding: '8px 12px', borderRadius: '8px', fontWeight: 'bold', fontSize: '0.9rem' }}>
                       Folio: {order.folio}
@@ -285,10 +278,23 @@ export function OperativoNative() {
                       <strong style={{fontSize: '1.05rem', color: '#1e3a8a'}}>{order.deviceType} {order.deviceModel ?? ""}</strong>
                       <div style={{display: 'flex', gap: '8px', alignItems: 'center'}}>
                         <span style={{color: '#64748b', fontSize: '0.85rem'}}>Nivel Carga: {order.priority?.toUpperCase() || "NORMAL"} · Entrega: {formatDate(order.promisedDate)}</span>
-                        {delayed && <span style={{fontSize: '0.625rem', fontWeight: 900, color: '#dc2626', background: '#fee2e2', padding: '2px 6px', borderRadius: '4px'}}>⚠️ SIN AVANCE (+48H)</span>}
+                        {delayed && (
+                          <FeatureGuard requiredLevel={PlanLevel.AVANZADO} featureName="Semáforo de Alertas" variant="compact">
+                            <span style={{fontSize: '0.625rem', fontWeight: 900, color: '#dc2626', background: '#fee2e2', padding: '2px 6px', borderRadius: '4px'}}>⚠️ SIN AVANCE (+48H)</span>
+                          </FeatureGuard>
+                        )}
                       </div>
                     </div>
-                    <div style={{ textAlign: 'right' }}>
+                    <div style={{ textAlign: 'right', display: 'flex', flexWrap: 'wrap', justifyContent: 'flex-end', gap: '8px' }}>
+                      <FeatureGuard requiredLevel={PlanLevel.PROFESIONAL} featureName="Notas Privadas" variant="compact">
+                        <button className="sdmx-btn-ghost" style={{padding: '4px 8px', fontSize: '0.75rem'}}>📝 Notas</button>
+                      </FeatureGuard>
+                      <FeatureGuard requiredLevel={PlanLevel.AVANZADO} featureName="Evidencia Fotográfica" variant="compact">
+                        <button className="sdmx-btn-ghost" style={{padding: '4px 8px', fontSize: '0.75rem'}}>📷 Fotos</button>
+                      </FeatureGuard>
+                      <FeatureGuard requiredLevel={PlanLevel.AVANZADO} featureName="Reporte PDF" variant="compact">
+                        <button className="sdmx-btn-ghost" style={{padding: '4px 8px', fontSize: '0.75rem'}}>📄 PDF</button>
+                      </FeatureGuard>
                       <span className={`badge-${order.status === 'entregado' ? 'success' : order.status === 'reparacion' ? 'warning' : 'info'}`}>{getServiceOrderStatusLabel(order.status)}</span>
                     </div>
                   </li>

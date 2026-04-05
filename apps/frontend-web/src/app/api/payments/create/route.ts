@@ -1,20 +1,23 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-
-// Prevenir que el build falle si las keys no están en el entorno de compilación
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder.supabase.co";
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "placeholder_key";
-
-const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+import { supabaseServiceRole } from '../../../../lib/supabaseService';
+import { PLAN_METADATA, PlanLevel } from '../../../../lib/subscription';
 
 const MP_ACCESS_TOKEN = process.env.MERCADOPAGO_ACCESS_TOKEN;
 
 export async function POST(req: Request) {
   try {
-    const { tenantId, planCode, amount } = await req.json();
+    const { tenantId, planCode, amount: clientAmount } = await req.json();
+
+    // Validar Plan y determinar monto real (Server-side source of truth)
+    const planInfo = PLAN_METADATA[planCode as PlanLevel];
+    if (!planInfo) {
+      return NextResponse.json({ error: 'Plan inválido' }, { status: 400 });
+    }
+
+    const amount = planInfo.price;
 
     // 1. Validar que el tenant existe
-    const { data: tenant, error: tenantError } = await supabaseAdmin
+    const { data: tenant, error: tenantError } = await supabaseServiceRole
       .from('tenants')
       .select('id, contact_email, name')
       .eq('id', tenantId)
@@ -63,7 +66,7 @@ export async function POST(req: Request) {
     const preference = await mpResponse.json();
 
     // 3. Registrar el intento en nuestra BD
-    await supabaseAdmin.from('subscription_payments').insert({
+    await supabaseServiceRole.from('subscription_payments').insert({
       tenant_id: tenantId,
       amount: amount,
       provider: 'mercadopago',

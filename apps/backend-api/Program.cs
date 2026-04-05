@@ -1,6 +1,9 @@
 using BackendApi.Domain;
 using BackendApi.Infrastructure;
 using Microsoft.Extensions.Options;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
 using System.Text.Json;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -33,9 +36,23 @@ builder.Services.AddCors(options =>
     });
 });
 builder.Services.AddOpenApi();
-builder.Services.AddSingleton<SupabaseBootstrapContext>();
+builder.Services.AddScoped<SupabaseBootstrapContext>();
 builder.Services.AddHttpClient<SupabaseService>();
 builder.Services.AddHttpClient<MercadoPagoService>();
+
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Supabase:ServiceKey"]!)),
+            ValidateIssuer = false, // Supabase allows cross-issuer in some setups, but we could enforce it if needed
+            ValidateAudience = false,
+            ValidateLifetime = true
+        };
+    });
+builder.Services.AddAuthorization();
 
 var app = builder.Build();
 
@@ -83,14 +100,7 @@ static Guid? ResolveShopId(string? externalReference, MercadoPagoPaymentMetadata
     return null;
 }
 
-await using (var scope = app.Services.CreateAsyncScope())
-{
-    var supabase = scope.ServiceProvider.GetRequiredService<SupabaseService>();
-    if (supabase.IsConfigured)
-    {
-        await supabase.EnsureBootstrapDataAsync();
-    }
-}
+// Startup seeding removed in favor of per-request dynamic hydration
 
 if (app.Environment.IsDevelopment())
 {
@@ -98,80 +108,73 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseCors("frontend-dev");
-app.UseHttpsRedirection();
+app.UseAuthentication();
+app.UseAuthorization();
 
+// Multi-tenant Middleware: Hydrate Context per Request from User Claims
 app.Use(async (context, next) =>
 {
-    var path = context.Request.Path;
-    if (path.StartsWithSegments("/api") && 
-        !path.StartsWithSegments("/api/auth/login") && 
-        !path.StartsWithSegments("/api/auth/register") && 
-        !path.StartsWithSegments("/api/health") && 
-        !path.StartsWithSegments("/api/portal") &&
-        !path.StartsWithSegments("/api/billing/checkout-preference") &&
-        !path.StartsWithSegments("/api/billing/plans"))
+    if (context.User.Identity?.IsAuthenticated == true)
     {
-        var authHeader = context.Request.Headers.Authorization.FirstOrDefault();
-        if (string.IsNullOrWhiteSpace(authHeader) || !authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+        var bootstrap = context.RequestServices.GetRequiredService<SupabaseBootstrapContext>();
+        var authHeader = context.Request.Headers.Authorization.ToString();
+        if (authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
         {
-            context.Response.StatusCode = StatusCodes.Status401Unauthorized;
-            return;
+            bootstrap.AccessToken = authHeader.Substring(7).Trim();
         }
+        var email = context.User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value 
+                    ?? context.User.FindFirst("email")?.Value;
 
-        var token = authHeader.Substring("Bearer ".Length).Trim();
-        var parts = token.Split('.');
-        if (parts.Length != 2)
+        if (!string.IsNullOrWhiteSpace(email))
         {
-            context.Response.StatusCode = StatusCodes.Status401Unauthorized;
-            return;
-        }
-
-        var config = context.RequestServices.GetRequiredService<IConfiguration>();
-        var secretKey = config["Supabase:ServiceKey"];
-        if (string.IsNullOrWhiteSpace(secretKey))
-        {
-            context.Response.StatusCode = StatusCodes.Status500InternalServerError;
-            return;
-        }
-        
-        using var hmac = new System.Security.Cryptography.HMACSHA256(System.Text.Encoding.UTF8.GetBytes(secretKey));
-        var expectedSignature = Convert.ToBase64String(hmac.ComputeHash(System.Text.Encoding.UTF8.GetBytes(parts[0])));
-        
-        if (parts[1] != expectedSignature)
-        {
-            context.Response.StatusCode = StatusCodes.Status401Unauthorized;
-            return;
-        }
-
-        try
-        {
-            var decodedPayload = System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(parts[0]));
-            using var doc = System.Text.Json.JsonDocument.Parse(decodedPayload);
-            var root = doc.RootElement;
-            var decodedEmail = root.GetProperty("email").GetString() ?? "";
-            var exp = root.GetProperty("exp").GetInt64();
-
-            if (DateTimeOffset.UtcNow.ToUnixTimeSeconds() > exp)
+            var supabase = context.RequestServices.GetRequiredService<SupabaseService>();
+            var bootstrap = context.RequestServices.GetRequiredService<SupabaseBootstrapContext>();
+            
+            try 
             {
-                context.Response.StatusCode = StatusCodes.Status401Unauthorized;
-                return;
-            }
+                var user = await supabase.GetSingleAsync<SupabaseService.DbUser>($"users?email=eq.{Uri.EscapeDataString(email)}&select=id,tenant_id,branch_id,full_name,email,role,is_active,referral_code,balance", context.RequestAborted);
+                if (user != null)
+                {
+                    bootstrap.UserId = user.Id;
+                    bootstrap.TenantId = user.TenantId;
+                    bootstrap.BranchId = user.BranchId;
+                    bootstrap.UserEmail = user.Email;
+                    bootstrap.UserFullName = user.FullName;
+                    bootstrap.UserRole = user.Role;
+                    bootstrap.UserReferralCode = user.ReferralCode;
+                    bootstrap.UserBalance = user.Balance;
 
-            if (string.IsNullOrWhiteSpace(decodedEmail))
-            {
-                context.Response.StatusCode = StatusCodes.Status401Unauthorized;
-                return;
+                    var tenant = await supabase.GetSingleAsync<SupabaseService.DbTenant>($"tenants?id=eq.{user.TenantId}&select=id,name,slug", context.RequestAborted);
+                    if (tenant != null)
+                    {
+                        bootstrap.TenantName = tenant.Name;
+                        bootstrap.TenantSlug = tenant.Slug;
+                    }
+
+                    var sub = await supabase.GetSingleAsync<SupabaseService.DbSubscription>($"subscriptions?tenant_id=eq.{user.TenantId}&order=created_at.desc&limit=1&select=id,tenant_id,plan_code,plan_name,price_mxn,billing_interval,status,current_period_start,current_period_end,grace_until", context.RequestAborted);
+                    if (sub != null)
+                    {
+                        bootstrap.SubscriptionId = sub.Id;
+                        bootstrap.SubscriptionStatus = sub.Status;
+                        bootstrap.SubscriptionPlanCode = sub.PlanCode;
+                        bootstrap.SubscriptionPlanName = sub.PlanName;
+                        bootstrap.SubscriptionPriceMxn = sub.PriceMxn;
+                        bootstrap.BillingInterval = sub.BillingInterval;
+                        bootstrap.CurrentPeriodStart = sub.CurrentPeriodStart;
+                        bootstrap.CurrentPeriodEnd = sub.CurrentPeriodEnd;
+                        bootstrap.GraceUntil = sub.GraceUntil;
+                    }
+                }
             }
-        }
-        catch
-        {
-            context.Response.StatusCode = StatusCodes.Status401Unauthorized;
-            return;
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[Middleware] Auth hydration failed: {ex.Message}");
+            }
         }
     }
-
-    await next(context);
+    await next();
 });
+app.UseHttpsRedirection();
 
 app.MapGet("/api/health", () =>
 {
@@ -201,109 +204,7 @@ app.MapGet("/api/health", () =>
 })
 .WithName("HealthCheck");
 
-app.MapPost("/api/auth/login", async (LoginRequest request, SupabaseService supabase, IConfiguration config, CancellationToken cancellationToken) =>
-{
-    var email = request.Email.Trim().ToLowerInvariant();
-    
-    // Hardening: fetch user dynamically instead of relying on singleton bootstrap bypass
-    var user = await supabase.GetSingleAsync<SupabaseService.DbUser>($"users?email=eq.{Uri.EscapeDataString(email)}&select=id,tenant_id,branch_id,full_name,email,role,is_active,referral_code,balance", cancellationToken);
-
-    if (user is null || !user.IsActive)
-    {
-        return Results.BadRequest(new
-        {
-            success = false,
-            error = new { code = "INVALID_CREDENTIALS", message = "Credenciales inválidas o cuenta inactiva" }
-        });
-    }
-
-    if (!SupabaseService.VerifySimulatedPassword(email, request.Password))
-    {
-        return Results.BadRequest(new
-        {
-            success = false,
-            error = new { code = "INVALID_CREDENTIALS", message = "Credenciales inválidas" }
-        });
-    }
-
-    var tenant = await supabase.GetSingleAsync<SupabaseService.DbTenant>($"tenants?id=eq.{user.TenantId}&select=id,name,slug", cancellationToken);
-    var subscription = await supabase.GetSingleAsync<SupabaseService.DbSubscription>($"subscriptions?tenant_id=eq.{user.TenantId}&order=created_at.desc&limit=1&select=id,tenant_id,plan_code,plan_name,price_mxn,billing_interval,status,current_period_start,current_period_end,grace_until", cancellationToken);
-
-    if (tenant is null) 
-    {
-        return Results.BadRequest(new { success = false, error = new { code = "INVALID_TENANT", message = "Organización no encontrada" } });
-    }
-
-    bool hasOperationalAccess = subscription?.Status is "active" or "trialing" or "past_due";
-
-    if (!hasOperationalAccess)
-    {
-        var tempContext = new SupabaseBootstrapContext { 
-            TenantSlug = tenant.Slug, 
-            SubscriptionStatus = subscription?.Status ?? "suspended"
-        };
-        return RequireOperationalAccess(tempContext)!;
-    }
-
-    var payloadObj = new { 
-        email = user.Email, 
-        iat = DateTimeOffset.UtcNow.ToUnixTimeSeconds(), 
-        exp = DateTimeOffset.UtcNow.AddHours(24).ToUnixTimeSeconds(),
-        jti = Guid.NewGuid().ToString("N")
-    };
-    var payloadJson = System.Text.Json.JsonSerializer.Serialize(payloadObj);
-    var payloadBase64 = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(payloadJson));
-    var secretKey = config["Supabase:ServiceKey"];
-    
-    if (string.IsNullOrWhiteSpace(secretKey))
-    {
-        return Results.StatusCode(StatusCodes.Status500InternalServerError);
-    }
-
-    using var hmac = new System.Security.Cryptography.HMACSHA256(System.Text.Encoding.UTF8.GetBytes(secretKey));
-    var signature = Convert.ToBase64String(hmac.ComputeHash(System.Text.Encoding.UTF8.GetBytes(payloadBase64)));
-    var token = $"{payloadBase64}.{signature}";
-
-    return Results.Ok(new
-    {
-        success = true,
-        data = new
-        {
-            accessToken = token,
-            user = new
-            {
-                Id = user.Id,
-                TenantId = user.TenantId,
-                ShopId = user.TenantId,
-                BranchId = user.BranchId,
-                FullName = user.FullName,
-                Email = user.Email,
-                Role = user.Role,
-                ReferralCode = user.ReferralCode ?? string.Empty,
-                Balance = user.Balance
-            },
-            shop = new
-            {
-                Id = tenant.Id,
-                Name = tenant.Name,
-                Slug = tenant.Slug
-            },
-            subscription = subscription != null ? new
-            {
-                Id = subscription.Id,
-                Status = subscription.Status,
-                PlanCode = subscription.PlanCode,
-                PlanName = subscription.PlanName,
-                PriceMxn = subscription.PriceMxn,
-                BillingInterval = subscription.BillingInterval,
-                CurrentPeriodStart = subscription.CurrentPeriodStart,
-                CurrentPeriodEnd = subscription.CurrentPeriodEnd,
-                GraceUntil = subscription.GraceUntil
-            } : null
-        }
-    });
-})
-.WithName("Login");
+// Login offloaded to Supabase Auth SDK on frontend
 
 app.MapPost("/api/auth/register", async (RegisterRequest request, SupabaseService supabase, CancellationToken cancellationToken) =>
 {
@@ -350,14 +251,21 @@ app.MapPost("/api/auth/register", async (RegisterRequest request, SupabaseServic
 })
 .WithName("Register");
 
-app.MapGet("/api/auth/me", async (SupabaseService supabase, CancellationToken cancellationToken) =>
+app.MapGet("/api/auth/me", [Microsoft.AspNetCore.Authorization.Authorize] async (HttpContext context, SupabaseService supabase, CancellationToken cancellationToken) =>
 {
+    var email = context.User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value 
+                ?? context.User.FindFirst("email")?.Value;
 
-    await supabase.RefreshSubscriptionContextAsync(cancellationToken);
-    var bootstrap = supabase.Bootstrap;
-    var lastPayment = bootstrap.TenantId == Guid.Empty
-        ? null
-        : await supabase.GetLatestSubscriptionPaymentAsync(bootstrap.TenantId, cancellationToken);
+    if (string.IsNullOrWhiteSpace(email)) return Results.Unauthorized();
+
+    var user = await supabase.GetSingleAsync<SupabaseService.DbUser>($"users?email=eq.{Uri.EscapeDataString(email)}&select=id,tenant_id,branch_id,full_name,email,role,is_active,referral_code,balance", cancellationToken);
+    if (user is null) return Results.NotFound(new { success = false, error = new { code = "USER_NOT_FOUND", message = "Perfil no encontrado" } });
+
+    var tenant = await supabase.GetSingleAsync<SupabaseService.DbTenant>($"tenants?id=eq.{user.TenantId}&select=id,name,slug", cancellationToken);
+    var subscription = await supabase.GetSingleAsync<SupabaseService.DbSubscription>($"subscriptions?tenant_id=eq.{user.TenantId}&order=created_at.desc&limit=1&select=id,tenant_id,plan_code,plan_name,price_mxn,billing_interval,status,current_period_start,current_period_end,grace_until", cancellationToken);
+
+    var lastPayment = await supabase.GetLatestSubscriptionPaymentAsync(user.TenantId, cancellationToken);
+    
     return Results.Ok(new
     {
         success = true,
@@ -365,49 +273,47 @@ app.MapGet("/api/auth/me", async (SupabaseService supabase, CancellationToken ca
         {
             user = new
             {
-                Id = bootstrap.UserId,
-                TenantId = bootstrap.TenantId,
-                ShopId = bootstrap.TenantId,
-                BranchId = bootstrap.BranchId,
-                FullName = bootstrap.UserFullName,
-                Email = bootstrap.UserEmail,
-                Role = bootstrap.UserRole,
-                ReferralCode = bootstrap.UserReferralCode,
-                Balance = bootstrap.UserBalance
+                Id = user.Id,
+                TenantId = user.TenantId,
+                ShopId = user.TenantId,
+                BranchId = user.BranchId,
+                FullName = user.FullName,
+                Email = user.Email,
+                Role = user.Role,
+                ReferralCode = user.ReferralCode,
+                Balance = user.Balance
             },
             shop = new
             {
-                Id = bootstrap.TenantId,
-                Name = bootstrap.TenantName,
-                Slug = bootstrap.TenantSlug
+                Id = tenant?.Id,
+                Name = tenant?.Name,
+                Slug = tenant?.Slug
             },
-            subscription = new
+            subscription = subscription != null ? new
             {
-                Id = bootstrap.SubscriptionId,
-                Status = bootstrap.SubscriptionStatus,
-                PlanCode = bootstrap.SubscriptionPlanCode,
-                PlanName = bootstrap.SubscriptionPlanName,
-                PriceMxn = bootstrap.SubscriptionPriceMxn,
-                BillingInterval = bootstrap.BillingInterval,
-                CurrentPeriodStart = bootstrap.CurrentPeriodStart,
-                CurrentPeriodEnd = bootstrap.CurrentPeriodEnd,
-                GraceUntil = bootstrap.GraceUntil,
-                OperationalAccess = bootstrap.HasOperationalAccess
-            },
-            lastPayment = lastPayment is null
-                ? null
-                : new
-                {
-                    Id = lastPayment.Id,
-                    Provider = lastPayment.Provider,
-                    ProviderPaymentId = lastPayment.ProviderPaymentId,
-                    ProviderPaymentStatus = lastPayment.ProviderPaymentStatus,
-                    Amount = lastPayment.Amount,
-                    CurrencyId = lastPayment.CurrencyId,
-                    PayerEmail = lastPayment.PayerEmail,
-                    PaidAt = lastPayment.PaidAt,
-                    CreatedAt = lastPayment.CreatedAt
-                }
+                Id = subscription.Id,
+                Status = subscription.Status,
+                PlanCode = subscription.PlanCode,
+                PlanName = subscription.PlanName,
+                PriceMxn = subscription.PriceMxn,
+                BillingInterval = subscription.BillingInterval,
+                CurrentPeriodStart = subscription.CurrentPeriodStart,
+                CurrentPeriodEnd = subscription.CurrentPeriodEnd,
+                GraceUntil = subscription.GraceUntil,
+                OperationalAccess = subscription.Status is "active" or "trialing" or "past_due"
+            } : null,
+            lastPayment = lastPayment is null ? null : new
+            {
+                Id = lastPayment.Id,
+                Provider = lastPayment.Provider,
+                ProviderPaymentId = lastPayment.ProviderPaymentId,
+                ProviderPaymentStatus = lastPayment.ProviderPaymentStatus,
+                Amount = lastPayment.Amount,
+                CurrencyId = lastPayment.CurrencyId,
+                PayerEmail = lastPayment.PayerEmail,
+                PaidAt = lastPayment.PaidAt,
+                CreatedAt = lastPayment.CreatedAt
+            }
         }
     });
 })
@@ -415,7 +321,7 @@ app.MapGet("/api/auth/me", async (SupabaseService supabase, CancellationToken ca
 
 app.MapGet("/api/customers", async (string? search, int? page, int? pageSize, SupabaseService supabase, CancellationToken cancellationToken) =>
 {
-    await supabase.RefreshSubscriptionContextAsync(cancellationToken);
+    // Hydration handled by global middleware
     var blocked = RequireOperationalAccess(supabase.Bootstrap);
     if (blocked is not null) return blocked;
 
@@ -440,7 +346,7 @@ app.MapGet("/api/customers", async (string? search, int? page, int? pageSize, Su
 
 app.MapGet("/api/referrals", async (SupabaseService supabase, CancellationToken cancellationToken) =>
 {
-    await supabase.RefreshSubscriptionContextAsync(cancellationToken);
+    // Hydration handled by global middleware
     var items = await supabase.ListReferralsAsync(cancellationToken);
 
     return Results.Ok(new
@@ -453,7 +359,7 @@ app.MapGet("/api/referrals", async (SupabaseService supabase, CancellationToken 
 
 app.MapGet("/api/customers/{id:guid}", async (Guid id, SupabaseService supabase, CancellationToken cancellationToken) =>
 {
-    await supabase.RefreshSubscriptionContextAsync(cancellationToken);
+    // Hydration handled by global middleware
     var blocked = RequireOperationalAccess(supabase.Bootstrap);
     if (blocked is not null) return blocked;
 
@@ -481,7 +387,7 @@ app.MapGet("/api/customers/{id:guid}", async (Guid id, SupabaseService supabase,
 
 app.MapPost("/api/customers", async (CreateCustomerRequest request, SupabaseService supabase, CancellationToken cancellationToken) =>
 {
-    await supabase.RefreshSubscriptionContextAsync(cancellationToken);
+    // Hydration handled by global middleware
     var blocked = RequireOperationalAccess(supabase.Bootstrap);
     if (blocked is not null) return blocked;
 
@@ -515,7 +421,7 @@ app.MapPost("/api/customers", async (CreateCustomerRequest request, SupabaseServ
 
 app.MapPost("/api/service-orders", async (CreateServiceOrderRequest request, SupabaseService supabase, CancellationToken cancellationToken) =>
 {
-    await supabase.RefreshSubscriptionContextAsync(cancellationToken);
+    // Hydration handled by global middleware
     var blocked = RequireOperationalAccess(supabase.Bootstrap);
     if (blocked is not null) return blocked;
 
@@ -563,7 +469,7 @@ app.MapPost("/api/service-orders", async (CreateServiceOrderRequest request, Sup
 
 app.MapGet("/api/service-orders", async (string? status, Guid? branchId, string? search, int? page, int? pageSize, SupabaseService supabase, CancellationToken cancellationToken) =>
 {
-    await supabase.RefreshSubscriptionContextAsync(cancellationToken);
+    // Hydration handled by global middleware
     var blocked = RequireOperationalAccess(supabase.Bootstrap);
     if (blocked is not null) return blocked;
 
@@ -588,7 +494,7 @@ app.MapGet("/api/service-orders", async (string? status, Guid? branchId, string?
 
 app.MapGet("/api/service-orders/{id:guid}", async (Guid id, SupabaseService supabase, CancellationToken cancellationToken) =>
 {
-    await supabase.RefreshSubscriptionContextAsync(cancellationToken);
+    // Hydration handled by global middleware
     var blocked = RequireOperationalAccess(supabase.Bootstrap);
     if (blocked is not null) return blocked;
 
@@ -637,7 +543,7 @@ app.MapGet("/api/service-orders/{id:guid}", async (Guid id, SupabaseService supa
 
 app.MapGet("/api/service-orders/by-folio/{folio}", async (string folio, SupabaseService supabase, CancellationToken cancellationToken) =>
 {
-    await supabase.RefreshSubscriptionContextAsync(cancellationToken);
+    // Hydration handled by global middleware
     var blocked = RequireOperationalAccess(supabase.Bootstrap);
     if (blocked is not null) return blocked;
 
@@ -698,7 +604,7 @@ app.MapGet("/api/portal/orders/{folio}", async (string folio, SupabaseService su
 
 app.MapGet("/api/service-requests", async (int? page, int? pageSize, SupabaseService supabase, CancellationToken cancellationToken) =>
 {
-    await supabase.RefreshSubscriptionContextAsync(cancellationToken);
+    // Hydration handled by global middleware
     var blocked = RequireOperationalAccess(supabase.Bootstrap);
     if (blocked is not null) return blocked;
 
@@ -723,7 +629,7 @@ app.MapGet("/api/service-requests", async (int? page, int? pageSize, SupabaseSer
 
 app.MapPost("/api/service-requests", async (CreateServiceRequestRequest request, SupabaseService supabase, CancellationToken cancellationToken) =>
 {
-    await supabase.RefreshSubscriptionContextAsync(cancellationToken);
+    // Hydration handled by global middleware
     var blocked = RequireOperationalAccess(supabase.Bootstrap);
     if (blocked is not null) return blocked;
 
@@ -751,7 +657,7 @@ app.MapPost("/api/service-requests", async (CreateServiceRequestRequest request,
 
 app.MapGet("/api/technician/queue", async (SupabaseService supabase, CancellationToken cancellationToken) =>
 {
-    await supabase.RefreshSubscriptionContextAsync(cancellationToken);
+    // Hydration handled by global middleware
     var blocked = RequireOperationalAccess(supabase.Bootstrap);
     if (blocked is not null) return blocked;
 
@@ -770,7 +676,7 @@ app.MapGet("/api/technician/queue", async (SupabaseService supabase, Cancellatio
 
 app.MapPatch("/api/service-orders/{id:guid}/technician", async (Guid id, UpdateTechnicianOrderRequest request, SupabaseService supabase, CancellationToken cancellationToken) =>
 {
-    await supabase.RefreshSubscriptionContextAsync(cancellationToken);
+    // Hydration handled by global middleware
     var blocked = RequireOperationalAccess(supabase.Bootstrap);
     if (blocked is not null) return blocked;
 
@@ -798,7 +704,7 @@ app.MapPatch("/api/service-orders/{id:guid}/technician", async (Guid id, UpdateT
 
 app.MapGet("/api/archive/service-orders", async (int? page, int? pageSize, SupabaseService supabase, CancellationToken cancellationToken) =>
 {
-    await supabase.RefreshSubscriptionContextAsync(cancellationToken);
+    // Hydration handled by global middleware
     var blocked = RequireOperationalAccess(supabase.Bootstrap);
     if (blocked is not null) return blocked;
 
@@ -823,7 +729,7 @@ app.MapGet("/api/archive/service-orders", async (int? page, int? pageSize, Supab
 
 app.MapPost("/api/archive/service-orders/{id:guid}", async (Guid id, SupabaseService supabase, CancellationToken cancellationToken) =>
 {
-    await supabase.RefreshSubscriptionContextAsync(cancellationToken);
+    // Hydration handled by global middleware
     var blocked = RequireOperationalAccess(supabase.Bootstrap);
     if (blocked is not null) return blocked;
 
@@ -851,7 +757,7 @@ app.MapPost("/api/archive/service-orders/{id:guid}", async (Guid id, SupabaseSer
 
 app.MapGet("/api/suppliers", async (SupabaseService supabase, CancellationToken cancellationToken) =>
 {
-    await supabase.RefreshSubscriptionContextAsync(cancellationToken);
+    // Hydration handled by global middleware
     var blocked = RequireOperationalAccess(supabase.Bootstrap);
     if (blocked is not null) return blocked;
 
@@ -866,7 +772,7 @@ app.MapGet("/api/suppliers", async (SupabaseService supabase, CancellationToken 
 
 app.MapPost("/api/suppliers", async (CreateSupplierRequest request, SupabaseService supabase, CancellationToken cancellationToken) =>
 {
-    await supabase.RefreshSubscriptionContextAsync(cancellationToken);
+    // Hydration handled by global middleware
     var blocked = RequireOperationalAccess(supabase.Bootstrap);
     if (blocked is not null) return blocked;
 
@@ -894,7 +800,7 @@ app.MapPost("/api/suppliers", async (CreateSupplierRequest request, SupabaseServ
 
 app.MapGet("/api/products", async (string? search, int? page, int? pageSize, SupabaseService supabase, CancellationToken cancellationToken) =>
 {
-    await supabase.RefreshSubscriptionContextAsync(cancellationToken);
+    // Hydration handled by global middleware
     var blocked = RequireOperationalAccess(supabase.Bootstrap);
     if (blocked is not null) return blocked;
 
@@ -919,7 +825,7 @@ app.MapGet("/api/products", async (string? search, int? page, int? pageSize, Sup
 
 app.MapPost("/api/products", async (CreateProductRequest request, SupabaseService supabase, CancellationToken cancellationToken) =>
 {
-    await supabase.RefreshSubscriptionContextAsync(cancellationToken);
+    // Hydration handled by global middleware
     var blocked = RequireOperationalAccess(supabase.Bootstrap);
     if (blocked is not null) return blocked;
 
@@ -947,7 +853,7 @@ app.MapPost("/api/products", async (CreateProductRequest request, SupabaseServic
 
 app.MapGet("/api/purchase-orders", async (int? page, int? pageSize, SupabaseService supabase, CancellationToken cancellationToken) =>
 {
-    await supabase.RefreshSubscriptionContextAsync(cancellationToken);
+    // Hydration handled by global middleware
     var blocked = RequireOperationalAccess(supabase.Bootstrap);
     if (blocked is not null) return blocked;
 
@@ -972,7 +878,7 @@ app.MapGet("/api/purchase-orders", async (int? page, int? pageSize, SupabaseServ
 
 app.MapPost("/api/purchase-orders", async (CreatePurchaseOrderRequest request, SupabaseService supabase, CancellationToken cancellationToken) =>
 {
-    await supabase.RefreshSubscriptionContextAsync(cancellationToken);
+    // Hydration handled by global middleware
     var blocked = RequireOperationalAccess(supabase.Bootstrap);
     if (blocked is not null) return blocked;
 
@@ -1000,7 +906,7 @@ app.MapPost("/api/purchase-orders", async (CreatePurchaseOrderRequest request, S
 
 app.MapGet("/api/expenses", async (int? page, int? pageSize, SupabaseService supabase, CancellationToken cancellationToken) =>
 {
-    await supabase.RefreshSubscriptionContextAsync(cancellationToken);
+    // Hydration handled by global middleware
     var blocked = RequireOperationalAccess(supabase.Bootstrap);
     if (blocked is not null) return blocked;
 
@@ -1025,7 +931,7 @@ app.MapGet("/api/expenses", async (int? page, int? pageSize, SupabaseService sup
 
 app.MapPost("/api/expenses", async (CreateExpenseRequest request, SupabaseService supabase, CancellationToken cancellationToken) =>
 {
-    await supabase.RefreshSubscriptionContextAsync(cancellationToken);
+    // Hydration handled by global middleware
     var blocked = RequireOperationalAccess(supabase.Bootstrap);
     if (blocked is not null) return blocked;
 
@@ -1068,7 +974,7 @@ app.MapPost("/api/expenses", async (CreateExpenseRequest request, SupabaseServic
 
 app.MapGet("/api/finance/summary", async (SupabaseService supabase, CancellationToken cancellationToken) =>
 {
-    await supabase.RefreshSubscriptionContextAsync(cancellationToken);
+    // Hydration handled by global middleware
     var blocked = RequireOperationalAccess(supabase.Bootstrap);
     if (blocked is not null) return blocked;
 
@@ -1083,7 +989,7 @@ app.MapGet("/api/finance/summary", async (SupabaseService supabase, Cancellation
 
 app.MapGet("/api/branches", async (SupabaseService supabase, CancellationToken cancellationToken) =>
 {
-    await supabase.RefreshSubscriptionContextAsync(cancellationToken);
+    // Hydration handled by global middleware
     var blocked = RequireOperationalAccess(supabase.Bootstrap);
     if (blocked is not null) return blocked;
 
@@ -1098,7 +1004,7 @@ app.MapGet("/api/branches", async (SupabaseService supabase, CancellationToken c
 
 app.MapPost("/api/branches", async (CreateBranchRequest request, SupabaseService supabase, CancellationToken cancellationToken) =>
 {
-    await supabase.RefreshSubscriptionContextAsync(cancellationToken);
+    // Hydration handled by global middleware
     var blocked = RequireOperationalAccess(supabase.Bootstrap);
     if (blocked is not null) return blocked;
 
@@ -1126,7 +1032,7 @@ app.MapPost("/api/branches", async (CreateBranchRequest request, SupabaseService
 
 app.MapGet("/api/tasks", async (int? page, int? pageSize, SupabaseService supabase, CancellationToken cancellationToken) =>
 {
-    await supabase.RefreshSubscriptionContextAsync(cancellationToken);
+    // Hydration handled by global middleware
     var blocked = RequireOperationalAccess(supabase.Bootstrap);
     if (blocked is not null) return blocked;
 
@@ -1151,7 +1057,7 @@ app.MapGet("/api/tasks", async (int? page, int? pageSize, SupabaseService supaba
 
 app.MapPost("/api/tasks", async (CreateTaskRequest request, SupabaseService supabase, CancellationToken cancellationToken) =>
 {
-    await supabase.RefreshSubscriptionContextAsync(cancellationToken);
+    // Hydration handled by global middleware
     var blocked = RequireOperationalAccess(supabase.Bootstrap);
     if (blocked is not null) return blocked;
 
@@ -1179,7 +1085,7 @@ app.MapPost("/api/tasks", async (CreateTaskRequest request, SupabaseService supa
 
 app.MapGet("/api/reports/operational", async (SupabaseService supabase, CancellationToken cancellationToken) =>
 {
-    await supabase.RefreshSubscriptionContextAsync(cancellationToken);
+    // Hydration handled by global middleware
     var blocked = RequireOperationalAccess(supabase.Bootstrap);
     if (blocked is not null) return blocked;
 
@@ -1211,7 +1117,7 @@ app.MapGet("/api/billing/plans", () =>
 
 app.MapPost("/api/billing/checkout-preference", async (BillingCheckoutRequest? request, SupabaseService supabase, MercadoPagoService mercadoPago, CancellationToken cancellationToken) =>
 {
-    await supabase.RefreshSubscriptionContextAsync(cancellationToken);
+    // Hydration handled by global middleware
 
     if (!mercadoPago.IsConfigured)
     {

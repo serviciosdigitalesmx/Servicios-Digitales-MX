@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, createContext, useContext } from "react";
 import { supabase } from "../../lib/supabase";
+import { useRouter } from "next/navigation";
 import { IconMicrochip, IconWarning } from "./Icons";
 
 export type AuthMeResponse = {
@@ -41,31 +42,23 @@ export function useAuth() {
 }
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
+  const router = useRouter();
   const [session, setSession] = useState<AuthMeResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [subscriptionError, setSubscriptionError] = useState<string | null>(null);
-  const [showRetry, setShowRetry] = useState(false);
 
   useEffect(() => {
     let mounted = true;
 
     async function initializeAuth() {
-      console.log("🔐 AuthGuard: Iniciando verificación...");
-      
-      // 1. Verificar sesión actual DE INMEDIATO
-      const { data: { session: initialSession }, error: sessionError } = await supabase.auth.getSession();
-      
-      if (sessionError) {
-        console.error("❌ AuthGuard Error:", sessionError);
-        if (mounted) setLoading(false);
-        return;
-      }
+      console.log("🔐 AuthGuard: Verificando sesión...");
+      const { data: { session: authSession } } = await supabase.auth.getSession();
 
-      if (initialSession) {
-        console.log("✅ AuthGuard: Sesión detectada, hidratando perfil...");
-        await hydrateProfile(initialSession);
+      if (authSession) {
+        console.log("✅ AuthGuard: Sesión activa.");
+        await hydrateProfile(authSession);
       } else {
-        console.log("ℹ️ AuthGuard: Sin sesión activa.");
+        console.log("❌ AuthGuard: Sin sesión.");
         if (mounted) setLoading(false);
       }
     }
@@ -138,13 +131,13 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
 
     // Listener para cambios de estado (Login/Logout)
     const { data: { subscription: authListener } } = supabase.auth.onAuthStateChange(
-      async (_event, authSession) => {
-        console.log(`🔄 AuthGuard Evento: ${_event}`);
-        if (_event === "SIGNED_OUT") {
+      async (event, authSession) => {
+        console.log(`🔄 AuthGuard Evento: ${event}`);
+        if (event === "SIGNED_OUT") {
           setSession(null);
           setLoading(false);
-          window.location.href = "/login";
-        } else if (_event === "SIGNED_IN" || _event === "TOKEN_REFRESHED") {
+          router.push("/login");
+        } else if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
           if (authSession) await hydrateProfile(authSession);
         }
       }
@@ -152,14 +145,8 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
 
     initializeAuth();
 
-    // Red de seguridad si se queda pegado
-    const timer = setTimeout(() => {
-      if (mounted) setShowRetry(true);
-    }, 7000);
-
     return () => {
       mounted = false;
-      clearTimeout(timer);
       authListener.unsubscribe();
     };
   }, []);
@@ -176,18 +163,6 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
           <h2 className="text-white text-xl font-black uppercase tracking-[0.2em] opacity-80">Sincronizando Acceso</h2>
           <p className="text-[#0066FF] text-sm font-bold animate-pulse">Verificando credenciales de seguridad...</p>
         </div>
-
-        {showRetry && (
-          <div className="mt-8 animate-fadeIn delay-700">
-            <p className="text-slate-500 text-xs mb-4 max-w-xs mx-auto">Si la carga demora demasiado, es posible que tu sesión necesite un empujón.</p>
-            <button 
-              onClick={() => window.location.reload()}
-              className="px-8 py-3 rounded-xl bg-white/5 border border-white/10 text-white text-xs font-bold uppercase tracking-widest hover:bg-white/10 transition-all hover:border-[#0066FF]/50"
-            >
-              Refrescar Sistema
-            </button>
-          </div>
-        )}
       </div>
     );
   }

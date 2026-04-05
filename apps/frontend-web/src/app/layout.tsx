@@ -1,5 +1,23 @@
 import type { Metadata } from "next";
+import { Inter, Orbitron, Rajdhani } from "next/font/google";
 import "./globals.css";
+import "./public-views.css";
+
+const interFont = Inter({
+  subsets: ["latin"],
+  variable: "--font-inter",
+});
+
+const orbitronFont = Orbitron({
+  subsets: ["latin"],
+  variable: "--font-orbitron",
+});
+
+const rajdhaniFont = Rajdhani({
+  subsets: ["latin"],
+  variable: "--font-rajdhani",
+  weight: ["300", "400", "500", "600", "700"],
+});
 
 export const metadata: Metadata = {
   title: "Servicios Digitales MX",
@@ -8,8 +26,8 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="es">
-      <body>{children}</body>
+    <html lang="es" className={`${interFont.variable} ${orbitronFont.variable} ${rajdhaniFont.variable}`}>
+      <body className="antialiased">{children}</body>
     </html>
   );
 }

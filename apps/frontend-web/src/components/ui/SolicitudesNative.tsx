@@ -6,6 +6,10 @@ import {
   IconThumbsUp, IconChart, IconSync, IconArchive, IconMonitor, 
   IconClose, IconUser, IconPaperPlane, IconCircleNotch 
 } from "./Icons";
+import { supabase } from "../../lib/supabase";
+import { useAuth } from "./AuthGuard";
+import { FeatureGuard } from "./FeatureGuard";
+import { PlanLevel } from "../../lib/subscription";
 
 type ServiceRequest = {
   id: string; folio: string; customerName: string; customerPhone?: string; customerEmail?: string;
@@ -13,9 +17,6 @@ type ServiceRequest = {
   status: string; quotedTotal: number; depositAmount: number; balanceAmount: number;
   solicitudOrigenIp?: string;
 };
-
-import { supabase } from "../../lib/supabase";
-import { useAuth } from "./AuthGuard";
 
 function formatMoney(value: number) {
   return new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN", maximumFractionDigits: 0 }).format(value || 0);
@@ -253,7 +254,9 @@ export function SolicitudesNative() {
                                 {item.solicitudOrigenIp && (
                                   <>
                                     <span style={{color: '#cbd5e1'}}>•</span>
-                                    <span style={{fontSize: '0.625rem', background: '#f1f5f9', padding: '2px 6px', borderRadius: '4px', fontFamily: 'monospace'}}>IP: {item.solicitudOrigenIp}</span>
+                                    <FeatureGuard requiredLevel={PlanLevel.PROFESIONAL} featureName="Rastreo de IP" variant="compact">
+                                      <span style={{fontSize: '0.625rem', background: '#f1f5f9', padding: '2px 6px', borderRadius: '4px', fontFamily: 'monospace'}}>IP: {item.solicitudOrigenIp}</span>
+                                    </FeatureGuard>
                                   </>
                                 )}
                              </div>

@@ -7,7 +7,8 @@
     "packages/*"
   ],
   "scripts": {
-    "dev:frontend": "npm run dev --workspace frontend-web",
+    "dev": "npm run dev --workspace frontend-web",
+    "build": "npm run build --workspace frontend-web",
     "lint:frontend": "npm run lint --workspace frontend-web"
   }
 }

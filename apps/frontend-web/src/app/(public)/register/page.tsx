@@ -2,14 +2,15 @@
 
 import React, { useState, useEffect } from "react";
 import { supabase } from "../../../lib/supabase";
+import { useRouter } from "next/navigation";
 import { IconMicrochip, IconUser, IconArrowLeft, IconCheckCircular, IconStore, IconLock } from "../../../components/ui/Icons";
 
 export default function RegisterPage() {
+  const router = useRouter();
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [plan, setPlan] = useState("");
-  const [resolvedPlan, setResolvedPlan] = useState("");
 
   // Capturar plan de la URL
   useEffect(() => {
@@ -38,11 +39,9 @@ export default function RegisterPage() {
     setError("");
     
     try {
-      console.log("Iniciando proceso de registro completo...");
       const slug = form.shopName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
 
       // 1. Sign up user
-      let userId = "";
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: form.email,
         password: form.password,
@@ -54,91 +53,43 @@ export default function RegisterPage() {
       });
 
       if (authError) {
-        // Si el error es que ya existe, intentamos recuperar el ID si es posible o damos un error claro
         if (authError.message.includes("already registered") || authError.status === 422) {
-          console.log("El usuario ya existe en Auth, intentando vincular...");
-          // Nota: En un flujo ideal, aquí pediríamos login. 
-          // Por ahora, lanzamos un error que pida usar otro correo para no dejar huérfana la cuenta.
           throw new Error("Este correo ya está registrado. Por favor, usa uno diferente o inicia sesión.");
         }
         throw authError;
       }
 
-      if (authData.user) {
-        userId = authData.user.id;
-      } else {
-        throw new Error("No se pudo obtener el ID del usuario.");
-      }
+      const userId = authData.user?.id;
+      if (!userId) throw new Error("No se pudo obtener el ID del usuario.");
 
-      console.log("Usuario Auth creado con ID:", userId);
+      // 2. LLAMADA ATÓMICA AL SISTEMA (RPC)
+      const { error: rpcError } = await supabase.rpc('initialize_new_setup', {
+        p_user_id: userId,
+        p_email: form.email,
+        p_full_name: form.fullName,
+        p_shop_name: form.shopName,
+        p_slug: slug,
+        p_phone: form.phone,
+        p_plan_code: plan
+      });
 
-      // 2. Initialize Tenant
-      console.log("Insertando Tenant...");
-      const { data: tenantData, error: tenantError } = await supabase.from('tenants').insert({
-        name: form.shopName,
-        slug: slug,
-        contact_name: form.fullName,
-        contact_email: form.email,
-        contact_phone: form.phone
-      }).select().single();
+      if (rpcError) throw new Error(`Error en el servidor: ${rpcError.message}`);
 
-      if (tenantError) {
-        console.error("Error en Tenant:", tenantError);
-        throw new Error(`Error creando empresa: ${tenantError.message}`);
-      }
-      
-      const tenantId = tenantData.id;
-      console.log("Tenant creado ID:", tenantId);
-
-      // 3. Create Branch
-      console.log("Insertando Sucursal...");
-      const { data: branchData, error: branchError } = await supabase.from('branches').insert({
-        tenant_id: tenantId,
-        name: 'Matriz',
-        code: 'MTZ'
-      }).select().single();
-
-      if (branchError) {
-        console.error("Error en Sucursal:", branchError);
-        throw new Error(`Error creando sucursal: ${branchError.message}`);
-      }
-
-      // 4. Create User Profile
-      console.log("Insertando Perfil de Usuario...");
-      const { error: userError } = await supabase.from('users').insert({
-        tenant_id: tenantId,
-        branch_id: branchData.id,
-        auth_user_id: userId,
-        full_name: form.fullName,
+      // 3. LOGIN INMEDIATO
+      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
         email: form.email,
-        phone: form.phone,
-        role: 'admin'
+        password: form.password,
       });
 
-      if (userError) {
-        console.error("Error en Perfil:", userError);
-        throw new Error(`Error creando perfil: ${userError.message}`);
+      if (signInError || !signInData.session) {
+        router.push("/login?registered=true");
+        return;
       }
 
-      // 5. Create Subscription
-      console.log("Insertando Suscripción...");
-      const { error: subError } = await supabase.from('subscriptions').insert({
-        tenant_id: tenantId,
-        plan_code: plan,
-        status: 'trialing',
-        current_period_end: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString()
-      });
+      setStep(3); // Mostrar éxito antes de redirigir si se desea, o redirigir directo
+      setTimeout(() => router.push("/hub"), 2000);
 
-      if (subError) {
-        console.error("Error en Suscripción:", subError);
-        throw new Error(`Error activando prueba: ${subError.message}`);
-      }
-
-      console.log("¡Registro existoso!");
-      setResolvedPlan(plan);
-      setStep(3);
     } catch (err: any) {
-      console.error("Registro fallido:", err);
       setError(err.message || "Error inesperado en el servidor");
     } finally {
       setLoading(false);
@@ -146,175 +97,172 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="sdmx-gradient-bg min-h-screen flex flex-col items-center justify-center p-4 overflow-hidden font-sans">
+    <div className="sdmx-public-container">
       {/* Animated Background Elements */}
-      <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full blur-[140px] animate-pulse" style={{ background: 'rgba(0, 102, 255, 0.1)' }} />
-      <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full blur-[140px] animate-pulse delay-1000" style={{ background: 'rgba(99, 102, 241, 0.1)' }} />
+      <div className="sdmx-pulse-bg top-left" style={{ width: '50%', height: '50%', filter: 'blur(140px)' }} />
+      <div className="sdmx-pulse-bg bottom-right" style={{ width: '50%', height: '50%', filter: 'blur(140px)', animationDelay: '1s' }} />
       
-      <a href="/" className="absolute top-8 left-8 flex items-center gap-2 text-slate-400 hover:text-white transition-all font-medium z-10">
+      <a href="/" className="sdmx-back-link">
         <IconArrowLeft width={18} height={18} />
-        <span className="hidden sm:inline">Volver al inicio</span>
+        <span>Volver al inicio</span>
       </a>
 
-      <div className="w-full max-w-xl relative z-10">
-        <div className="text-center mb-10">
-          <h1 className="text-4xl font-extrabold text-white tracking-tight">Crea tu cuenta empresarial</h1>
-          <p className="text-slate-400 mt-3 font-medium">Digitaliza tu taller con tecnología de punta</p>
+      <div style={{ width: '100%', maxWidth: '36rem', position: 'relative', zIndex: 10 }}>
+        <div style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
+          <h1 className="sdmx-h1" style={{ fontSize: '2.5rem' }}>Crea tu cuenta empresarial</h1>
+          <p className="sdmx-text-slate" style={{ marginTop: '0.75rem', fontWeight: 500 }}>Digitaliza tu taller con tecnología de punta</p>
         </div>
 
-        <div className="flex gap-3 mb-8 px-2">
-          <div className={`h-1.5 flex-1 rounded-full transition-all duration-500 ${step >= 1 ? 'bg-[#0066FF] shadow-[0_0_10px_rgb(0,102,255,0.5)]' : 'bg-slate-800'}`} />
-          <div className={`h-1.5 flex-1 rounded-full transition-all duration-500 ${step >= 2 ? 'bg-[#0066FF] shadow-[0_0_10px_rgb(0,102,255,0.5)]' : 'bg-slate-800'}`} />
-          <div className={`h-1.5 flex-1 rounded-full transition-all duration-500 ${step === 3 ? 'bg-emerald-500 shadow-[0_0_10px_rgb(16,185,129,0.5)]' : 'bg-slate-800'}`} />
+        <div className="sdmx-step-bar">
+          <div className={`sdmx-step-item ${step >= 1 ? 'is-active' : ''}`} />
+          <div className={`sdmx-step-item ${step >= 2 ? 'is-active' : ''}`} />
+          <div className={`sdmx-step-item ${step === 3 ? 'is-success' : ''}`} />
         </div>
 
-        <div className="sdmx-auth-card relative overflow-hidden">
-          
-          <form onSubmit={handleRegister} className="space-y-8">
+        <div className="sdmx-auth-card" style={{ maxWidth: 'none' }}>
+          <form onSubmit={handleRegister}>
             
             {step === 1 && (
-              <div className="space-y-8 animate-fadeIn">
-                <div className="space-y-2">
-                  <h2 className="text-2xl font-bold text-white flex items-center gap-3">
-                    <div className="p-2 bg-blue-500/10 rounded-lg">
-                      <IconStore width={24} height={24} className="text-[#0066FF]" />
+              <div style={{ animation: 'fadeIn 0.5s ease-out' }}>
+                <div style={{ marginBottom: '2rem' }}>
+                  <h2 className="sdmx-h2" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                    <div className="sdmx-icon-wrap">
+                      <IconStore width={24} height={24} />
                     </div>
                     Configuración Inicial
                   </h2>
-                  <p className="text-slate-500 text-sm">Empecemos con la identidad de tu negocio</p>
+                  <p className="sdmx-text-slate" style={{ fontSize: '0.875rem', marginTop: '0.5rem' }}>Empecemos con la identidad de tu negocio</p>
                 </div>
 
-                <div className="space-y-6">
-                  <div className="group">
-                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2 ml-1">Nombre Comercial</label>
-                    <input 
-                      type="text" 
-                      value={form.shopName}
-                      onChange={(e) => setForm({...form, shopName: e.target.value})}
-                      className="sdmx-input"
-                      placeholder="Ej. ElectroFix Pro"
-                      required
-                    />
-                    <div className="mt-3 px-1">
-                      <p className="text-[11px] text-slate-500 font-medium">
-                        URL personalizada: <span className="text-[#0066FF]">sdmx.app/{form.shopName ? form.shopName.toLowerCase().replace(/[^a-z0-9]/g, "-") : 'tu-taller'}</span>
-                      </p>
-                    </div>
+                <div className="sdmx-input-group">
+                  <label className="sdmx-input-label">Nombre Comercial</label>
+                  <input 
+                    type="text" 
+                    value={form.shopName}
+                    onChange={(e) => setForm({...form, shopName: e.target.value})}
+                    className="sdmx-input"
+                    style={{ paddingLeft: '1.25rem' }}
+                    placeholder="Ej. ElectroFix Pro"
+                    required
+                  />
+                  <div style={{ marginTop: '0.75rem', padding: '0 0.25rem' }}>
+                    <p style={{ fontSize: '11px', color: '#64748b', fontWeight: 500 }}>
+                      URL personalizada: <span style={{ color: '#0066FF' }}>sdmx.app/{form.shopName ? form.shopName.toLowerCase().replace(/[^a-z0-9]/g, "-") : 'tu-taller'}</span>
+                    </p>
                   </div>
-                  
-                  <div className="group">
-                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2 ml-1">Plan de Lanzamiento</label>
-                    <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-5 flex items-center justify-between group-hover:border-slate-700 transition-colors">
-                      <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 bg-[#0066FF]/20 rounded-xl flex items-center justify-center">
-                          <IconMicrochip width={20} height={20} className="text-[#0066FF]" />
-                        </div>
-                        <div>
-                          <p className="font-bold text-white capitalize text-lg">{plan}</p>
-                          <p className="text-xs text-slate-500">Prueba gratuita activa (14 días)</p>
-                        </div>
+                </div>
+                
+                <div className="sdmx-input-group">
+                  <label className="sdmx-input-label">Plan de Lanzamiento</label>
+                  <div className="sdmx-selection-card">
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                      <div className="sdmx-icon-wrap">
+                        <IconMicrochip width={20} height={20} />
                       </div>
-                      <IconCheckCircular width={24} height={24} className="text-emerald-500" />
+                      <div>
+                        <p style={{ fontWeight: 700, color: 'white', textTransform: 'capitalize', fontSize: '1.125rem' }}>{plan}</p>
+                        <p style={{ fontSize: '0.75rem', color: '#64748b' }}>Prueba gratuita activa (14 días)</p>
+                      </div>
                     </div>
+                    <IconCheckCircular width={24} height={24} style={{ color: '#10b981' }} />
                   </div>
                 </div>
 
-                <button type="submit" className="sdmx-btn-premium">
+                <button type="submit" className="sdmx-btn-premium" style={{ marginTop: '1rem' }}>
                   Continuar al Acceso
                 </button>
               </div>
             )}
 
             {step === 2 && (
-              <div className="space-y-8 animate-fadeIn">
-                <div className="space-y-2">
-                  <h2 className="text-2xl font-bold text-white flex items-center gap-3">
-                    <div className="p-2 bg-blue-500/10 rounded-lg">
-                      <IconUser width={24} height={24} className="text-[#0066FF]" />
+              <div style={{ animation: 'fadeIn 0.5s ease-out' }}>
+                <div style={{ marginBottom: '2rem' }}>
+                  <h2 className="sdmx-h2" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                    <div className="sdmx-icon-wrap">
+                      <IconUser width={24} height={24} />
                     </div>
                     Información del Administrador
                   </h2>
-                  <p className="text-slate-500 text-sm">Define quién tendrá el control total</p>
+                  <p className="sdmx-text-slate" style={{ fontSize: '0.875rem', marginTop: '0.5rem' }}>Define quién tendrá el control total</p>
                 </div>
 
                 {error && (
-                  <div className="bg-red-500/10 text-red-400 border border-red-500/20 p-4 rounded-xl text-sm animate-shake">
-                    {error}
+                  <div className="sdmx-error-box" style={{ marginBottom: '1.5rem' }}>
+                    <span>{error}</span>
                   </div>
                 )}
 
-                <div className="space-y-5">
-                  <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2 ml-1">Nombre Completo</label>
-                    <div className="relative">
-                      <IconUser width={18} height={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" />
-                      <input 
-                        type="text" 
-                        value={form.fullName}
-                        onChange={(e) => setForm({...form, fullName: e.target.value})}
-                        className="sdmx-input"
-                        style={{ paddingLeft: '3rem' }}
-                        placeholder="Juan Pérez"
-                        required
-                      />
-                    </div>
+                <div className="sdmx-input-group">
+                  <label className="sdmx-input-label">Nombre Completo</label>
+                  <div className="sdmx-input-wrapper">
+                    <IconUser width={18} height={18} className="sdmx-input-icon" />
+                    <input 
+                      type="text" 
+                      value={form.fullName}
+                      onChange={(e) => setForm({...form, fullName: e.target.value})}
+                      className="sdmx-input"
+                      placeholder="Juan Pérez"
+                      required
+                    />
                   </div>
-                  
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                    <div>
-                      <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2 ml-1">Email</label>
-                      <input 
-                        type="email" 
-                        value={form.email}
-                        onChange={(e) => setForm({...form, email: e.target.value})}
-                        className="sdmx-input"
-                        placeholder="admin@empresa.com"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2 ml-1">WhatsApp</label>
-                      <input 
-                        type="tel" 
-                        value={form.phone}
-                        onChange={(e) => setForm({...form, phone: e.target.value})}
-                        className="sdmx-input"
-                        placeholder="+52..."
-                        required
-                      />
-                    </div>
-                  </div>
-
+                </div>
+                
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.25rem', marginBottom: '1.5rem' }}>
                   <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2 ml-1">Contraseña Maestra</label>
-                    <div className="relative">
-                      <IconLock width={18} height={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" />
-                      <input 
-                        type="password" 
-                        value={form.password}
-                        onChange={(e) => setForm({...form, password: e.target.value})}
-                        className="sdmx-input"
-                        style={{ paddingLeft: '3rem' }}
-                        placeholder="••••••••••••"
-                        required
-                      />
-                    </div>
+                    <label className="sdmx-input-label">Email</label>
+                    <input 
+                      type="email" 
+                      value={form.email}
+                      onChange={(e) => setForm({...form, email: e.target.value})}
+                      className="sdmx-input"
+                      style={{ paddingLeft: '1.25rem' }}
+                      placeholder="admin@empresa.com"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="sdmx-input-label">WhatsApp</label>
+                    <input 
+                      type="tel" 
+                      value={form.phone}
+                      onChange={(e) => setForm({...form, phone: e.target.value})}
+                      className="sdmx-input"
+                      style={{ paddingLeft: '1.25rem' }}
+                      placeholder="+52..."
+                      required
+                    />
                   </div>
                 </div>
 
-                <div className="flex flex-col sm:flex-row gap-4">
-                  <button type="button" onClick={() => setStep(1)} className="px-8 py-4 rounded-2xl font-bold text-slate-400 hover:text-white hover:bg-slate-800 transition-all">
+                <div className="sdmx-input-group">
+                  <label className="sdmx-input-label">Contraseña Maestra</label>
+                  <div className="sdmx-input-wrapper">
+                    <IconLock width={18} height={18} className="sdmx-input-icon" />
+                    <input 
+                      type="password" 
+                      value={form.password}
+                      onChange={(e) => setForm({...form, password: e.target.value})}
+                      className="sdmx-input"
+                      placeholder="••••••••••••"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: '1rem', marginTop: '2rem' }}>
+                  <button type="button" onClick={() => setStep(1)} style={{ padding: '1rem 2rem', borderRadius: '1rem', fontWeight: 700, color: '#94a3b8', border: 'none', background: 'transparent', cursor: 'pointer' }}>
                     Atrás
                   </button>
                    <button 
                     type="submit" 
                     disabled={loading}
-                    className={`sdmx-btn-premium flex-1 ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    className="sdmx-btn-premium"
+                    style={{ flex: 1 }}
                   >
-                    <span className={loading ? 'opacity-0' : 'opacity-100'}>Crear mi cuenta</span>
+                    <span style={{ opacity: loading ? 0 : 1 }}>Crear mi cuenta</span>
                     {loading && (
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                      <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <div className="sdmx-spinner" style={{ width: '1.25rem', height: '1.25rem' }} />
                       </div>
                     )}
                   </button>
@@ -323,21 +271,21 @@ export default function RegisterPage() {
             )}
 
             {step === 3 && (
-              <div className="space-y-8 animate-fadeIn text-center py-6">
-                <div className="w-24 h-24 bg-emerald-500/10 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-8 shadow-[0_0_40px_rgb(16,185,129,0.2)]">
+              <div style={{ textAlign: 'center', padding: '1.5rem 0', animation: 'fadeIn 0.5s ease-out' }}>
+                <div className="sdmx-success-badge">
                   <IconCheckCircular width={48} height={48} />
                 </div>
                 
-                <div>
-                  <h2 className="text-3xl font-bold text-white">¡Bienvenido a bordo!</h2>
-                  <p className="text-slate-400 mt-2">Tu infraestructura digital está lista para operar</p>
+                <div style={{ marginBottom: '2rem' }}>
+                  <h2 className="sdmx-h2" style={{ fontSize: '1.875rem' }}>¡Bienvenido a bordo!</h2>
+                  <p className="sdmx-text-slate" style={{ marginTop: '0.5rem' }}>Tu infraestructura digital está lista para operar</p>
                 </div>
                 
-                <div className="bg-slate-900/80 p-6 rounded-3xl border border-slate-800 text-left my-8">
-                  <p className="text-xs text-slate-500 uppercase font-bold tracking-widest mb-3">Portal público de tracking:</p>
-                  <div className="flex items-center gap-3 p-3 bg-slate-950 rounded-xl border border-white/5">
-                    <IconStore width={18} height={18} className="text-[#0066FF] shrink-0" />
-                    <span className="font-mono text-slate-300 text-sm truncate">
+                <div style={{ background: 'rgba(15, 23, 42, 0.8)', padding: '1.5rem', borderRadius: '1.5rem', border: '1px solid var(--glass-border)', textAlign: 'left', marginBottom: '2rem' }}>
+                  <p style={{ fontSize: '0.75rem', color: '#64748b', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.1em', marginBottom: '0.75rem' }}>Portal público de tracking:</p>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem', background: '#020617', borderRadius: '0.75rem', border: '1px solid rgba(255,255,255,0.05)' }}>
+                    <IconStore width={18} height={18} style={{ color: '#0066FF', flexShrink: 0 }} />
+                    <span style={{ fontFamily: 'monospace', color: '#cbd5e1', fontSize: '0.875rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {typeof window !== 'undefined' ? `${window.location.origin}/portal?shop=${form.shopName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "")}` : `/portal?shop=...`}
                     </span>
                   </div>
@@ -346,7 +294,8 @@ export default function RegisterPage() {
                 <button 
                   type="button" 
                   onClick={() => window.location.href = "/hub"}
-                  className="w-full bg-gradient-to-r from-[#0066FF] to-[#0052CC] text-white py-5 rounded-2xl font-bold hover:shadow-[0_0_30px_rgb(0,102,255,0.4)] transition-all transform active:scale-95"
+                  className="sdmx-btn-premium"
+                  style={{ padding: '1.25rem' }}
                 >
                   Ir al Panel de Control
                 </button>
@@ -356,65 +305,16 @@ export default function RegisterPage() {
           </form>
         </div>
 
-        <div className="mt-10 text-center">
-          <p className="text-slate-500 text-sm">
-            ¿Ya tienes una empresa registrada? <a href="/login" className="text-white font-bold hover:text-[#0066FF] transition-colors underline underline-offset-4">Inicia Sesión</a>
+        <div style={{ marginTop: '2.5rem', textAlign: 'center' }}>
+          <p className="sdmx-text-slate" style={{ fontSize: '0.875rem' }}>
+            ¿Ya tienes una empresa registrada? <a href="/login" className="sdmx-text-link" style={{ color: 'white', textUnderlineOffset: '4px', textDecoration: 'underline' }}>Inicia Sesión</a>
           </p>
         </div>
       </div>
 
-      <style jsx global>{`
-        body { background-color: #0F172A !important; margin: 0; }
-        .sdmx-gradient-bg {
-          background-color: #0F172A;
-          background-image: 
-            radial-gradient(circle at 0% 0%, rgba(0, 102, 255, 0.15) 0%, transparent 50%),
-            radial-gradient(circle at 100% 100%, rgba(99, 102, 241, 0.15) 0%, transparent 50%);
-        }
-        .sdmx-auth-card {
-          background-color: rgba(255, 255, 255, 0.03);
-          backdrop-filter: blur(24px);
-          -webkit-backdrop-filter: blur(24px);
-          border: 1px solid rgba(255, 255, 255, 0.1);
-          padding: 2.5rem;
-          border-radius: 2rem;
-          box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-          width: 100%;
-        }
-        .sdmx-input {
-          width: 100%;
-          background-color: rgba(15, 23, 42, 0.5);
-          border: 1px solid rgba(255, 255, 255, 0.1);
-          border-radius: 1rem;
-          padding: 1rem 1.25rem;
-          color: white;
-          outline: none;
-        }
-        .sdmx-btn-premium {
-          width: 100%;
-          padding: 1.25rem;
-          border-radius: 1rem;
-          background: linear-gradient(135deg, #0066FF, #0044CC);
-          color: white;
-          font-weight: 700;
-          border: none;
-          cursor: pointer;
-        }
-        @keyframes spin-slow {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
-        }
-        .animate-spin-slow {
-          animation: spin-slow 8s linear infinite;
-        }
-        @keyframes spin-slow {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
-        }
-        .animate-spin-slow {
-          animation: spin-slow 8s linear infinite;
-        }
-      `}</style>
+      <div className="sdmx-footer-note">
+        Powered by Servicios Digitales MX &copy; 2026
+      </div>
     </div>
   );
 }
