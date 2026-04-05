@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Inter, Orbitron, Rajdhani } from "next/font/google";
 import "./globals.css";
-import "./public-views.css";
 
 const interFont = Inter({
   subsets: ["latin"],
