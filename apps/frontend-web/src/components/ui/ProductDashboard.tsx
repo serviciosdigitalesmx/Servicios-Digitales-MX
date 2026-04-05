@@ -82,8 +82,8 @@ export function ProductDashboard({ initialModule = "operativo", shopSlug }: Prod
     async function loadBranches() {
       if (!session?.shop.id) return;
       const response = await fetchWithAuth("/api/branches");
-      const payload = await response.json();
-      if (!response.ok) return;
+      const payload = await (response as any).json();
+      if (!(response as any).ok) return;
       const data = Array.isArray(payload?.data) ? payload.data : [];
       setBranches(data);
     }
@@ -216,8 +216,8 @@ export function ProductDashboard({ initialModule = "operativo", shopSlug }: Prod
                  <p className="font-label text-slate-400 max-w-md mb-10 text-lg">Tu perfil de <strong className="text-blue-400 uppercase tracking-widest">{userRole}</strong> no tiene privilegios para visualizar o gestionar este segmento.</p>
                  <a href="/interno" className="bg-slate-800 hover:bg-slate-700 text-white px-10 py-5 rounded-2xl font-tech text-xs uppercase tracking-[0.2em] transition-all">Volver al Dashboard</a>
               </div>
-            ) : activeModule === "operativo" ? <OperativoNative /> 
-              : activeModule === "tecnico" ? <TecnicoNative />
+            ) : activeModule === "operativo" ? <OperativoNative tenantId={session?.shop?.id || "default"} /> 
+              : activeModule === "tecnico" ? <TecnicoNative tenantId={session?.shop?.id || "default"} />
               : activeModule === "solicitudes" ? <SolicitudesNative />
               : activeModule === "archivo" ? <ArchivoNative />
               : activeModule === "clientes" ? <ClientesNative />

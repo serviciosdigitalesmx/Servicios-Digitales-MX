@@ -36,7 +36,7 @@ const SERVICE_ORDER_STATUS_OPTIONS = [
 function normalizeServiceOrderStatus(value?: string) { return SERVICE_ORDER_STATUS_ALIASES[(value ?? "").trim().toLowerCase()] ?? (value ?? "").trim().toLowerCase(); }
 function getServiceOrderStatusLabel(value?: string) { return SERVICE_ORDER_STATUS_LABELS[normalizeServiceOrderStatus(value)] ?? (value ? value : "Sin estado"); }
 
-export function OperativoNative() {
+export function OperativoNative({ tenantId }: any = {}) {
   const { session } = useAuth();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);

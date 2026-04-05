@@ -115,7 +115,7 @@ export function UpgradeModal({ requiredLevel, onClose }: UpgradeModalProps) {
           amount: targetPlan.price
         }),
       });
-      const data = await res.json();
+      const data = await (res as any).json();
       if (data.paymentUrl) {
         window.location.href = data.paymentUrl;
       }

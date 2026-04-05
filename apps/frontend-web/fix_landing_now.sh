@@ -1,3 +1,12 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+cd "$HOME/Servicios-Digitales-MX/apps/frontend-web"
+
+mkdir -p ./src/components/ui
+mkdir -p ./src/app
+
+cat > ./src/components/ui/MarketingLanding.tsx <<'TSX'
 "use client";
 
 const features = [
@@ -233,3 +242,27 @@ export function MarketingLanding() {
     </main>
   );
 }
+TSX
+
+cat > ./src/app/public-views.css <<'CSS'
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  background: #08142c;
+}
+
+a {
+  text-decoration: none;
+}
+CSS
+
+echo "===== ARCHIVOS ACTUALIZADOS ====="
+echo "./src/components/ui/MarketingLanding.tsx"
+echo "./src/app/public-views.css"
+echo
+
+echo "===== BUILD ====="
+npm run build

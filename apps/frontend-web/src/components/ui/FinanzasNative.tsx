@@ -23,7 +23,7 @@ function formatMoney(value: number) {
   return new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN", maximumFractionDigits: 0 }).format(value || 0);
 }
 
-export function FinanzasNative() {
+export function FinanzasNative({ tenantId }: any = {}) {
   const { session } = useAuth();
   const [summary, setSummary] = useState<FinanceSummary | null>(null);
   const [apiStateMessage, setApiStateMessage] = useState("");

@@ -37,9 +37,9 @@ export function ClientesNative() {
       }
 
       const response = await fetchWithAuth(`/api/customers?${params.toString()}`);
-      const payload = await response.json();
+      const payload = await (response as any).json();
 
-      if (!response.ok) {
+      if (!(response as any).ok) {
         throw new Error(payload?.error?.message || "Error de conexión con el servidor.");
       }
 
@@ -97,9 +97,9 @@ export function ClientesNative() {
           notes: form.notes.trim() || null
         })
       });
-      const payload = await response.json();
+      const payload = await (response as any).json();
 
-      if (!response.ok) {
+      if (!(response as any).ok) {
         throw new Error(payload?.error?.message || "Ocurrió un error al registrar al cliente. Verifique los datos e intente de nuevo.");
       }
 

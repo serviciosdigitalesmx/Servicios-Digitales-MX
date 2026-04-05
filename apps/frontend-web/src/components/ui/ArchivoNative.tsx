@@ -87,9 +87,9 @@ export function ArchivoNative() {
       if (toDate) params.set("to", toDate);
 
       const response = await fetchWithAuth(`/api/archive/service-orders?${params.toString()}`);
-      const payload = await response.json();
+      const payload = await (response as any).json();
 
-      if (!response.ok) {
+      if (!(response as any).ok) {
         throw new Error(payload?.error?.message || "No se pudo cargar el archivo histórico.");
       }
 

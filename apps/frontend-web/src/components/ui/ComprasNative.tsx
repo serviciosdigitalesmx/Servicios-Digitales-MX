@@ -39,13 +39,13 @@ export function ComprasNative() {
         fetchWithAuth("/api/purchase-orders?page=1&pageSize=100")
       ]);
 
-      const suppliersPayload = await suppliersRes.json();
-      const productsPayload = await productsRes.json();
-      const ordersPayload = await ordersRes.json();
+      const suppliersPayload = await (suppliersRes as any).json();
+      const productsPayload = await (productsRes as any).json();
+      const ordersPayload = await (ordersRes as any).json();
 
-      if (!suppliersRes.ok) throw new Error(suppliersPayload?.error?.message || "Error al cargar proveedores.");
-      if (!productsRes.ok) throw new Error(productsPayload?.error?.message || "Error al cargar productos.");
-      if (!ordersRes.ok) throw new Error(ordersPayload?.error?.message || "Error al cargar órdenes de compra.");
+      if (!(suppliersRes as any).ok) throw new Error(suppliersPayload?.error?.message || "Error al cargar proveedores.");
+      if (!(productsRes as any).ok) throw new Error(productsPayload?.error?.message || "Error al cargar productos.");
+      if (!(ordersRes as any).ok) throw new Error(ordersPayload?.error?.message || "Error al cargar órdenes de compra.");
 
       setSuppliers((Array.isArray(suppliersPayload?.data) ? suppliersPayload.data : []).map((s: any) => ({ id: s.id, businessName: s.businessName })));
       setProducts((Array.isArray(productsPayload?.data) ? productsPayload.data : []).map((p: any) => ({
@@ -101,8 +101,8 @@ export function ComprasNative() {
           ]
         })
       });
-      const payload = await response.json();
-      if (!response.ok) throw new Error(payload?.error?.message || "Ocurrió un error al procesar la orden.");
+      const payload = await (response as any).json();
+      if (!(response as any).ok) throw new Error(payload?.error?.message || "Ocurrió un error al procesar la orden.");
 
       setForm({ supplierId: "", reference: "", paymentTerms: "", expectedDate: "", notes: "", productId: "", qtyOrdered: "1", unitCost: "0" });
       await loadData();

@@ -1,4 +1,82 @@
 @import "tailwindcss";
 @import "./public-views.css";
 
-/* --- FIN DE ESTILOS --- */
+:root {
+  --bg-main: #060608;
+  --accent-blue: #0084ff;
+  --accent-blue-rgb: 0, 132, 255;
+  --accent-orange: #ff5c00;
+  --accent-orange-rgb: 255, 92, 0;
+  --text-primary: #ffffff;
+  --text-secondary: #8e9196;
+  --border-color: rgba(255, 255, 255, 0.08);
+}
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  background-color: var(--bg-main);
+  color: var(--text-primary);
+  font-family: var(--font-inter), sans-serif;
+}
+
+h1, h2, h3, h4, .font-jakarta {
+  font-family: var(--font-jakarta), sans-serif;
+}
+
+.glass-card {
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  backdrop-filter: blur(18px);
+  border-radius: 24px;
+}
+
+.btn-primary {
+  background: var(--accent-blue);
+  color: white;
+  font-weight: 700;
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.75rem;
+  transition: all 0.2s ease;
+  box-shadow: 0 10px 24px rgba(var(--accent-blue-rgb), 0.20);
+}
+
+.btn-primary:hover {
+  background: #006ae6;
+}
+
+.btn-accent {
+  background: var(--accent-orange);
+  color: white;
+  font-weight: 700;
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.75rem;
+  transition: all 0.2s ease;
+  box-shadow: 0 10px 24px rgba(var(--accent-orange-rgb), 0.22);
+}
+
+.btn-accent:hover {
+  background: #e65100;
+}
+
+.input-srf {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  border-radius: 0.75rem;
+  padding: 1rem;
+  color: white;
+  outline: none;
+  transition: all 0.2s ease;
+}
+
+.input-srf::placeholder {
+  color: rgba(255,255,255,0.22);
+}
+
+.input-srf:focus {
+  border-color: var(--accent-blue);
+  background: rgba(255,255,255,0.08);
+  box-shadow: 0 0 0 4px rgba(var(--accent-blue-rgb), 0.10);
+}

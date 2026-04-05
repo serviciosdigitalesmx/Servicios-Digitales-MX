@@ -17,7 +17,7 @@ function formatMoney(value: number) {
   return new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN", maximumFractionDigits: 0 }).format(value || 0); 
 }
 
-export function StockNative() {
+export function StockNative({ tenantId }: any = {}) {
   // 1. Hooks genéricos para carga de datos
   const { 
     data: suppliers, 

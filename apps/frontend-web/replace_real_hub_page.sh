@@ -1,18 +1,15 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+BASE="$HOME/Servicios-Digitales-MX/apps/frontend-web"
+TARGET="$BASE/src/app/(dashboard)/hub/page.tsx"
+
+cat > "$TARGET" <<'TSX'
 "use client";
 
 import React, { useState } from "react";
-import Sidebar from "../../../components/hub/Sidebar";
-import Dashboard from "../../../components/hub/Dashboard";
-import ReceptionForm from "../../../components/hub/ReceptionForm";
-import TechnicalPanel from "../../../components/hub/TechnicalPanel";
-import CustomersPanel from "../../../components/hub/CustomersPanel";
-import ArchivePanel from "../../../components/hub/ArchivePanel";
-import FinancePanel from "../../../components/hub/FinancePanel";
-import InventoryPanel from "../../../components/hub/InventoryPanel";
-import ExpensesPanel from "../../../components/hub/ExpensesPanel";
-import PurchasesPanel from "../../../components/hub/PurchasesPanel";
-import ReportsPanel from "../../../components/hub/ReportsPanel";
-import SecurityPanel from "../../../components/hub/SecurityPanel";
+import Sidebar from "@/components/hub/Sidebar";
+import Dashboard from "@/components/hub/Dashboard";
 
 function Placeholder({ title }: { title: string }) {
   return (
@@ -37,27 +34,27 @@ export default function HubPage() {
       case "dashboard":
         return <Dashboard />;
       case "recepcion":
-        return <ReceptionForm />;
+        return <Placeholder title="Recepción" />;
       case "taller":
-        return <TechnicalPanel />;
+        return <Placeholder title="Taller Técnico" />;
       case "solicitudes":
         return <Placeholder title="Solicitudes" />;
       case "archivo":
-        return <ArchivePanel />;
+        return <Placeholder title="Archivo Histórico" />;
       case "clientes":
-        return <CustomersPanel />;
+        return <Placeholder title="Clientes" />;
       case "inventario":
-        return <InventoryPanel />;
+        return <Placeholder title="Inventario" />;
       case "gastos":
-        return <ExpensesPanel />;
+        return <Placeholder title="Gastos & Pagos" />;
       case "compras":
-        return <PurchasesPanel />;
+        return <Placeholder title="Compras" />;
       case "reportes":
         return <Placeholder title="Reportes Hub" />;
       case "finanzas":
-        return <FinancePanel />;
+        return <Placeholder title="Finanzas" />;
       case "seguridad":
-        return <SecurityPanel />;
+        return <Placeholder title="Seguridad" />;
       default:
         return <Placeholder title="Módulo" />;
     }
@@ -72,3 +69,12 @@ export default function HubPage() {
     </div>
   );
 }
+TSX
+
+echo "===== HUB REAL REEMPLAZADO ====="
+sed -n '1,260p' "$TARGET"
+echo
+
+cd "$BASE"
+rm -rf .next
+npm run dev

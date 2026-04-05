@@ -43,9 +43,9 @@ export function TareasNative() {
     setApiStateError("");
     try {
       const response = await fetchWithAuth("/api/tasks?page=1&pageSize=100");
-      const payload = await response.json();
+      const payload = await (response as any).json();
 
-      if (!response.ok) {
+      if (!(response as any).ok) {
         throw new Error(payload?.error?.message || "Error al cargar las tareas.");
       }
 
@@ -99,9 +99,9 @@ export function TareasNative() {
           serviceRequestId: null
         })
       });
-      const payload = await response.json();
+      const payload = await (response as any).json();
 
-      if (!response.ok) {
+      if (!(response as any).ok) {
         throw new Error(payload?.error?.message || "Error al guardar la tarea.");
       }
 

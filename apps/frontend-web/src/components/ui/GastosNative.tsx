@@ -43,11 +43,11 @@ export function GastosNative() {
         fetchWithAuth("/api/expenses?page=1&pageSize=100")
       ]);
 
-      const suppliersPayload = await suppliersRes.json();
-      const expensesPayload = await expensesRes.json();
+      const suppliersPayload = await (suppliersRes as any).json();
+      const expensesPayload = await (expensesRes as any).json();
 
-      if (!suppliersRes.ok) throw new Error(suppliersPayload?.error?.message || "Error al cargar proveedores.");
-      if (!expensesRes.ok) throw new Error(expensesPayload?.error?.message || "Error al cargar gastos.");
+      if (!(suppliersRes as any).ok) throw new Error(suppliersPayload?.error?.message || "Error al cargar proveedores.");
+      if (!(expensesRes as any).ok) throw new Error(expensesPayload?.error?.message || "Error al cargar gastos.");
 
       setSuppliers((Array.isArray(suppliersPayload?.data) ? suppliersPayload.data : []).map((s: any) => ({ id: s.id, businessName: s.businessName })));
       setExpenses((Array.isArray(expensesPayload?.data) ? expensesPayload.data : []).map((e: any) => ({
@@ -91,8 +91,8 @@ export function GastosNative() {
           expenseDate: form.expenseDate
         })
       });
-      const payload = await response.json();
-      if (!response.ok) throw new Error(payload?.error?.message || "Ocurrió un error al guardar el registro.");
+      const payload = await (response as any).json();
+      if (!(response as any).ok) throw new Error(payload?.error?.message || "Ocurrió un error al guardar el registro.");
 
       setForm({
         supplierId: "", expenseType: "variable", category: "insumos", concept: "", description: "",
