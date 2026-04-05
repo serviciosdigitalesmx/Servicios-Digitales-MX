@@ -1,5 +1,8 @@
 node_modules/
 .next/
+.next-build/
+artifacts/
+*.tsbuildinfo
 dist/
 coverage/
 bin/
@@ -11,3 +14,4 @@ obj/
 .env.production.local
 apps/frontend-web/.env.local
 apps/backend-api/appsettings.Development.local.json
+apps/backend-api/.local_auth.json
