@@ -12,7 +12,7 @@ class SrFixE2ETest(unittest.TestCase):
         self.driver = webdriver.Safari()
         self.driver.maximize_window()
         self.wait = WebDriverWait(self.driver, 10)
-        self.base_url = "http://localhost:3000" # Ajusta si tu puerto es 3005
+        self.base_url = "http://localhost:3005" # Ajusta si tu puerto es 3005
 
     def test_01_landing_and_login_fail(self):
         """Prueba que la landing cargue y el login rechace basura"""
@@ -48,7 +48,7 @@ class SrFixE2ETest(unittest.TestCase):
     def test_03_api_health_check(self):
         """Prueba que el fix de Inyección de Dependencias en /api/health funcione"""
         driver = self.driver
-        backend_url = "http://localhost:5111/api/health" # Ajusta tu puerto de C#
+        backend_url = "http://localhost:5115/api/health" # Ajusta tu puerto de C#
         driver.get(backend_url)
         
         print("🔍 Validando Health Check del Backend...")
