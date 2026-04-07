@@ -100,3 +100,117 @@ Import trace for requested module:
  ✓ Compiled in 1965ms (762 modules)
  GET /billing 200 in 851ms
  ○ Compiling / ...
+node:internal/fs/promises:856
+  return await PromisePrototypeThen(
+         ^
+
+Error: ENOTDIR: not a directory, mkdir '/Users/jesusvilla/Desktop/clonando y mejorando sr fix/servicios-digitales-mx/apps/frontend-web/.next'
+    at async Object.mkdir (node:internal/fs/promises:856:10)
+    at async /Users/jesusvilla/Desktop/clonando y mejorando sr fix/servicios-digitales-mx/node_modules/next/dist/trace/report/to-json.js:126:17
+    at async Object.flushAll (/Users/jesusvilla/Desktop/clonando y mejorando sr fix/servicios-digitales-mx/node_modules/next/dist/trace/report/to-json.js:46:17)
+    at async Promise.all (index 0)
+    at async MultiReporter.flushAll (/Users/jesusvilla/Desktop/clonando y mejorando sr fix/servicios-digitales-mx/node_modules/next/dist/trace/report/index.js:24:9)
+    at async handleSessionStop (/Users/jesusvilla/Desktop/clonando y mejorando sr fix/servicios-digitales-mx/node_modules/next/dist/cli/next-dev.js:102:5) {
+  errno: -20,
+  code: 'ENOTDIR',
+  syscall: 'mkdir',
+  path: '/Users/jesusvilla/Desktop/clonando y mejorando sr fix/servicios-digitales-mx/apps/frontend-web/.next'
+}
+
+Node.js v25.8.1
+
+  #  Node.js[36131]: void node::ResetStdio() at ../src/node.cc:670
+  #  Assertion failed: ((*__error())) == (9)
+
+----- Native stack trace -----
+
+ 1: 0x1088623bc node::Assert(node::AssertionInfo const&) [/opt/homebrew/Cellar/node/25.8.1/lib/libnode.141.dylib]
+ 2: 0x1097e4c94 node::ResetStdio() (.cold.5) [/opt/homebrew/Cellar/node/25.8.1/lib/libnode.141.dylib]
+ 3: 0x10883178c node::ResetStdio() [/opt/homebrew/Cellar/node/25.8.1/lib/libnode.141.dylib]
+ 4: 0x18bb1f44c __cxa_finalize_ranges [/usr/lib/system/libsystem_c.dylib]
+ 5: 0x18bb1f1ec exit [/usr/lib/system/libsystem_c.dylib]
+ 6: 0x1087c1db4 node::DefaultProcessExitHandlerInternal(node::Environment*, node::ExitCode) [/opt/homebrew/Cellar/node/25.8.1/lib/libnode.141.dylib]
+ 7: 0x1087c1e08 node::V8Platform::StopTracingAgent() [/opt/homebrew/Cellar/node/25.8.1/lib/libnode.141.dylib]
+ 8: 0x1087c2f24 std::__1::function<void (node::Environment*, node::ExitCode)>::operator()(node::Environment*, node::ExitCode) const [/opt/homebrew/Cellar/node/25.8.1/lib/libnode.141.dylib]
+ 9: 0x1088138b4 node::Environment::Exit(node::ExitCode) [/opt/homebrew/Cellar/node/25.8.1/lib/libnode.141.dylib]
+10: 0x1088635d0 node::errors::TriggerUncaughtException(v8::Isolate*, v8::Local<v8::Value>, v8::Local<v8::Message>, bool) [/opt/homebrew/Cellar/node/25.8.1/lib/libnode.141.dylib]
+11: 0x1097f7f88 node::errors::TriggerUncaughtException(v8::FunctionCallbackInfo<v8::Value> const&) [/opt/homebrew/Cellar/node/25.8.1/lib/libnode.141.dylib]
+12: 0x1085df298 Builtins_CallApiCallbackGeneric [/opt/homebrew/Cellar/node/25.8.1/lib/libnode.141.dylib]
+13: 0x1085dd5ec Builtins_InterpreterEntryTrampoline [/opt/homebrew/Cellar/node/25.8.1/lib/libnode.141.dylib]
+14: 0x1085dd5ec Builtins_InterpreterEntryTrampoline [/opt/homebrew/Cellar/node/25.8.1/lib/libnode.141.dylib]
+15: 0x1326bc76c 
+16: 0x1085da96c Builtins_JSEntryTrampoline [/opt/homebrew/Cellar/node/25.8.1/lib/libnode.141.dylib]
+17: 0x1085da610 Builtins_JSEntry [/opt/homebrew/Cellar/node/25.8.1/lib/libnode.141.dylib]
+18: 0x108c91e14 v8::internal::(anonymous namespace)::Invoke(v8::internal::Isolate*, v8::internal::(anonymous namespace)::InvokeParams const&) [/opt/homebrew/Cellar/node/25.8.1/lib/libnode.141.dylib]
+19: 0x108c917f8 v8::internal::Execution::Call(v8::internal::Isolate*, v8::internal::DirectHandle<v8::internal::Object>, v8::internal::DirectHandle<v8::internal::Object>, v8::base::Vector<v8::internal::DirectHandle<v8::internal::Object> const>) [/opt/homebrew/Cellar/node/25.8.1/lib/libnode.141.dylib]
+20: 0x1098a0a40 v8::Function::Call(v8::Isolate*, v8::Local<v8::Context>, v8::Local<v8::Value>, int, v8::Local<v8::Value>*) [/opt/homebrew/Cellar/node/25.8.1/lib/libnode.141.dylib]
+21: 0x1087bbe54 node::InternalCallbackScope::Close() [/opt/homebrew/Cellar/node/25.8.1/lib/libnode.141.dylib]
+22: 0x1087bbc08 node::InternalCallbackScope::~InternalCallbackScope() [/opt/homebrew/Cellar/node/25.8.1/lib/libnode.141.dylib]
+23: 0x1097f6130 node::fs::FSReqPromise<node::AliasedBufferBase<double, v8::Float64Array>>::Reject(v8::Local<v8::Value>) [/opt/homebrew/Cellar/node/25.8.1/lib/libnode.141.dylib]
+24: 0x108867974 node::fs::FSReqAfterScope::Reject(uv_fs_s*) [/opt/homebrew/Cellar/node/25.8.1/lib/libnode.141.dylib]
+25: 0x1088679d8 node::fs::FSReqAfterScope::Proceed() [/opt/homebrew/Cellar/node/25.8.1/lib/libnode.141.dylib]
+26: 0x108867b04 node::fs::AfterMkdirp(uv_fs_s*) [/opt/homebrew/Cellar/node/25.8.1/lib/libnode.141.dylib]
+27: 0x10885c018 node::MakeLibuvRequestCallback<uv_fs_s, void (*)(uv_fs_s*)>::Wrapper(uv_fs_s*) [/opt/homebrew/Cellar/node/25.8.1/lib/libnode.141.dylib]
+28: 0x10886c630 node::fs::MKDirpAsync(uv_loop_s*, uv_fs_s*, char const*, int, void (*)(uv_fs_s*))::$_0::__invoke(uv_fs_s*) [/opt/homebrew/Cellar/node/25.8.1/lib/libnode.141.dylib]
+29: 0x104636e64 uv__work_done [/opt/homebrew/Cellar/libuv/1.52.1/lib/libuv.1.0.0.dylib]
+30: 0x10463a3cc uv__async_io [/opt/homebrew/Cellar/libuv/1.52.1/lib/libuv.1.0.0.dylib]
+31: 0x1046491b0 uv__io_poll [/opt/homebrew/Cellar/libuv/1.52.1/lib/libuv.1.0.0.dylib]
+32: 0x10463ab64 uv_run [/opt/homebrew/Cellar/libuv/1.52.1/lib/libuv.1.0.0.dylib]
+33: 0x1087bcdfc node::SpinEventLoopInternal(node::Environment*) [/opt/homebrew/Cellar/node/25.8.1/lib/libnode.141.dylib]
+34: 0x108890e74 node::NodeMainInstance::Run(node::ExitCode*, node::Environment*) [/opt/homebrew/Cellar/node/25.8.1/lib/libnode.141.dylib]
+35: 0x108890ba8 node::NodeMainInstance::Run() [/opt/homebrew/Cellar/node/25.8.1/lib/libnode.141.dylib]
+36: 0x108834cd0 node::Start(int, char**) [/opt/homebrew/Cellar/node/25.8.1/lib/libnode.141.dylib]
+37: 0x18b8a1d54 start [/usr/lib/dyld]
+
+  #  Node.js[36131]: void node::ResetStdio() at ../src/node.cc:670
+  #  Assertion failed: ((*__error())) == (9)
+
+----- Native stack trace -----
+
+ 1: 0x1088623bc node::Assert(node::AssertionInfo const&) [/opt/homebrew/Cellar/node/25.8.1/lib/libnode.141.dylib]
+ 2: 0x1097e4c94 node::ResetStdio() (.cold.5) [/opt/homebrew/Cellar/node/25.8.1/lib/libnode.141.dylib]
+ 3: 0x10883178c node::ResetStdio() [/opt/homebrew/Cellar/node/25.8.1/lib/libnode.141.dylib]
+ 4: 0x1088322cc node::TrapWebAssemblyOrContinue(int, __siginfo*, void*) [/opt/homebrew/Cellar/node/25.8.1/lib/libnode.141.dylib]
+ 5: 0x18bc75764 _sigtramp [/usr/lib/system/libsystem_platform.dylib]
+ 6: 0x109060654 v8::internal::tracing::TraceEventHelper::GetTracingController() [/opt/homebrew/Cellar/node/25.8.1/lib/libnode.141.dylib]
+ 7: 0x108c9e690 v8::internal::Isolate::CaptureDetailedStackTrace(int, v8::StackTrace::StackTraceOptions) [/opt/homebrew/Cellar/node/25.8.1/lib/libnode.141.dylib]
+ 8: 0x108b80e34 v8::StackTrace::CurrentStackTrace(v8::Isolate*, int, v8::StackTrace::StackTraceOptions) [/opt/homebrew/Cellar/node/25.8.1/lib/libnode.141.dylib]
+ 9: 0x1088614d0 node::GetCurrentStackTrace(v8::Isolate*, int) [/opt/homebrew/Cellar/node/25.8.1/lib/libnode.141.dylib]
+10: 0x1087ee11c node::DumpJavaScriptBacktrace(__sFILE*) [/opt/homebrew/Cellar/node/25.8.1/lib/libnode.141.dylib]
+11: 0x1088623c4 node::Assert(node::AssertionInfo const&) [/opt/homebrew/Cellar/node/25.8.1/lib/libnode.141.dylib]
+12: 0x1097e4c94 node::ResetStdio() (.cold.5) [/opt/homebrew/Cellar/node/25.8.1/lib/libnode.141.dylib]
+13: 0x10883178c node::ResetStdio() [/opt/homebrew/Cellar/node/25.8.1/lib/libnode.141.dylib]
+14: 0x18bb1f44c __cxa_finalize_ranges [/usr/lib/system/libsystem_c.dylib]
+15: 0x18bb1f1ec exit [/usr/lib/system/libsystem_c.dylib]
+16: 0x1087c1db4 node::DefaultProcessExitHandlerInternal(node::Environment*, node::ExitCode) [/opt/homebrew/Cellar/node/25.8.1/lib/libnode.141.dylib]
+17: 0x1087c1e08 node::V8Platform::StopTracingAgent() [/opt/homebrew/Cellar/node/25.8.1/lib/libnode.141.dylib]
+18: 0x1087c2f24 std::__1::function<void (node::Environment*, node::ExitCode)>::operator()(node::Environment*, node::ExitCode) const [/opt/homebrew/Cellar/node/25.8.1/lib/libnode.141.dylib]
+19: 0x1088138b4 node::Environment::Exit(node::ExitCode) [/opt/homebrew/Cellar/node/25.8.1/lib/libnode.141.dylib]
+20: 0x1088635d0 node::errors::TriggerUncaughtException(v8::Isolate*, v8::Local<v8::Value>, v8::Local<v8::Message>, bool) [/opt/homebrew/Cellar/node/25.8.1/lib/libnode.141.dylib]
+21: 0x1097f7f88 node::errors::TriggerUncaughtException(v8::FunctionCallbackInfo<v8::Value> const&) [/opt/homebrew/Cellar/node/25.8.1/lib/libnode.141.dylib]
+22: 0x1085df298 Builtins_CallApiCallbackGeneric [/opt/homebrew/Cellar/node/25.8.1/lib/libnode.141.dylib]
+23: 0x1085dd5ec Builtins_InterpreterEntryTrampoline [/opt/homebrew/Cellar/node/25.8.1/lib/libnode.141.dylib]
+24: 0x1085dd5ec Builtins_InterpreterEntryTrampoline [/opt/homebrew/Cellar/node/25.8.1/lib/libnode.141.dylib]
+25: 0x1326bc76c 
+26: 0x1085da96c Builtins_JSEntryTrampoline [/opt/homebrew/Cellar/node/25.8.1/lib/libnode.141.dylib]
+27: 0x1085da610 Builtins_JSEntry [/opt/homebrew/Cellar/node/25.8.1/lib/libnode.141.dylib]
+28: 0x108c91e14 v8::internal::(anonymous namespace)::Invoke(v8::internal::Isolate*, v8::internal::(anonymous namespace)::InvokeParams const&) [/opt/homebrew/Cellar/node/25.8.1/lib/libnode.141.dylib]
+29: 0x108c917f8 v8::internal::Execution::Call(v8::internal::Isolate*, v8::internal::DirectHandle<v8::internal::Object>, v8::internal::DirectHandle<v8::internal::Object>, v8::base::Vector<v8::internal::DirectHandle<v8::internal::Object> const>) [/opt/homebrew/Cellar/node/25.8.1/lib/libnode.141.dylib]
+30: 0x1098a0a40 v8::Function::Call(v8::Isolate*, v8::Local<v8::Context>, v8::Local<v8::Value>, int, v8::Local<v8::Value>*) [/opt/homebrew/Cellar/node/25.8.1/lib/libnode.141.dylib]
+31: 0x1087bbe54 node::InternalCallbackScope::Close() [/opt/homebrew/Cellar/node/25.8.1/lib/libnode.141.dylib]
+32: 0x1087bbc08 node::InternalCallbackScope::~InternalCallbackScope() [/opt/homebrew/Cellar/node/25.8.1/lib/libnode.141.dylib]
+33: 0x1097f6130 node::fs::FSReqPromise<node::AliasedBufferBase<double, v8::Float64Array>>::Reject(v8::Local<v8::Value>) [/opt/homebrew/Cellar/node/25.8.1/lib/libnode.141.dylib]
+34: 0x108867974 node::fs::FSReqAfterScope::Reject(uv_fs_s*) [/opt/homebrew/Cellar/node/25.8.1/lib/libnode.141.dylib]
+35: 0x1088679d8 node::fs::FSReqAfterScope::Proceed() [/opt/homebrew/Cellar/node/25.8.1/lib/libnode.141.dylib]
+36: 0x108867b04 node::fs::AfterMkdirp(uv_fs_s*) [/opt/homebrew/Cellar/node/25.8.1/lib/libnode.141.dylib]
+37: 0x10885c018 node::MakeLibuvRequestCallback<uv_fs_s, void (*)(uv_fs_s*)>::Wrapper(uv_fs_s*) [/opt/homebrew/Cellar/node/25.8.1/lib/libnode.141.dylib]
+38: 0x10886c630 node::fs::MKDirpAsync(uv_loop_s*, uv_fs_s*, char const*, int, void (*)(uv_fs_s*))::$_0::__invoke(uv_fs_s*) [/opt/homebrew/Cellar/node/25.8.1/lib/libnode.141.dylib]
+39: 0x104636e64 uv__work_done [/opt/homebrew/Cellar/libuv/1.52.1/lib/libuv.1.0.0.dylib]
+40: 0x10463a3cc uv__async_io [/opt/homebrew/Cellar/libuv/1.52.1/lib/libuv.1.0.0.dylib]
+41: 0x1046491b0 uv__io_poll [/opt/homebrew/Cellar/libuv/1.52.1/lib/libuv.1.0.0.dylib]
+42: 0x10463ab64 uv_run [/opt/homebrew/Cellar/libuv/1.52.1/lib/libuv.1.0.0.dylib]
+43: 0x1087bcdfc node::SpinEventLoopInternal(node::Environment*) [/opt/homebrew/Cellar/node/25.8.1/lib/libnode.141.dylib]
+44: 0x108890e74 node::NodeMainInstance::Run(node::ExitCode*, node::Environment*) [/opt/homebrew/Cellar/node/25.8.1/lib/libnode.141.dylib]
+45: 0x108890ba8 node::NodeMainInstance::Run() [/opt/homebrew/Cellar/node/25.8.1/lib/libnode.141.dylib]
+46: 0x108834cd0 node::Start(int, char**) [/opt/homebrew/Cellar/node/25.8.1/lib/libnode.141.dylib]
+47: 0x18b8a1d54 start [/usr/lib/dyld]

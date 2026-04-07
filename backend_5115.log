@@ -2538,3 +2538,5 @@ info: System.Net.Http.HttpClient.SupabaseService.ClientHandler[101]
       Received HTTP response headers after 113.1812ms - 200
 info: System.Net.Http.HttpClient.SupabaseService.LogicalHandler[101]
       End processing HTTP request after 113.2626ms - 200
+info: Microsoft.Hosting.Lifetime[0]
+      Application is shutting down...
