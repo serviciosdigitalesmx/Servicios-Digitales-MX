@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState } from "react";
-import { supabase } from "../../../lib/supabase";
 import { useRouter } from "next/navigation";
 import { IconMicrochip, IconLock, IconUser, IconArrowLeft } from "../../../components/ui/Icons";
 
@@ -18,14 +17,22 @@ export default function LoginPage() {
     setError("");
 
     try {
-      const { data, error: authError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5115";
+      const res = await fetch(`${apiUrl}/api/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email,
+          password
+        })
       });
 
-      if (authError) throw authError;
+      const payload = await res.json().catch(() => null);
 
-      // Forzar redirección limpia
+      if (!res.ok || !payload?.success) {
+        throw new Error(payload?.message || "No se pudo iniciar sesión");
+      }
+
       router.push("/hub");
     } catch (err: any) {
       setError(err.message || "Error al iniciar sesión");

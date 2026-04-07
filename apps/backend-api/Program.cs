@@ -5,7 +5,12 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddCors(options => {
     options.AddDefaultPolicy(policy => {
-        policy.WithOrigins("http://localhost:3000", "http://localhost:3005")
+        policy.WithOrigins(
+                "http://localhost:3000",
+                "http://localhost:3005",
+                "http://127.0.0.1:3005",
+                "https://servicios-digitales-mx-frontend-web.vercel.app"
+            )
               .AllowAnyHeader()
               .AllowAnyMethod();
     });
@@ -21,6 +26,28 @@ app.UseCors();
 app.MapGet("/api/health", () => Results.Ok(new { status = "Healthy", time = DateTime.UtcNow }));
 
 app.MapPost("/api/auth/register", () => Results.Ok(new { success = true }));
+
+app.MapPost("/api/auth/login", ([FromBody] LoginRequest request) =>
+{
+    if (string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.Password))
+    {
+        return Results.BadRequest(new
+        {
+            success = false,
+            message = "Debes proporcionar correo y contraseña."
+        });
+    }
+
+    return Results.Ok(new
+    {
+        success = true,
+        session = new
+        {
+            token = Guid.NewGuid().ToString("N"),
+            email = request.Email
+        }
+    });
+});
 
 // MOCK COMPLETO: Para que el Frontend (AuthGuard) y Selenium pasen 100%
 app.MapGet("/api/auth/me", () => Results.Ok(new { 
@@ -91,3 +118,5 @@ app.MapGet("/api/portal/orders/{folio}", (string folio) =>
 });
 
 app.Run();
+
+public record LoginRequest(string Email, string Password);
