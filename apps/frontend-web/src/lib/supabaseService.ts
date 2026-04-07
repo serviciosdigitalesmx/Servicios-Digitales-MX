@@ -1,11 +1,5 @@
-import { createClient } from '@supabase/supabase-js';
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co';
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || 'placeholder_key';
-
-export const supabaseServiceRole = createClient(supabaseUrl, supabaseServiceKey, {
-  auth: {
-    persistSession: false,
-    autoRefreshToken: false
-  }
-});
+import { supabase } from './supabase';
+// ⚠️ ARCHIVO DEPRECADO POR SEGURIDAD ⚠️
+// El frontend NUNCA debe usar la llave Service Role.
+// Exportamos el cliente anónimo por compatibilidad temporal si algo aún lo importa.
+export const supabaseServiceRole = supabase;

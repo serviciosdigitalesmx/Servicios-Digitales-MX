@@ -49,7 +49,7 @@ export default function SecurityPanel() {
           <div className="space-y-4">
             <input
               type="text"
-              value="admin@taller.com"
+              value="usuario@ejemplo.com"
               readOnly
               className="w-full input-srf"
             />
@@ -57,7 +57,7 @@ export default function SecurityPanel() {
             <div className="relative">
               <input
                 type={show ? "text" : "password"}
-                value="Admin123!"
+                value="**********"
                 readOnly
                 className="w-full input-srf pr-12"
               />

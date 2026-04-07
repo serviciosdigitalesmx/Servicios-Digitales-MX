@@ -140,7 +140,7 @@ app.Use(async (context, next) =>
                     bootstrap.UserEmail = user.Email;
                     bootstrap.UserFullName = user.FullName;
                     bootstrap.UserRole = user.Role;
-                    bootstrap.UserReferralCode = user.ReferralCode;
+                    bootstrap.UserReferralCode = user.ReferralCode ?? string.Empty;
                     bootstrap.UserBalance = user.Balance;
 
                     var tenant = await supabase.GetSingleAsync<SupabaseService.DbTenant>($"tenants?id=eq.{user.TenantId}&select=id,name,slug", context.RequestAborted);
