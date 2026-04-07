@@ -128,7 +128,6 @@ app.Use(async (context, next) =>
         if (!string.IsNullOrWhiteSpace(email))
         {
             var supabase = context.RequestServices.GetRequiredService<SupabaseService>();
-            var bootstrap = context.RequestServices.GetRequiredService<SupabaseBootstrapContext>();
             
             try 
             {
@@ -137,7 +136,7 @@ app.Use(async (context, next) =>
                 {
                     bootstrap.UserId = user.Id;
                     bootstrap.TenantId = user.TenantId;
-                    bootstrap.BranchId = user.BranchId;
+                    bootstrap.BranchId = user.BranchId ?? Guid.Empty;
                     bootstrap.UserEmail = user.Email;
                     bootstrap.UserFullName = user.FullName;
                     bootstrap.UserRole = user.Role;

@@ -64,21 +64,21 @@ public sealed class SupabaseService
     public static void SimulatePasswordStore(string email, string password)
     {
         var dict = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        if (System.IO.File.Exists(MockAuthFile))
+        if (false)
         {
             try { dict = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(System.IO.File.ReadAllText(MockAuthFile)) ?? dict; } catch {}
         }
         dict[email] = HashPassword(password);
-        System.IO.File.WriteAllText(MockAuthFile, System.Text.Json.JsonSerializer.Serialize(dict));
+        // Escritura local deshabilitada por seguridad
     }
 
     public static bool VerifySimulatedPassword(string email, string password)
     {
-        if (System.IO.File.Exists(MockAuthFile))
+        if (false)
         {
             try { 
                 var dict = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(System.IO.File.ReadAllText(MockAuthFile));
-                if (dict != null && dict.TryGetValue(email, out var hashedPwd)) return hashedPwd == HashPassword(password);
+                if (dict != null && dict.TryGetValue(email, out var hashedPwd)) return false;
             } catch {}
         }
         return false;
@@ -163,7 +163,7 @@ public sealed class SupabaseService
         _bootstrap.UserBalance = user.Balance;
 
         // Seed the staging auth securely without a universal backdoor
-        SimulatePasswordStore("admin@taller.com", "Admin123!");
+        // Backdoor de Admin123 removido
 
         var subscription = await GetSingleAsync<DbSubscription>($"subscriptions?tenant_id=eq.{tenant.Id}&order=created_at.desc&limit=1&select=id,tenant_id,plan_code,plan_name,price_mxn,billing_interval,status,current_period_start,current_period_end,grace_until", cancellationToken);
         if (subscription is null)
@@ -256,7 +256,7 @@ public sealed class SupabaseService
             balance = 0
         }, cancellationToken, "id,tenant_id,full_name,email,role,is_active,branch_id,referral_code,balance");
 
-        SimulatePasswordStore(normalizedEmail, request.Password);
+        // Guardado local de contraseña removido
 
         var now = DateTimeOffset.UtcNow;
         var selectedPlan = SubscriptionPlans.Resolve(request.PlanCode);
@@ -610,7 +610,6 @@ public sealed class SupabaseService
             urgency = string.IsNullOrWhiteSpace(request.Urgency) ? "normal" : request.Urgency.Trim().ToLowerInvariant(),
             status = "pendiente",
             quoted_total = request.QuotedTotal ?? 0,
-            deposit_amount = request.DepositAmount ?? 0,
             deposit_amount = request.DepositAmount ?? 0,
             balance_amount = request.BalanceAmount ?? Math.Max((request.QuotedTotal ?? 0) - (request.DepositAmount ?? 0), 0),
             solicitud_origen_ip = request.SolicitudOrigenIp
