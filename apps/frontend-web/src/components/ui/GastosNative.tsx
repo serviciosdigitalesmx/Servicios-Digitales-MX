@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { fetchWithAuth } from "../../lib/apiClient";
 
 type Supplier = { id: string; businessName: string; };
@@ -28,6 +28,7 @@ export function GastosNative() {
   const [apiStateError, setApiStateError] = useState("");
   const [formError, setFormError] = useState("");
   const [search, setSearch] = useState("");
+  const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null);
 
   const [form, setForm] = useState({
     supplierId: "", expenseType: "variable", category: "insumos", concept: "", description: "",
@@ -103,7 +104,45 @@ export function GastosNative() {
     } catch (error: unknown) { setApiStateError(error instanceof Error ? error.message : "Ocurrió un error al guardar el registro."); } finally { setLoading(false); }
   }
 
-  const filteredExpenses = expenses.filter(e => !search || e.concept.toLowerCase().includes(search.toLowerCase()) || (e.supplierName && e.supplierName.toLowerCase().includes(search.toLowerCase())));
+  const expenseSummary = useMemo(() => {
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+    const fixed = expenses.filter((expense) => expense.expenseType === "fijo");
+    const variable = expenses.filter((expense) => expense.expenseType !== "fijo");
+    const thisMonth = expenses.filter((expense) => {
+      const date = new Date(expense.expenseDate);
+      return date.getMonth() === currentMonth && date.getFullYear() === currentYear;
+    });
+
+    return {
+      total: expenses.reduce((sum, expense) => sum + expense.amount, 0),
+      monthTotal: thisMonth.reduce((sum, expense) => sum + expense.amount, 0),
+      fixedTotal: fixed.reduce((sum, expense) => sum + expense.amount, 0),
+      variableTotal: variable.reduce((sum, expense) => sum + expense.amount, 0),
+      suppliersLinked: new Set(expenses.map((expense) => expense.supplierName).filter(Boolean)).size
+    };
+  }, [expenses]);
+
+  const filteredExpenses = useMemo(
+    () => expenses.filter((expense) =>
+      !search ||
+      expense.concept.toLowerCase().includes(search.toLowerCase()) ||
+      expense.category.toLowerCase().includes(search.toLowerCase()) ||
+      (expense.supplierName && expense.supplierName.toLowerCase().includes(search.toLowerCase()))
+    ),
+    [expenses, search]
+  );
+
+  const categoryTotals = useMemo(() => {
+    const totals = new Map<string, number>();
+    for (const expense of expenses) {
+      totals.set(expense.category, (totals.get(expense.category) || 0) + expense.amount);
+    }
+    return Array.from(totals.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 4);
+  }, [expenses]);
 
   return (
     <section className="module-native-shell">
@@ -127,6 +166,26 @@ export function GastosNative() {
 
       {apiStateMessage && <div className="form-message is-success">{apiStateMessage}</div>}
       {apiStateError && <div className="form-message is-error">{apiStateError}</div>}
+
+      <div className="grid-cols-3" style={{ marginBottom: "20px" }}>
+        <article className="sdmx-card-premium" style={{ padding: "18px 20px" }}>
+          <span className="hero-eyebrow">Egreso acumulado</span>
+          <h3 style={{ margin: "8px 0 4px 0", fontSize: "1.75rem" }}>{formatMoney(expenseSummary.total)}</h3>
+          <p className="muted" style={{ margin: 0 }}>Total visible del historial de gastos cargado.</p>
+        </article>
+        <article className="sdmx-card-premium" style={{ padding: "18px 20px" }}>
+          <span className="hero-eyebrow">Mes actual</span>
+          <h3 style={{ margin: "8px 0 4px 0", fontSize: "1.75rem" }}>{formatMoney(expenseSummary.monthTotal)}</h3>
+          <p className="muted" style={{ margin: 0 }}>
+            {formatMoney(expenseSummary.fixedTotal)} fijos · {formatMoney(expenseSummary.variableTotal)} variables.
+          </p>
+        </article>
+        <article className="sdmx-card-premium" style={{ padding: "18px 20px" }}>
+          <span className="hero-eyebrow">Relaciones</span>
+          <h3 style={{ margin: "8px 0 4px 0", fontSize: "1.75rem" }}>{expenseSummary.suppliersLinked}</h3>
+          <p className="muted" style={{ margin: 0 }}>Proveedor(es) vinculados a los egresos registrados.</p>
+        </article>
+      </div>
 
       <div className="module-native-grid module-native-grid-wide">
         <form className="sdmx-card-premium" onSubmit={handleSubmit}>
@@ -183,8 +242,23 @@ export function GastosNative() {
         <article className="sdmx-card-premium" style={{display: "flex", flexDirection: "column"}}>
            <div style={{borderBottom: '1px solid rgba(15,23,42,0.08)', paddingBottom: '16px', marginBottom: '16px'}}>
               <h3 style={{fontSize: '1.25rem', margin: 0}}>Historial de gastos</h3>
-              <p className="muted" style={{margin: 0, fontSize: '0.85rem'}}>Mostrando {filteredExpenses.length} registro(s) visibles.</p>
+              <p className="muted" style={{margin: 0, fontSize: '0.85rem'}}>
+                Mostrando {filteredExpenses.length} registro(s) visibles. Prioriza revisar las categorías que más presionan el flujo de caja.
+              </p>
            </div>
+
+          {categoryTotals.length > 0 ? (
+            <div className="grid-cols-2" style={{ marginBottom: "16px" }}>
+              {categoryTotals.map(([category, amount]) => (
+                <div key={category} className="sdmx-card-header">
+                  <span className="hero-eyebrow">Categoría fuerte</span>
+                  <strong style={{ display: "block", marginTop: "6px", fontSize: "1.05rem" }}>{category.toUpperCase()}</strong>
+                  <span style={{ color: "#64748b" }}>{formatMoney(amount)}</span>
+                </div>
+              ))}
+            </div>
+          ) : null}
+
           <ul className="data-list scrollable-list">
             {filteredExpenses.length === 0 ? (
                <li className="empty-state">
@@ -195,17 +269,28 @@ export function GastosNative() {
               filteredExpenses.map((expense) => (
                 <li key={expense.id} className="list-item-grid">
                   <div className="flex-col">
-                    <strong style={{ fontSize: '1.1rem', color: '#0f172a' }}>{expense.concept}</strong>
+                    <strong style={{ fontSize: '1.1rem', color: '#0f172a', display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+                      {expense.concept}
+                      <span className={expense.expenseType === "fijo" ? "badge-info" : "badge-warning"} style={{ fontSize: "0.75rem", padding: "4px 8px" }}>
+                        {expense.expenseType === "fijo" ? "Fijo" : "Variable"}
+                      </span>
+                    </strong>
                     <span style={{ fontSize: '0.85rem', color: '#64748b' }}>
-                      Categoría: {expense.category.toUpperCase()} · Tipo: {expense.expenseType}
+                      Categoría: {expense.category.toUpperCase()}
                       {expense.supplierName ? ` · Proveedor: ${expense.supplierName}` : ""}
                     </span>
+                    {expense.description ? (
+                      <span style={{ fontSize: "0.8rem", color: "#475569" }}>{expense.description}</span>
+                    ) : null}
                     <span style={{fontSize: '0.75rem', color: '#94a3b8', marginTop: '2px'}}>🗓 Registrado el {formatDate(expense.expenseDate)} vía {expense.paymentMethod}</span>
                   </div>
-                  <div style={{ textAlign: 'right' }}>
+                  <div style={{ textAlign: 'right', display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "10px" }}>
                     <span style={{color: '#ef4444', backgroundColor: 'rgba(239, 68, 68, 0.05)', padding: '6px 14px', borderRadius: '12px', fontSize: '1.2rem', fontWeight: '900', border: '1px solid rgba(239, 68, 68, 0.1)' }}>
                        - {formatMoney(expense.amount)}
                     </span>
+                    <button type="button" className="product-button" onClick={() => setSelectedExpense(expense)}>
+                      Ver detalle
+                    </button>
                   </div>
                 </li>
               ))
@@ -213,6 +298,75 @@ export function GastosNative() {
           </ul>
         </article>
       </div>
+
+      {selectedExpense ? (
+        <div className="modal-backdrop" onClick={() => setSelectedExpense(null)}>
+          <div
+            className="sdmx-card-premium"
+            style={{ maxWidth: "720px", width: "100%", padding: "24px", margin: "32px auto" }}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex-row-between" style={{ alignItems: "flex-start", gap: "16px", marginBottom: "16px" }}>
+              <div className="flex-col">
+                <span className="hero-eyebrow">Detalle de egreso</span>
+                <h3 style={{ margin: "8px 0 4px 0", fontSize: "1.5rem" }}>{selectedExpense.concept}</h3>
+                <p className="muted" style={{ margin: 0 }}>
+                  {selectedExpense.supplierName || "Sin proveedor asociado"} · {formatDate(selectedExpense.expenseDate)}
+                </p>
+              </div>
+              <button type="button" className="product-button" onClick={() => setSelectedExpense(null)}>
+                Cerrar
+              </button>
+            </div>
+
+            <div className="grid-cols-3" style={{ marginBottom: "16px" }}>
+              <div className="sdmx-card-header">
+                <span className="hero-eyebrow">Monto</span>
+                <strong style={{ display: "block", marginTop: "6px", fontSize: "1.4rem", color: "#dc2626" }}>
+                  - {formatMoney(selectedExpense.amount)}
+                </strong>
+              </div>
+              <div className="sdmx-card-header">
+                <span className="hero-eyebrow">Tipo</span>
+                <strong style={{ display: "block", marginTop: "6px", fontSize: "1.1rem" }}>
+                  {selectedExpense.expenseType === "fijo" ? "Fijo" : "Variable"}
+                </strong>
+              </div>
+              <div className="sdmx-card-header">
+                <span className="hero-eyebrow">Pago</span>
+                <strong style={{ display: "block", marginTop: "6px", fontSize: "1.1rem" }}>
+                  {selectedExpense.paymentMethod || "Sin definir"}
+                </strong>
+              </div>
+            </div>
+
+            <div className="grid-cols-2" style={{ marginBottom: "16px" }}>
+              <div style={{ padding: "16px", borderRadius: "16px", background: "#f8fafc" }}>
+                <span className="hero-eyebrow">Categoría</span>
+                <h4 style={{ margin: "8px 0 4px 0", fontSize: "1.2rem" }}>{selectedExpense.category.toUpperCase()}</h4>
+                <p style={{ margin: 0, color: "#475569", lineHeight: 1.6 }}>
+                  Usa esta clasificación para validar qué tipo de egreso está creciendo más y si conviene moverlo a compra, servicio o gasto fijo.
+                </p>
+              </div>
+              <div style={{ padding: "16px", borderRadius: "16px", background: "#f8fafc" }}>
+                <span className="hero-eyebrow">Trazabilidad</span>
+                <p style={{ margin: "8px 0 0 0", color: "#475569", lineHeight: 1.6 }}>
+                  {selectedExpense.supplierName
+                    ? `Registrado con proveedor ${selectedExpense.supplierName}.`
+                    : "No se vinculó a proveedor, así que conviene revisar si fue gasto interno o compra no asociada."}
+                </p>
+              </div>
+            </div>
+
+            {selectedExpense.description ? (
+              <div style={{ padding: "16px", borderRadius: "16px", background: "#fff7ed", color: "#9a3412", lineHeight: 1.6 }}>
+                <strong style={{ display: "block", marginBottom: "6px" }}>Contexto del registro</strong>
+                {selectedExpense.description}
+              </div>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }

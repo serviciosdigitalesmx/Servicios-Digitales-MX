@@ -4,7 +4,10 @@
  * Handles base URL, auth headers, and common error responses.
  */
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5111';
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_URL ||
+  process.env.NEXT_PUBLIC_API_BASE_URL ||
+  'http://localhost:5115';
 
 export type ApiResponse<T> = {
   success: boolean;

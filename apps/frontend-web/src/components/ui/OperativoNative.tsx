@@ -8,9 +8,24 @@ import { supabase } from "../../lib/supabase";
 
 type Customer = { id: string; fullName: string; phone?: string; email?: string; tag: string; };
 
+type ServiceRequest = {
+  id: string;
+  folio: string;
+  customerName: string;
+  customerPhone?: string;
+  customerEmail?: string;
+  deviceType?: string;
+  deviceBrand?: string;
+  deviceModel?: string;
+  issueDescription?: string;
+  urgency?: string;
+  quotedTotal?: number;
+};
+
 type Order = {
   id: string; folio: string; status: string; deviceType: string; deviceModel?: string;
-  priority?: string; customerName?: string; assignedTechnician?: string; estimatedCost?: number;
+  deviceBrand?: string; priority?: string; customerId?: string; customerName?: string; customerPhone?: string;
+  assignedTechnician?: string; estimatedCost?: number; reportedIssue?: string;
   promisedDate?: string; createdAt: string;
 };
 
@@ -35,10 +50,17 @@ const SERVICE_ORDER_STATUS_OPTIONS = [
 
 function normalizeServiceOrderStatus(value?: string) { return SERVICE_ORDER_STATUS_ALIASES[(value ?? "").trim().toLowerCase()] ?? (value ?? "").trim().toLowerCase(); }
 function getServiceOrderStatusLabel(value?: string) { return SERVICE_ORDER_STATUS_LABELS[normalizeServiceOrderStatus(value)] ?? (value ? value : "Sin estado"); }
+function mapUrgencyToPriority(value?: string) {
+  const normalized = (value ?? "").trim().toLowerCase();
+  if (normalized === "urgente") return "urgente";
+  if (normalized === "alta") return "alta";
+  return "normal";
+}
 
 export function OperativoNative({ tenantId }: any = {}) {
   const { session } = useAuth();
   const [customers, setCustomers] = useState<Customer[]>([]);
+  const [requests, setRequests] = useState<ServiceRequest[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(false);
   const [apiStateMessage, setApiStateMessage] = useState("");
@@ -46,6 +68,8 @@ export function OperativoNative({ tenantId }: any = {}) {
   const [formErrorOrder, setFormErrorOrder] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
+  const [selectedRequestId, setSelectedRequestId] = useState("");
+  const [lastCreatedOrder, setLastCreatedOrder] = useState<Order | null>(null);
 
   const [orderForm, setOrderForm] = useState({
     customerId: "", deviceType: "", deviceBrand: "", deviceModel: "", serialNumber: "",
@@ -58,32 +82,57 @@ export function OperativoNative({ tenantId }: any = {}) {
     try {
       if (!session.subscription.operationalAccess) { setCustomers([]); setOrders([]); return; }
       
-      const [customersRes, ordersRes] = await Promise.all([
+      const [customersRes, ordersRes, requestsRes] = await Promise.all([
         supabase.from('customers').select('*').eq('tenant_id', session.shop.id).eq('is_active', true).order('full_name'),
-        supabase.from('service_orders').select('*').eq('tenant_id', session.shop.id).order('created_at', { ascending: false })
+        supabase.from('service_orders').select('*').eq('tenant_id', session.shop.id).order('created_at', { ascending: false }),
+        supabase.from('service_requests').select('*').eq('tenant_id', session.shop.id).order('created_at', { ascending: false }).limit(25)
       ]);
 
       if (customersRes.error) throw customersRes.error;
       if (ordersRes.error) throw ordersRes.error;
+      if (requestsRes.error) throw requestsRes.error;
 
-      setCustomers(customersRes.data.map((c: any) => ({
+      const mappedCustomers = (customersRes.data || []).map((c: any) => ({
         id: c.id,
         fullName: c.full_name,
         phone: c.phone,
         email: c.email,
         tag: c.tag || 'nuevo'
-      })));
+      }));
+
+      const customerMap = new Map<string, Customer>(mappedCustomers.map((c: Customer) => [c.id, c]));
+
+      setCustomers(mappedCustomers);
 
       setOrders(ordersRes.data.map((o: any) => ({
         id: o.id,
         folio: o.folio,
         status: o.status,
+        customerId: o.customer_id,
+        customerName: customerMap.get(o.customer_id)?.fullName,
+        customerPhone: customerMap.get(o.customer_id)?.phone,
         deviceType: o.device_type,
+        deviceBrand: o.device_brand,
         deviceModel: o.device_model,
         priority: o.priority,
         estimatedCost: Number(o.estimated_cost || 0),
+        reportedIssue: o.reported_issue,
         promisedDate: o.promised_date,
         createdAt: o.created_at
+      })));
+
+      setRequests((requestsRes.data || []).map((r: any) => ({
+        id: r.id,
+        folio: r.folio,
+        customerName: r.customer_name,
+        customerPhone: r.customer_phone,
+        customerEmail: r.customer_email,
+        deviceType: r.device_type,
+        deviceBrand: r.device_brand,
+        deviceModel: r.device_model,
+        issueDescription: r.issue_description,
+        urgency: r.urgency,
+        quotedTotal: Number(r.quoted_total || 0),
       })));
 
     } catch (error: any) {
@@ -96,6 +145,27 @@ export function OperativoNative({ tenantId }: any = {}) {
   useEffect(() => { 
     if (session) void loadData(); 
   }, [session]);
+
+  useEffect(() => {
+    if (!customers.length) return;
+    const raw = localStorage.getItem("sdmx_operativo_prefill_customer");
+    if (!raw) return;
+    try {
+      const customer = JSON.parse(raw);
+      if (customer?.id && customers.some((item) => item.id === customer.id)) {
+        setOrderForm((current) => ({ ...current, customerId: customer.id }));
+        setApiStateMessage(`Cliente precargado desde directorio: ${customer.fullName || "Cliente seleccionado"}.`);
+        localStorage.removeItem("sdmx_operativo_prefill_customer");
+      }
+    } catch {
+      localStorage.removeItem("sdmx_operativo_prefill_customer");
+    }
+  }, [customers]);
+
+  const selectedCustomer = useMemo(
+    () => customers.find((customer) => customer.id === orderForm.customerId) ?? null,
+    [customers, orderForm.customerId]
+  );
 
   const generateFolio = async () => {
     const { data: lastOrder } = await supabase
@@ -126,7 +196,7 @@ export function OperativoNative({ tenantId }: any = {}) {
     try {
       const folio = await generateFolio();
       
-      const { error } = await supabase.from('service_orders').insert({
+      const payload = {
         tenant_id: session.shop.id,
         branch_id: session.user.branchId,
         customer_id: orderForm.customerId,
@@ -143,11 +213,30 @@ export function OperativoNative({ tenantId }: any = {}) {
         received_at: new Date().toISOString(),
         created_by: session.user.id,
         updated_by: session.user.id
-      });
+      };
+
+      const { error } = await supabase.from('service_orders').insert(payload);
 
       if (error) throw error;
 
+      setLastCreatedOrder({
+        id: `temp-${folio}`,
+        folio,
+        status: 'recibido',
+        customerId: orderForm.customerId,
+        customerName: selectedCustomer?.fullName,
+        customerPhone: selectedCustomer?.phone,
+        deviceType: orderForm.deviceType,
+        deviceBrand: orderForm.deviceBrand,
+        deviceModel: orderForm.deviceModel,
+        priority: orderForm.priority,
+        estimatedCost: Number(orderForm.estimatedCost || 0),
+        reportedIssue: orderForm.reportedIssue,
+        promisedDate: orderForm.promisedDate || undefined,
+        createdAt: payload.received_at,
+      });
       setOrderForm({ customerId: "", deviceType: "", deviceBrand: "", deviceModel: "", serialNumber: "", reportedIssue: "", priority: "normal", promisedDate: "", estimatedCost: "0" });
+      setSelectedRequestId("");
       await loadData();
       setApiStateMessage("✅ Orden de servicio creada exitosamente.");
     } catch (error: any) {
@@ -164,6 +253,104 @@ export function OperativoNative({ tenantId }: any = {}) {
       return matchesSearch && matchesStatus;
     });
   }, [orders, searchQuery, statusFilter]);
+
+  function handleRequestPrefill(requestId: string) {
+    setSelectedRequestId(requestId);
+    const request = requests.find((item) => item.id === requestId);
+    if (!request) return;
+
+    const matchedCustomer = customers.find((customer) =>
+      customer.fullName.toLowerCase() === request.customerName.toLowerCase() ||
+      (!!request.customerPhone && customer.phone === request.customerPhone) ||
+      (!!request.customerEmail && customer.email?.toLowerCase() === request.customerEmail.toLowerCase())
+    );
+
+    setOrderForm((current) => ({
+      ...current,
+      customerId: matchedCustomer?.id || current.customerId,
+      deviceType: request.deviceType || current.deviceType,
+      deviceBrand: request.deviceBrand || current.deviceBrand,
+      deviceModel: request.deviceModel || current.deviceModel,
+      reportedIssue: request.issueDescription || current.reportedIssue,
+      priority: mapUrgencyToPriority(request.urgency),
+      estimatedCost: request.quotedTotal ? String(request.quotedTotal) : current.estimatedCost,
+    }));
+  }
+
+  function handleWhatsapp(order: Order) {
+    const phone = (order.customerPhone || selectedCustomer?.phone || "").replace(/\D/g, "");
+    if (!phone) {
+      setApiStateError("Este cliente no tiene teléfono o WhatsApp registrado.");
+      return;
+    }
+    const message = `Hola ${order.customerName || ""}, tu folio ${order.folio} fue registrado en ${session?.shop.name || "Servicios Digitales MX"}. Te compartimos tu recepción para seguimiento.`;
+    window.open(`https://wa.me/52${phone}?text=${encodeURIComponent(message)}`, "_blank", "noopener,noreferrer");
+  }
+
+  function handlePrintReceipt(order: Order) {
+    const receiptWindow = window.open("", "_blank", "noopener,noreferrer,width=860,height=960");
+    if (!receiptWindow) return;
+
+    receiptWindow.document.write(`
+      <html>
+        <head>
+          <title>Orden ${order.folio}</title>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 32px; color: #0f172a; }
+            h1, h2, h3, p { margin: 0; }
+            .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px; }
+            .badge { display: inline-block; background: #dbeafe; color: #1d4ed8; padding: 6px 12px; border-radius: 999px; font-size: 12px; font-weight: bold; text-transform: uppercase; }
+            .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 24px; }
+            .card { border: 1px solid #e2e8f0; border-radius: 16px; padding: 16px; }
+            .label { font-size: 12px; text-transform: uppercase; color: #64748b; font-weight: bold; margin-bottom: 8px; }
+            .value { font-size: 16px; font-weight: 700; color: #0f172a; }
+            .full { grid-column: 1 / -1; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div>
+              <h1>Servicios Digitales MX</h1>
+              <p style="margin-top:8px;color:#475569;">Orden de recepción generada para seguimiento interno y cliente.</p>
+            </div>
+            <div style="text-align:right;">
+              <span class="badge">${order.folio}</span>
+              <p style="margin-top:8px;color:#64748b;">${formatDate(order.createdAt)}</p>
+            </div>
+          </div>
+          <div class="grid">
+            <div class="card">
+              <div class="label">Cliente</div>
+              <div class="value">${order.customerName || "Sin cliente"}</div>
+              <p style="margin-top:8px;color:#475569;">${order.customerPhone || "Sin teléfono registrado"}</p>
+            </div>
+            <div class="card">
+              <div class="label">Estado</div>
+              <div class="value">${getServiceOrderStatusLabel(order.status)}</div>
+              <p style="margin-top:8px;color:#475569;">Prioridad ${order.priority || "normal"}</p>
+            </div>
+            <div class="card">
+              <div class="label">Equipo</div>
+              <div class="value">${order.deviceType}</div>
+              <p style="margin-top:8px;color:#475569;">${[order.deviceBrand, order.deviceModel].filter(Boolean).join(" · ") || "Sin modelo registrado"}</p>
+            </div>
+            <div class="card">
+              <div class="label">Fecha compromiso</div>
+              <div class="value">${formatDate(order.promisedDate)}</div>
+              <p style="margin-top:8px;color:#475569;">Costo estimado ${formatMoney(order.estimatedCost)}</p>
+            </div>
+            <div class="card full">
+              <div class="label">Falla reportada</div>
+              <div class="value">${order.reportedIssue || "Sin detalle registrado"}</div>
+            </div>
+          </div>
+        </body>
+      </html>
+    `);
+    receiptWindow.document.close();
+    receiptWindow.focus();
+    receiptWindow.print();
+  }
 
   return (
     <section className="operativo-shell">
@@ -193,6 +380,20 @@ export function OperativoNative({ tenantId }: any = {}) {
              <p className="muted" style={{margin: '4px 0 0 0', fontSize: '0.85rem'}}>Genera el folio que acompañará al equipo.</p>
           </div>
           {formErrorOrder && <div className="form-message is-warning">{formErrorOrder}</div>}
+
+          {requests.length > 0 && (
+            <div className="flex-col" style={{ marginBottom: '8px' }}>
+              <label style={{fontWeight: 'bold', color: '#1e3a8a'}}>Cargar desde cotización</label>
+              <select value={selectedRequestId} onChange={(e) => handleRequestPrefill(e.target.value)}>
+                <option value="">-- Selecciona una cotización existente --</option>
+                {requests.map((request) => (
+                  <option key={request.id} value={request.id}>
+                    {request.folio} · {request.customerName} · {request.deviceType || "Equipo"}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
           
           <div className="flex-col">
              <label style={{fontWeight: 'bold', color: '#1e3a8a'}}>Cliente *</label>
@@ -201,6 +402,14 @@ export function OperativoNative({ tenantId }: any = {}) {
                {customers.map((c) => (<option key={c.id} value={c.id}>{c.fullName}</option>))}
              </select>
           </div>
+
+          {selectedCustomer && (
+            <div className="form-message" style={{background: '#eff6ff', borderColor: '#bfdbfe', color: '#1d4ed8'}}>
+              Cliente seleccionado: <strong>{selectedCustomer.fullName}</strong>
+              {selectedCustomer.phone ? ` · ${selectedCustomer.phone}` : ""}
+              {selectedCustomer.email ? ` · ${selectedCustomer.email}` : ""}
+            </div>
+          )}
           
           <div className="grid-cols-2" style={{marginTop: '8px'}}>
             <label>Tipo de Dispositivo *
@@ -241,6 +450,22 @@ export function OperativoNative({ tenantId }: any = {}) {
           <button type="submit" disabled={loading || customers.length === 0} className="product-button is-primary" style={{marginTop: '16px'}}>
             Crear Orden de Servicio
           </button>
+
+          {lastCreatedOrder && (
+            <div className="form-message is-success" style={{display: 'flex', flexDirection: 'column', gap: '12px', alignItems: 'flex-start'}}>
+              <div>
+                <strong>Recepción lista:</strong> {lastCreatedOrder.folio} para {lastCreatedOrder.customerName || "cliente seleccionado"}.
+              </div>
+              <div style={{display: 'flex', gap: '10px', flexWrap: 'wrap'}}>
+                <button type="button" className="sdmx-btn-ghost" onClick={() => handleWhatsapp(lastCreatedOrder)}>
+                  WhatsApp al cliente
+                </button>
+                <button type="button" className="sdmx-btn-ghost" onClick={() => handlePrintReceipt(lastCreatedOrder)}>
+                  Imprimir / PDF
+                </button>
+              </div>
+            </div>
+          )}
         </form>
 
         <article className="sdmx-card-premium" style={{display: "flex", flexDirection: "column"}}>
@@ -277,6 +502,12 @@ export function OperativoNative({ tenantId }: any = {}) {
                     <div className="flex-col">
                       <strong style={{fontSize: '1.05rem', color: '#1e3a8a'}}>{order.deviceType} {order.deviceModel ?? ""}</strong>
                       <div style={{display: 'flex', gap: '8px', alignItems: 'center'}}>
+                        {order.customerName && (
+                          <>
+                            <span style={{color: '#0f172a', fontWeight: 700, fontSize: '0.85rem'}}>{order.customerName}</span>
+                            <span style={{color: '#cbd5e1'}}>•</span>
+                          </>
+                        )}
                         <span style={{color: '#64748b', fontSize: '0.85rem'}}>Nivel Carga: {order.priority?.toUpperCase() || "NORMAL"} · Entrega: {formatDate(order.promisedDate)}</span>
                         {delayed && (
                           <FeatureGuard requiredLevel={PlanLevel.AVANZADO} featureName="Semáforo de Alertas" variant="compact">
@@ -286,6 +517,9 @@ export function OperativoNative({ tenantId }: any = {}) {
                       </div>
                     </div>
                     <div style={{ textAlign: 'right', display: 'flex', flexWrap: 'wrap', justifyContent: 'flex-end', gap: '8px' }}>
+                      <button className="sdmx-btn-ghost" style={{padding: '4px 8px', fontSize: '0.75rem'}} onClick={() => handleWhatsapp(order)}>
+                        WhatsApp
+                      </button>
                       <FeatureGuard requiredLevel={PlanLevel.PROFESIONAL} featureName="Notas Privadas" variant="compact">
                         <button className="sdmx-btn-ghost" style={{padding: '4px 8px', fontSize: '0.75rem'}}>📝 Notas</button>
                       </FeatureGuard>
@@ -293,7 +527,7 @@ export function OperativoNative({ tenantId }: any = {}) {
                         <button className="sdmx-btn-ghost" style={{padding: '4px 8px', fontSize: '0.75rem'}}>📷 Fotos</button>
                       </FeatureGuard>
                       <FeatureGuard requiredLevel={PlanLevel.AVANZADO} featureName="Reporte PDF" variant="compact">
-                        <button className="sdmx-btn-ghost" style={{padding: '4px 8px', fontSize: '0.75rem'}}>📄 PDF</button>
+                        <button className="sdmx-btn-ghost" style={{padding: '4px 8px', fontSize: '0.75rem'}} onClick={() => handlePrintReceipt(order)}>📄 PDF</button>
                       </FeatureGuard>
                       <span className={`badge-${order.status === 'entregado' ? 'success' : order.status === 'reparacion' ? 'warning' : 'info'}`}>{getServiceOrderStatusLabel(order.status)}</span>
                     </div>

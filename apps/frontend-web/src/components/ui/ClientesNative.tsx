@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { fetchWithAuth } from "../../lib/apiClient";
 import { useAuth } from "./AuthGuard";
 
@@ -16,6 +16,7 @@ type Customer = {
 export function ClientesNative() {
   const { session } = useAuth();
   const [customers, setCustomers] = useState<Customer[]>([]);
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [loading, setLoading] = useState(false);
   const [apiStateMessage, setApiStateMessage] = useState("");
   const [apiStateError, setApiStateError] = useState("");
@@ -23,6 +24,38 @@ export function ClientesNative() {
   const [formNotice, setFormNotice] = useState("");
   const [search, setSearch] = useState("");
   const [form, setForm] = useState({ fullName: "", phone: "", email: "", tag: "nuevo", notes: "" });
+
+  const duplicateSummary = useMemo(() => {
+    const phoneMap = new Map<string, number>();
+    const emailMap = new Map<string, number>();
+
+    customers.forEach((customer) => {
+      const normalizedPhone = (customer.phone || "").replace(/\D/g, "");
+      const normalizedEmail = (customer.email || "").trim().toLowerCase();
+      if (normalizedPhone) phoneMap.set(normalizedPhone, (phoneMap.get(normalizedPhone) || 0) + 1);
+      if (normalizedEmail) emailMap.set(normalizedEmail, (emailMap.get(normalizedEmail) || 0) + 1);
+    });
+
+    const duplicates = customers.map((customer) => {
+      const normalizedPhone = (customer.phone || "").replace(/\D/g, "");
+      const normalizedEmail = (customer.email || "").trim().toLowerCase();
+      return {
+        id: customer.id,
+        hasPhoneDuplicate: normalizedPhone ? (phoneMap.get(normalizedPhone) || 0) > 1 : false,
+        hasEmailDuplicate: normalizedEmail ? (emailMap.get(normalizedEmail) || 0) > 1 : false,
+      };
+    });
+
+    return {
+      duplicatesById: new Map(duplicates.map((item) => [item.id, item])),
+      duplicatesCount: duplicates.filter((item) => item.hasPhoneDuplicate || item.hasEmailDuplicate).length,
+      vipCount: customers.filter((customer) => customer.tag === "vip").length,
+      riskCount: customers.filter((customer) =>
+        /moroso|adeudo|pendiente|cobro/i.test(customer.tag || "") ||
+        /moroso|adeudo|pendiente|cobro/i.test(customer.notes || "")
+      ).length,
+    };
+  }, [customers]);
 
   async function loadCustomers() {
     if (!session?.shop.id) return;
@@ -113,6 +146,34 @@ export function ClientesNative() {
     }
   }
 
+  function getCustomerRisk(customer: Customer) {
+    if (/moroso|adeudo|pendiente|cobro/i.test(customer.tag || "") || /moroso|adeudo|pendiente|cobro/i.test(customer.notes || "")) {
+      return "riesgo";
+    }
+    if (customer.tag === "vip") return "vip";
+    return "normal";
+  }
+
+  function handleWhatsapp(customer: Customer) {
+    const normalizedPhone = (customer.phone || "").replace(/\D/g, "");
+    if (!normalizedPhone) {
+      setApiStateError("Este cliente no tiene teléfono o WhatsApp registrado.");
+      return;
+    }
+    const message = `Hola ${customer.fullName}, te contactamos desde ${session?.shop?.name || "Servicios Digitales MX"} para dar seguimiento a tu servicio.`;
+    window.open(`https://wa.me/52${normalizedPhone}?text=${encodeURIComponent(message)}`, "_blank", "noopener,noreferrer");
+  }
+
+  function handleCreateOrderFromCustomer(customer: Customer) {
+    localStorage.setItem("sdmx_operativo_prefill_customer", JSON.stringify({
+      id: customer.id,
+      fullName: customer.fullName,
+      phone: customer.phone || "",
+      email: customer.email || "",
+    }));
+    window.location.href = "/interno?modulo=operativo";
+  }
+
   return (
     <section className="clientes-shell animate-fadeIn space-y-8">
       <div className="clientes-header flex flex-col md:flex-row md:items-end justify-between gap-6 mb-8">
@@ -145,6 +206,21 @@ export function ClientesNative() {
 
       {apiStateMessage && <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-label font-bold text-sm rounded-xl animate-fadeIn">{apiStateMessage}</div>}
       {apiStateError && <div className="p-4 bg-red-500/10 border border-red-500/20 text-red-400 font-label font-bold text-sm rounded-xl animate-fadeIn">{apiStateError}</div>}
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="sdmx-glass p-5 rounded-2xl border-white/5">
+          <p className="font-label uppercase tracking-[0.2em] text-[10px] text-slate-500 font-black">Clientes VIP</p>
+          <p className="font-tech text-white text-3xl mt-2">{duplicateSummary.vipCount}</p>
+        </div>
+        <div className="sdmx-glass p-5 rounded-2xl border-white/5">
+          <p className="font-label uppercase tracking-[0.2em] text-[10px] text-slate-500 font-black">Duplicados detectados</p>
+          <p className="font-tech text-white text-3xl mt-2">{duplicateSummary.duplicatesCount}</p>
+        </div>
+        <div className="sdmx-glass p-5 rounded-2xl border-white/5">
+          <p className="font-label uppercase tracking-[0.2em] text-[10px] text-slate-500 font-black">Clientes en riesgo</p>
+          <p className="font-tech text-white text-3xl mt-2">{duplicateSummary.riskCount}</p>
+        </div>
+      </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
         {/* FORMULARIO DE CAPTURA RÁPIDA */}
@@ -261,6 +337,12 @@ export function ClientesNative() {
                              <span className="font-label text-slate-500 text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 italic">
                                <span className="opacity-40">📧</span> {customer.email || "Sin Correo"}
                              </span>
+                             {duplicateSummary.duplicatesById.get(customer.id)?.hasPhoneDuplicate || duplicateSummary.duplicatesById.get(customer.id)?.hasEmailDuplicate ? (
+                               <span className="font-label text-amber-400 text-[10px] font-bold uppercase tracking-widest">Duplicado detectado</span>
+                             ) : null}
+                             {getCustomerRisk(customer) === "riesgo" ? (
+                               <span className="font-label text-red-400 text-[10px] font-bold uppercase tracking-widest">Riesgo de cobro</span>
+                             ) : null}
                           </div>
                        </div>
                     </div>
@@ -280,6 +362,12 @@ export function ClientesNative() {
                        </div>
                     </div>
 
+                    <div className="w-full sm:w-auto mt-6 sm:mt-0 flex flex-wrap gap-2 z-10">
+                      <button type="button" className="sdmx-btn-ghost" onClick={() => handleWhatsapp(customer)}>WhatsApp</button>
+                      <button type="button" className="sdmx-btn-ghost" onClick={() => handleCreateOrderFromCustomer(customer)}>Nueva orden</button>
+                      <button type="button" className="sdmx-btn-ghost" onClick={() => setSelectedCustomer(customer)}>Perfil</button>
+                    </div>
+
                     {/* Efecto de fondo para VIP */}
                     {customer.tag === 'vip' && (
                       <div className="absolute top-0 right-0 w-32 h-full bg-amber-500/5 skew-x-12 translate-x-12 blur-2xl" />
@@ -291,6 +379,57 @@ export function ClientesNative() {
           </div>
         </div>
       </div>
+
+      {selectedCustomer && (
+        <div style={{position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem', background: 'rgba(15, 23, 42, 0.75)', backdropFilter: 'blur(6px)'}}>
+          <div className="sdmx-glass p-8 rounded-[2rem] border-white/10 w-full max-w-3xl max-h-[90vh] overflow-y-auto sdmx-scrollbar">
+            <div className="flex items-start justify-between gap-4 mb-8">
+              <div>
+                <span className="font-label uppercase tracking-[0.3em] text-blue-500 font-black text-[10px] block mb-2">Perfil Comercial</span>
+                <h3 className="font-tech text-white text-2xl uppercase tracking-tighter">{selectedCustomer.fullName}</h3>
+                <p className="font-label text-slate-500 text-sm mt-2">Resumen rápido del cliente para seguimiento, cobro y nueva recepción.</p>
+              </div>
+              <button type="button" className="sdmx-btn-ghost" onClick={() => setSelectedCustomer(null)}>Cerrar</button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+              <div className="sdmx-glass p-5 rounded-2xl border-white/5">
+                <p className="font-label uppercase tracking-[0.2em] text-[10px] text-slate-500 font-black">Perfil</p>
+                <p className="font-tech text-white text-xl mt-2">{selectedCustomer.tag.toUpperCase()}</p>
+              </div>
+              <div className="sdmx-glass p-5 rounded-2xl border-white/5">
+                <p className="font-label uppercase tracking-[0.2em] text-[10px] text-slate-500 font-black">Duplicidad</p>
+                <p className="font-tech text-white text-xl mt-2">
+                  {duplicateSummary.duplicatesById.get(selectedCustomer.id)?.hasPhoneDuplicate || duplicateSummary.duplicatesById.get(selectedCustomer.id)?.hasEmailDuplicate ? "Detectada" : "Limpio"}
+                </p>
+              </div>
+              <div className="sdmx-glass p-5 rounded-2xl border-white/5">
+                <p className="font-label uppercase tracking-[0.2em] text-[10px] text-slate-500 font-black">Riesgo comercial</p>
+                <p className="font-tech text-white text-xl mt-2">{getCustomerRisk(selectedCustomer) === "riesgo" ? "Revisar cobro" : "Controlado"}</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="sdmx-glass p-6 rounded-[1.5rem] border-white/5">
+                <p className="font-label uppercase tracking-[0.2em] text-[10px] text-slate-500 font-black mb-4">Contacto</p>
+                <div className="space-y-3 text-sm">
+                  <p className="text-slate-300"><strong className="text-white">WhatsApp:</strong> {selectedCustomer.phone || "Sin teléfono registrado"}</p>
+                  <p className="text-slate-300"><strong className="text-white">Correo:</strong> {selectedCustomer.email || "Sin correo registrado"}</p>
+                  <p className="text-slate-300"><strong className="text-white">Notas:</strong> {selectedCustomer.notes || "Sin notas internas registradas"}</p>
+                </div>
+              </div>
+
+              <div className="sdmx-glass p-6 rounded-[1.5rem] border-white/5">
+                <p className="font-label uppercase tracking-[0.2em] text-[10px] text-slate-500 font-black mb-4">Acciones rápidas</p>
+                <div className="flex flex-col gap-3">
+                  <button type="button" className="sdmx-btn-primary" onClick={() => handleWhatsapp(selectedCustomer)}>Contactar por WhatsApp</button>
+                  <button type="button" className="sdmx-btn-ghost" onClick={() => handleCreateOrderFromCustomer(selectedCustomer)}>Crear orden desde cliente</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }

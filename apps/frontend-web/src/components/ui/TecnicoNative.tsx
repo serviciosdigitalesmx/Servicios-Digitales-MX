@@ -7,11 +7,62 @@ import {
   IconMicrochip, IconWallet, IconStore
 } from "./Icons";
 
+type TechnicianDraft = {
+  internalDiagnosis: string;
+  technicalResolution: string;
+  finalCost: string;
+  checklist: {
+    ingresoValidado: boolean;
+    diagnosticoCompleto: boolean;
+    refaccionConfirmada: boolean;
+    pruebasFinales: boolean;
+  };
+};
+
+const DRAFTS_STORAGE_KEY = "sdmx_tecnico_drafts";
+
+function getDrafts(): Record<string, TechnicianDraft> {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = window.localStorage.getItem(DRAFTS_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveDrafts(drafts: Record<string, TechnicianDraft>) {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(DRAFTS_STORAGE_KEY, JSON.stringify(drafts));
+}
+
+function getQueueColor(status?: string, priority?: string) {
+  if ((priority || "").toLowerCase() === "urgente") return "rojo";
+  if (["listo", "entregado"].includes((status || "").toLowerCase())) return "verde";
+  return "amarillo";
+}
+
+function createDefaultDraft(source?: any): TechnicianDraft {
+  return {
+    internalDiagnosis: source?.originalData?.internalDiagnosis || "",
+    technicalResolution: source?.originalData?.casoResolucionTecnica || "",
+    finalCost: source?.originalData?.finalCost ? String(source.originalData.finalCost) : "",
+    checklist: {
+      ingresoValidado: false,
+      diagnosticoCompleto: false,
+      refaccionConfirmada: false,
+      pruebasFinales: false,
+    },
+  };
+}
+
 export function TecnicoNative({ tenantId }: any = {}) {
   const [filter, setFilter] = useState("todos");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedEquipo, setSelectedEquipo] = useState<any>(null);
   const [nuevoEstatus, setNuevoEstatus] = useState("");
+  const [draft, setDraft] = useState<TechnicianDraft>(createDefaultDraft());
+  const [toast, setToast] = useState("");
 
   const [equipos, setEquipos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -32,9 +83,7 @@ export function TecnicoNative({ tenantId }: any = {}) {
       const json = await res.json();
       if (json.success && json.data && json.data.orders) {
         const mapped = json.data.orders.map((o: any) => {
-          let color = "amarillo";
-          if (o.priority === "urgente") color = "rojo";
-          if (o.status === "listo" || o.status === "entregado") color = "verde";
+          const color = getQueueColor(o.status, o.priority);
 
           const ms = new Date().getTime() - new Date(o.createdAt).getTime();
           const dias = Math.max(0, Math.floor(ms / (1000 * 3600 * 24)));
@@ -67,6 +116,8 @@ export function TecnicoNative({ tenantId }: any = {}) {
   const handleOpenModal = (e: any) => {
     setSelectedEquipo(e);
     setNuevoEstatus(e.estado);
+    const drafts = getDrafts();
+    setDraft(drafts[e.id] || createDefaultDraft(e));
   };
 
   const handleSaveStatus = async () => {
@@ -82,21 +133,64 @@ export function TecnicoNative({ tenantId }: any = {}) {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${session?.access_token}` 
         },
-        body: JSON.stringify({ status: nuevoEstatus })
+        body: JSON.stringify({
+          status: nuevoEstatus,
+          internalDiagnosis: draft.internalDiagnosis,
+          casoResolucionTecnica: draft.technicalResolution,
+          finalCost: draft.finalCost ? Number(draft.finalCost) : null
+        })
       });
 
       if (res.ok) {
-        setEquipos(prev => prev.map(e => e.id === selectedEquipo.id ? { ...e, estado: nuevoEstatus } : e));
+        const drafts = getDrafts();
+        drafts[selectedEquipo.id] = draft;
+        saveDrafts(drafts);
+        setEquipos(prev => prev.map(e => e.id === selectedEquipo.id ? {
+          ...e,
+          estado: nuevoEstatus,
+          color: getQueueColor(nuevoEstatus, e.originalData?.priority),
+          originalData: {
+            ...e.originalData,
+            internalDiagnosis: draft.internalDiagnosis,
+            casoResolucionTecnica: draft.technicalResolution,
+            finalCost: draft.finalCost ? Number(draft.finalCost) : null
+          }
+        } : e));
+        setToast("Cambios técnicos guardados correctamente.");
         setSelectedEquipo(null);
       } else {
-        alert("Error al actualizar el estatus");
+        const drafts = getDrafts();
+        drafts[selectedEquipo.id] = draft;
+        saveDrafts(drafts);
+        setEquipos(prev => prev.map(e => e.id === selectedEquipo.id ? {
+          ...e,
+          originalData: {
+            ...e.originalData,
+            internalDiagnosis: draft.internalDiagnosis,
+            casoResolucionTecnica: draft.technicalResolution,
+            finalCost: draft.finalCost ? Number(draft.finalCost) : null
+          }
+        } : e));
+        setToast("Se guardó el avance local del técnico, pero el backend todavía no confirmó la actualización.");
+        setSelectedEquipo(null);
       }
     } catch (error) {
+      const drafts = getDrafts();
+      drafts[selectedEquipo.id] = draft;
+      saveDrafts(drafts);
       console.error(error);
+      setToast("Se guardó el avance local del técnico. Revisa la conexión con el backend para sincronizar.");
+      setSelectedEquipo(null);
     } finally {
       setSaving(false);
     }
   };
+
+  useEffect(() => {
+    if (!toast) return;
+    const timeout = window.setTimeout(() => setToast(""), 3500);
+    return () => window.clearTimeout(timeout);
+  }, [toast]);
 
   const filtered = equipos.filter(e => {
     const matchesSearch = e.folio.toLowerCase().includes(searchTerm.toLowerCase());
@@ -123,6 +217,12 @@ export function TecnicoNative({ tenantId }: any = {}) {
 
   return (
     <div className="w-full space-y-8 animate-in fade-in duration-700">
+      {toast && (
+        <div className="form-message is-success">
+          {toast}
+        </div>
+      )}
+
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="card-srf p-5 border-red-500/30 relative overflow-hidden group">
           <div className="absolute top-0 right-0 w-16 h-16 bg-red-500/5 blur-2xl"></div>
@@ -208,7 +308,7 @@ export function TecnicoNative({ tenantId }: any = {}) {
             </div>
 
             <div className="flex justify-between items-center pt-4 border-t border-white/5">
-               <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2">
                   <div className={`w-2 h-2 rounded-full ${e.estado === 'listo' ? 'bg-green-500' : 'bg-blue-500 animate-pulse'}`}></div>
                   <span className="text-[10px] text-slate-500 uppercase font-bold font-label">{e.estado}</span>
                </div>
@@ -248,6 +348,81 @@ export function TecnicoNative({ tenantId }: any = {}) {
                  <div>
                     <span className="text-[10px] text-slate-500 uppercase font-black tracking-widest font-label block mb-2">Falla Reportada</span>
                     <p className="text-sm text-slate-300 leading-relaxed bg-slate-800/50 p-4 rounded-xl italic">"{selectedEquipo.falla}"</p>
+                 </div>
+
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="text-[10px] text-slate-500 uppercase font-black tracking-widest font-label block mb-2">Diagnóstico interno</label>
+                      <textarea
+                        value={draft.internalDiagnosis}
+                        onChange={(e) => setDraft((current) => ({ ...current, internalDiagnosis: e.target.value }))}
+                        className="w-full input-srf rounded-xl p-4 text-sm outline-none text-white bg-slate-900 border-white/10 focus:border-blue-500 min-h-[140px]"
+                        placeholder="Ej. Se detecta daño en conector de carga y falso contacto en la tarjeta."
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-slate-500 uppercase font-black tracking-widest font-label block mb-2">Resolución técnica</label>
+                      <textarea
+                        value={draft.technicalResolution}
+                        onChange={(e) => setDraft((current) => ({ ...current, technicalResolution: e.target.value }))}
+                        className="w-full input-srf rounded-xl p-4 text-sm outline-none text-white bg-slate-900 border-white/10 focus:border-blue-500 min-h-[140px]"
+                        placeholder="Ej. Reemplazar módulo, hacer limpieza y ejecutar pruebas finales."
+                      />
+                    </div>
+                 </div>
+
+                 <div className="grid grid-cols-1 md:grid-cols-[1.1fr_0.9fr] gap-6">
+                    <div className="bg-slate-900/50 p-6 rounded-2xl border border-white/5">
+                      <span className="text-[10px] text-slate-500 uppercase font-black tracking-widest font-label block mb-3">Checklist técnico</span>
+                      <div className="space-y-3">
+                        {[
+                          ["ingresoValidado", "Ingreso y evidencia revisados"],
+                          ["diagnosticoCompleto", "Diagnóstico completo"],
+                          ["refaccionConfirmada", "Refacción o solución confirmada"],
+                          ["pruebasFinales", "Pruebas finales completadas"],
+                        ].map(([key, label]) => (
+                          <label key={key} className="flex items-center gap-3 text-sm text-slate-200">
+                            <input
+                              type="checkbox"
+                              checked={draft.checklist[key as keyof TechnicianDraft["checklist"]]}
+                              onChange={(e) =>
+                                setDraft((current) => ({
+                                  ...current,
+                                  checklist: {
+                                    ...current.checklist,
+                                    [key]: e.target.checked,
+                                  },
+                                }))
+                              }
+                            />
+                            <span>{label}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="bg-slate-900/50 p-6 rounded-2xl border border-white/5">
+                      <span className="text-[10px] text-slate-500 uppercase font-black tracking-widest font-label block mb-3">Cierre del caso</span>
+                      <label className="text-[10px] text-slate-500 uppercase font-black tracking-widest font-label block mb-2">Costo final</label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={draft.finalCost}
+                        onChange={(e) => setDraft((current) => ({ ...current, finalCost: e.target.value }))}
+                        className="w-full input-srf rounded-xl p-4 text-sm outline-none text-white bg-slate-900 border-white/10 focus:border-blue-500"
+                        placeholder="0.00"
+                      />
+
+                      <div className="mt-4 rounded-xl border border-white/5 bg-slate-950/70 p-4">
+                        <span className="text-[10px] text-slate-500 uppercase font-black tracking-widest font-label block mb-2">Resumen rápido</span>
+                        <div className="space-y-2 text-sm text-slate-300">
+                          <p><strong className="text-white">Estatus:</strong> {nuevoEstatus || selectedEquipo.estado}</p>
+                          <p><strong className="text-white">Días en taller:</strong> {selectedEquipo.dias}</p>
+                          <p><strong className="text-white">Checklist completo:</strong> {Object.values(draft.checklist).filter(Boolean).length}/4</p>
+                        </div>
+                      </div>
+                    </div>
                  </div>
 
                  <div>

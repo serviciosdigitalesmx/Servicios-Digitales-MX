@@ -1,31 +1,47 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "./AuthGuard";
 import { FeatureGuard } from "./FeatureGuard";
 import { PlanLevel } from "../../lib/subscription";
+
+type ReportRange = "7d" | "30d" | "90d";
 
 type ReportData = {
   ordersTotal: number; ordersOpen: number; ordersDelivered: number;
   tasksOpen: number; tasksUrgent: number; estimatedRevenue: number;
   criticalStock: Array<{ sku: string; name: string; minimumStock: number; stockCurrent: number }>;
   commonIssues: Array<{ issue: string; total: number }>;
+  averagePerOrder: number;
+  completionRate: number;
+  totalDevicesInFlow: number;
 };
 
 export function ReportesNative() {
   const { session } = useAuth();
   const [data, setData] = useState<ReportData | null>(null);
   const [loading, setLoading] = useState(false);
+  const [range, setRange] = useState<ReportRange>("30d");
+
+  const rangeOptions: Array<{ value: ReportRange; label: string }> = [
+    { value: "7d", label: "7 días" },
+    { value: "30d", label: "30 días" },
+    { value: "90d", label: "90 días" }
+  ];
 
   async function rawLoad() {
     if (!session?.shop.id) return;
     setLoading(true);
     try {
+      const fromDate = new Date();
+      fromDate.setDate(fromDate.getDate() - (range === "7d" ? 7 : range === "30d" ? 30 : 90));
+      const fromIso = fromDate.toISOString();
+
       const [ordersRes, tasksRes, productsRes] = await Promise.all([
-        supabase.from('service_orders').select('status, estimated_cost, final_cost').eq('tenant_id', session.shop.id),
-        supabase.from('tasks').select('status, priority').eq('tenant_id', session.shop.id),
-        supabase.from('products').select('sku, name, stock_min, stock_current').eq('tenant_id', session.shop.id).eq('is_active', true)
+        supabase.from('service_orders').select('status, estimated_cost, final_cost, reported_issue, created_at').eq('tenant_id', session.shop.id).gte('created_at', fromIso),
+        supabase.from('tasks').select('status, priority, created_at').eq('tenant_id', session.shop.id).gte('created_at', fromIso),
+        supabase.from('products').select('sku, name, minimum_stock, stock_current').eq('tenant_id', session.shop.id).eq('is_active', true)
       ]);
 
       if (ordersRes.error) throw ordersRes.error;
@@ -33,7 +49,7 @@ export function ReportesNative() {
       if (productsRes.error) throw productsRes.error;
 
       const products = productsRes.data || [];
-      const criticalStock = products.filter((p: any) => (p.stock_current || 0) < (p.stock_min || 0));
+      const criticalStock = products.filter((p: any) => (p.stock_current || 0) <= (p.minimum_stock || 0));
 
       const orders = ordersRes.data || [];
       const tasks = tasksRes.data || [];
@@ -41,6 +57,16 @@ export function ReportesNative() {
       const ordersOpen = orders.filter((o: any) => !['entregado', 'cancelado', 'archivado'].includes(o.status)).length;
       const ordersDelivered = orders.filter((o: any) => o.status === 'entregado').length;
       const revenue = orders.reduce((acc: number, o: any) => acc + (Number(o.final_cost || o.estimated_cost || 0)), 0);
+      const commonIssues = Array.from(
+        orders.reduce((map: Map<string, number>, order: any) => {
+          const issue = (order.reported_issue || "Sin detalle").trim();
+          map.set(issue, (map.get(issue) || 0) + 1);
+          return map;
+        }, new Map<string, number>())
+      )
+        .map(([issue, total]) => ({ issue, total }))
+        .sort((a, b) => b.total - a.total)
+        .slice(0, 5);
 
       const tasksOpen = tasks.filter((t: any) => t.status === 'pendiente').length;
       const tasksUrgent = tasks.filter((t: any) => t.priority === 'urgente' && t.status === 'pendiente').length;
@@ -55,10 +81,13 @@ export function ReportesNative() {
         criticalStock: criticalStock.map((p: any) => ({
           sku: p.sku,
           name: p.name,
-          minimumStock: p.stock_min,
+          minimumStock: p.minimum_stock,
           stockCurrent: p.stock_current
         })),
-        commonIssues: []
+        commonIssues,
+        averagePerOrder: orders.length ? revenue / orders.length : 0,
+        completionRate: orders.length ? Math.round((ordersDelivered / orders.length) * 100) : 0,
+        totalDevicesInFlow: orders.length
       });
 
     } catch (error: any) {
@@ -70,9 +99,32 @@ export function ReportesNative() {
 
   useEffect(() => { 
     if (session) void rawLoad(); 
-  }, [session]);
+  }, [session, range]);
 
   function formatMoney(v: number) { return new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN", maximumFractionDigits: 0 }).format(v); }
+
+  const reportSignals = useMemo(() => {
+    if (!data) return [];
+    return [
+      {
+        title: "Conversión operativa",
+        value: `${data.completionRate}%`,
+        message: data.completionRate >= 60
+          ? "Buen ritmo de salida. El taller está liberando equipos con constancia."
+          : "La conversión a entregados sigue baja; conviene revisar cuellos de diagnóstico o compras."
+      },
+      {
+        title: "Ticket por orden",
+        value: formatMoney(data.averagePerOrder),
+        message: "Sirve para comparar si el volumen de trabajo se está traduciendo en valor promedio suficiente."
+      },
+      {
+        title: "Dispositivos en flujo",
+        value: `${data.totalDevicesInFlow}`,
+        message: "Mide la carga operativa observada dentro del periodo seleccionado."
+      }
+    ];
+  }, [data]);
 
   return (
     <FeatureGuard requiredLevel={PlanLevel.AVANZADO} featureName="Reportes Operativos">
@@ -84,6 +136,19 @@ export function ReportesNative() {
             <p className="muted">Resumen en tiempo real de la operación de servicio.</p>
           </div>
           <div className="module-native-actions flex-row-between" style={{flex: 1, justifyContent: 'flex-end', gap: '12px'}}>
+             <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+              {rangeOptions.map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  className={`product-button ${range === option.value ? "is-primary" : ""}`}
+                  onClick={() => setRange(option.value)}
+                  style={{ minWidth: "92px" }}
+                >
+                  {option.label}
+                </button>
+              ))}
+             </div>
              <button disabled={loading} className="product-button is-primary" onClick={rawLoad} style={{padding: '0 20px', minWidth: '150px'}}>{loading ? 'Cargando...' : 'Actualizar Datos'}</button>
           </div>
         </div>
@@ -114,6 +179,16 @@ export function ReportesNative() {
              </div>
           </div>
 
+          <div className="grid-cols-3">
+            {reportSignals.map((signal) => (
+              <div key={signal.title} className="sdmx-card-premium" style={{padding: '20px'}}>
+                <span className="hero-eyebrow">{signal.title}</span>
+                <strong style={{display: 'block', fontSize: '1.8rem', margin: '8px 0 6px 0', color: '#0f172a'}}>{signal.value}</strong>
+                <p className="muted" style={{margin: 0, lineHeight: 1.5}}>{signal.message}</p>
+              </div>
+            ))}
+          </div>
+
           {/* Breakdown Row */}
           <div style={{display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr)', gap: '16px'}}>
              <article className="sdmx-card-premium" style={{display: "flex", flexDirection: "column"}}>
@@ -126,7 +201,7 @@ export function ReportesNative() {
                      data.commonIssues.map((issue, idx) => (
                        <li key={idx} className="flex-row-between">
                           <strong style={{color: '#0f172a'}}>{issue.issue}</strong>
-                          <span className="badge-warning">{issue.total} Casos idénticos</span>
+                          <span className="badge-warning">{issue.total} caso(s)</span>
                        </li>
                      ))
                    }

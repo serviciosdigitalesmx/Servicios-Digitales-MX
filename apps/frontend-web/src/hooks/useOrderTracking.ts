@@ -1,14 +1,17 @@
 import { useState, useEffect, useCallback } from 'react';
-import { fetchPublic, ApiResponse } from '../lib/apiClient';
+import { fetchPublic } from '../lib/apiClient';
 
 export interface Order {
   folio: string;
   status: string;
   deviceType: string;
+  deviceBrand?: string;
   deviceModel: string;
   reportedIssue: string;
   promisedDate: string;
   progressPhotos: string[];
+  resolution?: string | null;
+  updatedAt?: string;
 }
 
 export function useOrderTracking(folio: string | null) {
@@ -25,7 +28,18 @@ export function useOrderTracking(folio: string | null) {
     const result = await fetchPublic<Order>(`/api/portal/orders/${folioString.trim().toUpperCase()}`);
 
     if (result.success && result.data) {
-      setOrder(result.data);
+      setOrder({
+        folio: result.data.folio,
+        status: result.data.status,
+        deviceType: result.data.deviceType,
+        deviceBrand: result.data.deviceBrand,
+        deviceModel: result.data.deviceModel,
+        reportedIssue: result.data.reportedIssue,
+        promisedDate: result.data.promisedDate,
+        progressPhotos: Array.isArray(result.data.progressPhotos) ? result.data.progressPhotos : [],
+        resolution: result.data.resolution ?? null,
+        updatedAt: result.data.updatedAt,
+      });
       setError(null);
     } else {
       setOrder(null);
