@@ -1,4 +1,5 @@
 export type ModuleKey =
+  | "negocio"
   | "operativo"
   | "tecnico"
   | "solicitudes"
@@ -21,6 +22,12 @@ export type ModuleDefinition = {
 };
 
 export const MODULES: Array<ModuleDefinition> = [
+  {
+    key: "negocio",
+    label: "Negocio",
+    table: "tenants",
+    summary: "Branding, datos fiscales y presencia de marca"
+  },
   {
     key: "operativo",
     label: "Operativo",

@@ -15,6 +15,13 @@ export type AuthMeResponse = {
     id: string;
     name: string;
     slug: string;
+    legalName?: string | null;
+    address?: string | null;
+    phone?: string | null;
+    supportEmail?: string | null;
+    logoUrl?: string | null;
+    primaryColor?: string | null;
+    secondaryColor?: string | null;
   };
   subscription: {
     status: string;

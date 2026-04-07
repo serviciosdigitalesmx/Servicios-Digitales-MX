@@ -6,6 +6,7 @@ import { fetchWithAuth } from "../../lib/apiClient";
 import { MODULES, type ModuleKey } from "../../lib/module-registry";
 import { ClientesNative } from "./ClientesNative";
 import { ComprasNative } from "./ComprasNative";
+import { ConfiguracionNegocioNative } from "./ConfiguracionNegocioNative";
 import { FinanzasNative } from "./FinanzasNative";
 import { GastosNative } from "./GastosNative";
 import { OperativoNative } from "./OperativoNative";
@@ -25,8 +26,8 @@ import {
 import { useAuth } from "./AuthGuard";
 
 const ROLE_PERMISSIONS: Record<string, string[]> = {
-  owner: ["operativo", "tecnico", "archivo", "sucursales", "stock", "clientes", "proveedores", "compras", "gastos", "finanzas", "reportes", "solicitudes", "tareas"],
-  manager: ["operativo", "tecnico", "archivo", "stock", "clientes", "proveedores", "compras", "gastos", "reportes", "solicitudes", "tareas"], 
+  owner: ["operativo", "tecnico", "archivo", "sucursales", "stock", "clientes", "proveedores", "compras", "gastos", "finanzas", "reportes", "solicitudes", "tareas", "negocio"],
+  manager: ["operativo", "tecnico", "archivo", "stock", "clientes", "proveedores", "compras", "gastos", "reportes", "solicitudes", "tareas", "negocio"], 
   receptionist: ["operativo", "archivo", "clientes", "solicitudes", "tareas"], 
   technician: ["tecnico", "archivo", "tareas"] 
 };
@@ -52,6 +53,7 @@ const getIconForModule = (key: string, props: React.SVGProps<SVGSVGElement> = {}
     case "finanzas": return <IconWallet {...defaultProps} />;
     case "reportes": return <IconChart {...defaultProps} />;
     case "sucursales": return <IconStore {...defaultProps} />;
+    case "negocio": return <IconStore {...defaultProps} />;
     default: return <IconDashboard {...defaultProps} />;
   }
 };
@@ -118,7 +120,7 @@ export function ProductDashboard({ initialModule = "operativo", shopSlug }: Prod
 
   const navigationGroups = [
     { group: "Principal", items: MODULES.filter(m => ["operativo", "tecnico", "archivo"].includes(m.key) && allowedModules.includes(m.key)) },
-    { group: "Administración", items: MODULES.filter(m => ["sucursales", "stock", "clientes", "proveedores", "compras", "gastos", "finanzas", "reportes"].includes(m.key) && allowedModules.includes(m.key)) },
+    { group: "Administración", items: MODULES.filter(m => ["negocio", "sucursales", "stock", "clientes", "proveedores", "compras", "gastos", "finanzas", "reportes"].includes(m.key) && allowedModules.includes(m.key)) },
     { group: "Mostrador", items: MODULES.filter(m => ["solicitudes", "tareas"].includes(m.key) && allowedModules.includes(m.key)) }
   ].filter(group => group.items.length > 0);
 
@@ -228,6 +230,7 @@ export function ProductDashboard({ initialModule = "operativo", shopSlug }: Prod
               : activeModule === "gastos" ? <GastosNative />
               : activeModule === "finanzas" ? <FinanzasNative />
               : activeModule === "reportes" ? <ReportesNative />
+              : activeModule === "negocio" ? <ConfiguracionNegocioNative />
               : activeModule === "sucursales" ? <SucursalesNative />
               : <div className="p-12 text-center font-label text-slate-500 uppercase tracking-[0.3em]">Cabina en Preparación...</div>
             }

@@ -2,6 +2,19 @@ using BackendApi.Infrastructure;
 using Microsoft.AspNetCore.Mvc;
 
 var builder = WebApplication.CreateBuilder(args);
+var shopBranding = new ShopBrandingState
+{
+    Id = "shop_999",
+    Name = "Sr. Fix Central",
+    Slug = "sr-fix-central",
+    LegalName = "Sr. Fix Central",
+    Address = "Av. Tecnológico 123, Monterrey, N.L.",
+    Phone = "8110000000",
+    SupportEmail = "hola@srfixcentral.mx",
+    LogoUrl = null,
+    PrimaryColor = "#2563EB",
+    SecondaryColor = "#0F172A"
+};
 
 builder.Services.AddCors(options => {
     options.AddDefaultPolicy(policy => {
@@ -58,9 +71,16 @@ app.MapGet("/api/auth/me", () => Results.Ok(new {
         role = "admin" 
     },
     shop = new { 
-        id = "shop_999", 
-        name = "Sr. Fix Central", 
-        slug = "sr-fix-central" 
+        id = shopBranding.Id,
+        name = shopBranding.Name,
+        slug = shopBranding.Slug,
+        legalName = shopBranding.LegalName,
+        address = shopBranding.Address,
+        phone = shopBranding.Phone,
+        supportEmail = shopBranding.SupportEmail,
+        logoUrl = shopBranding.LogoUrl,
+        primaryColor = shopBranding.PrimaryColor,
+        secondaryColor = shopBranding.SecondaryColor
     },
     subscription = new { 
         status = "active", 
@@ -72,9 +92,47 @@ app.MapGet("/api/auth/me", () => Results.Ok(new {
     }
 }));
 
+app.MapGet("/api/shop/settings", () => Results.Ok(new
+{
+    success = true,
+    data = shopBranding
+}));
+
+app.MapPut("/api/shop/settings", ([FromBody] UpdateShopBrandingRequest request) =>
+{
+    shopBranding = shopBranding with
+    {
+        Name = string.IsNullOrWhiteSpace(request.Name) ? shopBranding.Name : request.Name.Trim(),
+        LegalName = string.IsNullOrWhiteSpace(request.LegalName) ? shopBranding.LegalName : request.LegalName.Trim(),
+        Address = request.Address?.Trim(),
+        Phone = request.Phone?.Trim(),
+        SupportEmail = request.SupportEmail?.Trim(),
+        LogoUrl = string.IsNullOrWhiteSpace(request.LogoUrl) ? null : request.LogoUrl.Trim(),
+        PrimaryColor = string.IsNullOrWhiteSpace(request.PrimaryColor) ? shopBranding.PrimaryColor : request.PrimaryColor.Trim(),
+        SecondaryColor = string.IsNullOrWhiteSpace(request.SecondaryColor) ? shopBranding.SecondaryColor : request.SecondaryColor.Trim()
+    };
+
+    return Results.Ok(new
+    {
+        success = true,
+        data = shopBranding
+    });
+});
+
 app.MapGet("/api/portal/shop/{slug}", (string slug) => Results.Ok(new { 
     success = true, 
-    data = new { id = "shop_999", name = "Sr. Fix Central", slug = slug } 
+    data = new {
+        id = shopBranding.Id,
+        name = shopBranding.Name,
+        slug = slug,
+        legalName = shopBranding.LegalName,
+        address = shopBranding.Address,
+        phone = shopBranding.Phone,
+        supportEmail = shopBranding.SupportEmail,
+        logoUrl = shopBranding.LogoUrl,
+        primaryColor = shopBranding.PrimaryColor,
+        secondaryColor = shopBranding.SecondaryColor
+    } 
 }));
 
 app.MapGet("/api/portal/orders/{folio}", (string folio) =>
@@ -120,3 +178,26 @@ app.MapGet("/api/portal/orders/{folio}", (string folio) =>
 app.Run();
 
 public record LoginRequest(string Email, string Password);
+public record UpdateShopBrandingRequest(
+    string? Name,
+    string? LegalName,
+    string? Address,
+    string? Phone,
+    string? SupportEmail,
+    string? LogoUrl,
+    string? PrimaryColor,
+    string? SecondaryColor
+);
+public record ShopBrandingState
+{
+    public string Id { get; init; } = "shop_999";
+    public string Name { get; init; } = "Sr. Fix Central";
+    public string Slug { get; init; } = "sr-fix-central";
+    public string LegalName { get; init; } = "Sr. Fix Central";
+    public string? Address { get; init; }
+    public string? Phone { get; init; }
+    public string? SupportEmail { get; init; }
+    public string? LogoUrl { get; init; }
+    public string PrimaryColor { get; init; } = "#2563EB";
+    public string SecondaryColor { get; init; } = "#0F172A";
+}
