@@ -1332,4 +1332,22 @@ app.MapGet("/api/portal/shop/{slug}", async (string slug, SupabaseService supaba
 .WithName("GetPortalShopInfo")
 .AllowAnonymous(); // Este es público para que los clientes finales vean el nombre del taller
 
+
+app.MapPost("/api/payments/create-preference", async (HttpContext context, SupabaseService supabase) =>
+{
+    // 1. Validar usuario autenticado
+    var authHeader = context.Request.Headers["Authorization"].ToString();
+    if (string.IsNullOrEmpty(authHeader)) return Results.Unauthorized();
+
+    // 2. Aquí iría la lógica de Mercado Pago SDK para C#
+    // Por ahora, devolvemos el InitPoint simulado o real
+    // Esto centraliza la lógica que antes estaba en Next.js
+    return Results.Ok(new { 
+        success = true, 
+        checkoutUrl = "https://www.mercadopago.com.mx/checkout/v1/redirect?pref_id=placeholder" 
+    });
+})
+.WithName("CreatePaymentPreference")
+.RequireAuthorization();
+
 app.Run();
