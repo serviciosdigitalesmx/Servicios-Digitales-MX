@@ -15,6 +15,7 @@ import InventoryPanel from "../../../components/hub/InventoryPanel";
 import ExpensesPanel from "../../../components/hub/ExpensesPanel";
 import PurchasesPanel from "../../../components/hub/PurchasesPanel";
 import ReportsPanel from "../../../components/hub/ReportsPanel";
+import SolicitudesPanel from "../../../components/hub/SolicitudesPanel";
 import SecurityPanel from "../../../components/hub/SecurityPanel";
 
 function Placeholder({ title }: { title: string }) {
@@ -50,13 +51,13 @@ function HubContent() {
       case "dashboard": return <Dashboard />;
       case "recepcion": return <ReceptionForm />;
       case "taller": return <TechnicalPanel />;
-      case "solicitudes": return <Placeholder title="Solicitudes" />;
+      case "solicitudes": return <SolicitudesPanel />;
       case "archivo": return <ArchivePanel />;
       case "clientes": return <CustomersPanel />;
       case "inventario": return <InventoryPanel />;
       case "gastos": return <ExpensesPanel />;
       case "compras": return <PurchasesPanel />;
-      case "reportes": return <Placeholder title="Reportes Hub" />;
+      case "reportes": return <ReportsPanel />;
       case "finanzas": return <FinancePanel />;
       case "seguridad": return <SecurityPanel />;
       default: return <Placeholder title="Módulo" />;
