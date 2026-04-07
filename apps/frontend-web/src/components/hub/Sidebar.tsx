@@ -2,20 +2,9 @@
 
 import React from "react";
 import {
-  LayoutDashboard,
-  ClipboardList,
-  Cpu,
-  Inbox,
-  Archive,
-  Users,
-  Package,
-  Receipt,
-  ShoppingCart,
-  BarChart3,
-  DollarSign,
-  ShieldCheck,
-  Power,
-  Zap
+  LayoutDashboard, ClipboardList, Cpu, Inbox, Archive, Users,
+  Package, Receipt, ShoppingCart, BarChart3, DollarSign,
+  ShieldCheck, Power, Zap, X
 } from "lucide-react";
 
 const navGroups = [
@@ -55,21 +44,29 @@ type Props = {
   activeTab: string;
   onTabChange: (tab: string) => void;
   user: { name: string; role: string };
+  isOpen: boolean;
+  setIsOpen: (open: boolean) => void;
+  onLogout: () => void;
 };
 
-export default function Sidebar({ activeTab, onTabChange, user }: Props) {
+export default function Sidebar({ activeTab, onTabChange, user, isOpen, setIsOpen, onLogout }: Props) {
   return (
-    <aside className="w-64 bg-black/60 border-r border-white/5 flex flex-col h-screen fixed left-0 top-0 z-40 backdrop-blur-3xl">
-      <div className="p-6 flex items-center gap-3">
-        <div className="w-10 h-10 bg-[var(--accent-blue)]/10 border border-[var(--accent-blue)]/20 rounded-xl flex items-center justify-center text-[var(--accent-blue)] shadow-lg shadow-blue-500/10">
-          <Zap size={20} fill="currentColor" />
+    <aside className={`w-64 bg-black/95 md:bg-black/60 border-r border-white/5 flex flex-col h-screen fixed left-0 top-0 z-50 backdrop-blur-3xl transition-transform duration-300 ease-in-out ${isOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}`}>
+      <div className="p-6 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-[var(--accent-blue)]/10 border border-[var(--accent-blue)]/20 rounded-xl flex items-center justify-center text-[var(--accent-blue)] shadow-lg shadow-blue-500/10">
+            <Zap size={20} fill="currentColor" />
+          </div>
+          <div className="font-jakarta font-extrabold text-xl tracking-tight text-white">
+            SrFix<span className="text-[var(--accent-blue)]">Hub</span>
+          </div>
         </div>
-        <div className="font-jakarta font-extrabold text-xl tracking-tight text-white">
-          SrFix<span className="text-[var(--accent-blue)]">Hub</span>
-        </div>
+        <button onClick={() => setIsOpen(false)} className="md:hidden text-white/50 hover:text-white">
+          <X size={24} />
+        </button>
       </div>
 
-      <nav className="flex-1 overflow-y-auto px-4 py-4 space-y-8">
+      <nav className="flex-1 overflow-y-auto px-4 py-4 space-y-8 scrollbar-hide">
         {navGroups.map((group) => (
           <div key={group.label}>
             <div className="px-3 text-[10px] font-bold text-[var(--text-secondary)] uppercase tracking-[0.2em] mb-4">
@@ -105,16 +102,16 @@ export default function Sidebar({ activeTab, onTabChange, user }: Props) {
 
       <div className="p-4 border-t border-white/5">
         <div className="bg-white/5 rounded-2xl p-4 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-[var(--accent-blue)] flex items-center justify-center font-bold text-xs shadow-inner">
-            {user?.name?.[0]?.toUpperCase() || "A"}
+          <div className="w-10 h-10 rounded-full bg-[var(--accent-blue)] flex items-center justify-center font-bold text-xs shadow-inner uppercase">
+            {user?.name?.[0] || "U"}
           </div>
           <div className="flex-1 min-w-0">
-            <div className="text-sm font-bold truncate text-white">{user?.name || "Admin"}</div>
-            <div className="text-[10px] text-[var(--text-secondary)] font-bold uppercase tracking-wider">
-              {user?.role || "Moderador"}
+            <div className="text-sm font-bold truncate text-white">{user?.name || "Usuario"}</div>
+            <div className="text-[10px] text-[var(--text-secondary)] font-bold uppercase tracking-wider truncate">
+              {user?.role || "Staff"}
             </div>
           </div>
-          <button className="text-[var(--text-secondary)] hover:text-red-500 transition-colors">
+          <button onClick={onLogout} className="text-[var(--text-secondary)] hover:text-red-500 transition-colors">
             <Power size={18} />
           </button>
         </div>
