@@ -1,9 +1,52 @@
 "use client";
-import { useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
+// 1. Definimos el contrato completo basado en lo que el sistema ya consume
+export type AuthMeResponse = {
+  user: {
+    id: string;
+    fullName: string;
+    email: string;
+    role: string;
+    branchId?: string | null;
+  };
+  shop: {
+    id: string;
+    name: string;
+    slug: string;
+  };
+  subscription: {
+    status: string;
+    planCode: string;
+    planName: string;
+    priceMxn: number;
+    billingInterval: string;
+    operationalAccess: boolean;
+    currentPeriodStart?: string;
+    currentPeriodEnd?: string;
+    graceUntil?: string;
+  };
+  lastPayment?: any;
+};
+
+type AuthContextType = {
+  session: AuthMeResponse | null;
+  user: AuthMeResponse["user"] | null;
+  loading: boolean;
+};
+
+const AuthContext = createContext<AuthContextType>({ 
+  session: null, 
+  user: null,
+  loading: true 
+});
+
+export const useAuth = () => useContext(AuthContext);
+
 export function AuthGuard({ children }: { children: React.ReactNode }) {
-  const [authorized, setAuthorized] = useState(false);
+  const [session, setSession] = useState<AuthMeResponse | null>(null);
+  const [loading, setLoading] = useState(true);
   const router = useRouter();
 
   useEffect(() => {
@@ -12,19 +55,34 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
         const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5115";
         const res = await fetch(`${apiUrl}/api/auth/me`);
         
-        if (res.status === 401 || res.status === 404) {
-          router.push("/login");
+        if (res.ok) {
+          const data: AuthMeResponse = await res.json();
+          // FIX: Seteamos la data directa, sin envolverla de más
+          setSession(data);
         } else {
-          setAuthorized(true);
+          router.push("/login");
         }
       } catch (err) {
+        console.error("Auth check failed:", err);
         router.push("/login");
+      } finally {
+        setLoading(false);
       }
     };
     checkAuth();
   }, [router]);
 
-  if (!authorized) return <div className="p-10 text-center">Cargando sesión segura...</div>;
+  const value = {
+    session,
+    user: session?.user ?? null,
+    loading
+  };
 
-  return <>{children}</>;
+  if (loading) return <div className="p-10 text-center text-gray-500">Iniciando sesión segura...</div>;
+
+  return (
+    <AuthContext.Provider value={value}>
+      {session ? children : null}
+    </AuthContext.Provider>
+  );
 }
