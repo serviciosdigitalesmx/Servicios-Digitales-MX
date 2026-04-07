@@ -1321,4 +1321,15 @@ app.MapPost("/api/billing/simulate-payment-sync", async (string paymentId, Supab
 })
 .WithName("SimulatePaymentSync");
 
+
+app.MapGet("/api/portal/shop/{slug}", async (string slug, SupabaseService supabase, CancellationToken cancellationToken) =>
+{
+    var tenant = await supabase.GetSingleAsync<SupabaseService.DbTenant>($"tenants?slug=eq.{Uri.EscapeDataString(slug)}&select=id,name,slug", cancellationToken);
+    if (tenant is null) return Results.NotFound(new { success = false, message = "Tienda no encontrada" });
+
+    return Results.Ok(new { success = true, data = new { id = tenant.Id, name = tenant.Name, slug = tenant.Slug } });
+})
+.WithName("GetPortalShopInfo")
+.AllowAnonymous(); // Este es público para que los clientes finales vean el nombre del taller
+
 app.Run();

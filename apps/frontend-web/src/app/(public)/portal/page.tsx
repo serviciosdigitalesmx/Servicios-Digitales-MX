@@ -1,393 +1,71 @@
 "use client";
 
-import React, { useState, useEffect, Suspense } from "react";
-import "./portal.css";
-import { 
-  IconWrench, IconHashtag, IconWarning, 
-  IconUser, IconArrowLeft, 
-  IconLaptop, IconWhatsApp, IconClose, IconCircleNotch,
-  IconPaperPlane, IconMonitor, IconCheckCircular
-} from "../../../components/ui/Icons";
+import React, { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { Loader2, Search, Ticket } from "lucide-react";
 
-import { useOrderTracking } from "../../../hooks/useOrderTracking";
-import { PortalSkeleton } from "../../../components/ui/PortalSkeleton";
-import { fetchPublic } from "../../../lib/apiClient";
-import { supabase } from "../../../lib/supabase";
-
-const CONFIG = {
-  TENANT_SLUG: process.env.NEXT_PUBLIC_TENANT_SLUG ?? "taller-centro",
-  TIENDA_WHATSAPP: '528117006536',
-  SUGGESTIONS_KEY: 'sdmx_folios_historial'
-};
-
-function formatDateYMD(valor: any) {
-  if (!valor) return '---';
-  const raw = String(valor).trim();
-  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
-  const d = new Date(raw);
-  if (Number.isNaN(d.getTime())) return raw;
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
-
-export default function ClientPortal() {
-  const [view, setView] = useState<"search" | "status" | "quote">("search");
-  const [searchFolio, setSearchFolio] = useState("");
-  const [activeFolio, setActiveFolio] = useState<string | null>(null);
-  const [historial, setHistorial] = useState<string[]>([]);
-  const [lightboxImg, setLightboxImg] = useState<string | null>(null);
-  const [successQuote, setSuccessQuote] = useState(false);
-  const [quoteLoading, setQuoteLoading] = useState(false);
-  const [quoteError, setQuoteError] = useState<string | null>(null);
-  const [tenantId, setTenantId] = useState<string | null>(null);
-
-  // Hook personalizado de rastreo
-  const { order, loading, error: trackingError } = useOrderTracking(activeFolio);
-
-  // Formulario de Cotización
-  const [quoteForm, setQuoteForm] = useState({
-    customerName: "", customerPhone: "", customerEmail: "", 
-    deviceType: "", deviceModel: "", issueDescription: "",
-    urgency: "normal"
-  });
+export default function PortalPublico() {
+  const searchParams = useSearchParams();
+  const [shop, setShop] = useState<{name: string, id: string} | null>(null);
+  const [loading, setLoading] = useState(true);
+  const slug = searchParams.get("s") || "demo";
 
   useEffect(() => {
-    async function init() {
-      // Resolve TenantId by Slug (Mantener por ahora para la cotización si el backend lo requiere)
-      const { data: tenant } = await supabase.from('tenants').select('id').eq('slug', CONFIG.TENANT_SLUG).single();
-      if (tenant) setTenantId(tenant.id);
-
+    async function loadShop() {
       try {
-        const raw = localStorage.getItem(CONFIG.SUGGESTIONS_KEY);
-        if (raw) setHistorial(JSON.parse(raw));
-      } catch(e) {}
-
-      const urlParams = new URLSearchParams(window.location.search);
-      const folioParam = urlParams.get('folio');
-      if (folioParam) {
-        setSearchFolio(folioParam.toUpperCase());
-        ejecutarBusqueda(folioParam.toUpperCase());
+        const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5111";
+        const res = await fetch(`${baseUrl}/api/portal/shop/${slug}`);
+        const json = await res.json();
+        if (json.success) {
+          setShop(json.data);
+        }
+      } catch (err) {
+        console.error("Error cargando tienda:", err);
+      } finally {
+        setLoading(false);
       }
     }
-    void init();
-  }, []);
+    loadShop();
+  }, [slug]);
 
-  // Sincronizar vista cuando llega el equipo
-  useEffect(() => {
-    if (order && !loading) {
-      setView("status");
-      agregarHistorial(order.folio);
-    }
-  }, [order, loading]);
-
-  const agregarHistorial = (f: string) => {
-    const clean = f.trim().toUpperCase();
-    if (!clean) return;
-    const actuales = historial.filter(x => x !== clean);
-    actuales.unshift(clean);
-    const nuevos = actuales.slice(0, 20);
-    setHistorial(nuevos);
-    localStorage.setItem(CONFIG.SUGGESTIONS_KEY, JSON.stringify(nuevos));
-  };
-
-  const ejecutarBusqueda = (f?: string) => {
-    const val = f || searchFolio;
-    if (!val.trim()) return;
-    setQuoteError(null);
-    setActiveFolio(val.trim().toUpperCase());
-  };
-
-  const handleBuscar = (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    ejecutarBusqueda();
-  };
-
-  const handleQuoteSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setQuoteLoading(true);
-    setQuoteError(null);
-
-    try {
-      // Hardening: Capturar IP si es posible
-      let userIp = "0.0.0.0";
-      try {
-        const ipRes = await fetch('https://api.ipify.org?format=json');
-        const ipData = await ipRes.json();
-        userIp = ipData.ip;
-      } catch (e) {}
-
-      // Migración: Usar fetchPublic hacia el backend .NET
-      const result = await fetchPublic('/api/service-requests', {
-        method: 'POST',
-        body: JSON.stringify({
-          branchId: null, // Default
-          customerName: quoteForm.customerName.trim(),
-          customerPhone: quoteForm.customerPhone.trim() || null,
-          customerEmail: quoteForm.customerEmail.trim() || null,
-          deviceType: quoteForm.deviceType.trim(),
-          deviceModel: quoteForm.deviceModel.trim() || null,
-          issueDescription: quoteForm.issueDescription.trim(),
-          urgency: quoteForm.urgency,
-          solicitudOrigenIp: userIp
-        })
-      });
-
-      if (!result.success) {
-        throw new Error(result.error?.message || 'Error al enviar la solicitud');
-      }
-
-      setSuccessQuote(true);
-      setQuoteForm({ customerName: "", customerPhone: "", customerEmail: "", deviceType: "", deviceModel: "", issueDescription: "", urgency: "normal" });
-      setTimeout(() => setSuccessQuote(false), 5000);
-    } catch (e: any) {
-      setQuoteError(e.message);
-    } finally {
-      setQuoteLoading(false);
-    }
-  };
-
-  const renderizarFotos = (rawFotos: any) => {
-    if (!rawFotos || !Array.isArray(rawFotos) || rawFotos.length === 0) return null;
-    return (
-      <div className="portal-tech-card p-6 mt-6">
-        <h3 className="text-sm font-extrabold text-[#0f172a] uppercase tracking-widest mb-4">Evidencia de Reparación</h3>
-        <div className="grid grid-cols-2 gap-3">
-          {rawFotos.map((src: string, idx: number) => (
-            <button key={idx} type="button" onClick={() => setLightboxImg(src)} className="aspect-square rounded-lg overflow-hidden border border-[#e2e8f0] hover:ring-2 ring-[#2563eb] transition-all">
-              <img src={src} alt={`Evidencia ${idx + 1}`} className="w-full h-full object-cover" />
-            </button>
-          ))}
-        </div>
-      </div>
-    );
-  };
+  if (loading) return (
+    <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+      <Loader2 className="animate-spin text-blue-500" size={40} />
+    </div>
+  );
 
   return (
-    <div className="portal-wrapper">
-      <header className="portal-header">
-        <div className="portal-header-max">
+    <div className="min-h-screen bg-slate-950 text-white font-sans">
+      <nav className="border-b border-white/5 p-6 bg-black/20 backdrop-blur-xl sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto flex justify-between items-center">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-[#2563eb] rounded-lg flex items-center justify-center text-white shadow-sm">
-              <IconWrench width={20} height={20} />
+            <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-900/20">
+              <Ticket size={20} />
             </div>
-            <div className="flex flex-col">
-              <h1 className="text-xl font-extrabold text-[#0f172a] tracking-tight leading-none" style={{ margin: 0 }}>SR. FIX<span className="text-[#2563eb]">.</span></h1>
-              <p className="text-[10px] font-bold text-[#64748b] uppercase tracking-widest mt-1" style={{ margin: 0 }}>Portal de Cliente</p>
-            </div>
-          </div>
-          <div className="flex gap-4">
-             <button onClick={() => { setView("search"); setActiveFolio(null); setQuoteError(null); }} className={`px-4 py-2 text-xs font-bold uppercase tracking-widest rounded-full transition-all ${view !== 'quote' ? 'bg-[#2563eb] text-white' : 'bg-[#f1f5f9] text-[#64748b]'}`}>Estatus</button>
-             <button onClick={() => { setView("quote"); setQuoteError(null); }} className={`px-4 py-2 text-xs font-bold uppercase tracking-widest rounded-full transition-all ${view === 'quote' ? 'bg-[#2563eb] text-white' : 'bg-[#f1f5f9] text-[#64748b]'}`}>Cotizar</button>
+            <h1 className="text-xl font-black tracking-tighter uppercase">
+              {shop?.name || "Portal de Cliente"}
+            </h1>
           </div>
         </div>
-      </header>
+      </nav>
 
-      <main className="flex-grow p-6 max-w-5xl mx-auto w-full">
-        {view === "search" && !order && !loading && (
-          <div className="py-12 portal-animate-up text-center">
-            <h2 className="text-4xl font-extrabold text-[#0f172a] mb-4 tracking-tight">Rastrea tu reparación</h2>
-            <p className="text-[#64748b] font-medium max-w-md mx-auto mb-10">Consulta el estado técnico y avances de tu equipo en tiempo real.</p>
-
-            <form onSubmit={handleBuscar} className="portal-tech-card p-8 max-w-lg mx-auto">
-              <div className="space-y-4">
-                <div>
-                  <label className="text-[11px] font-extrabold text-[#64748b] uppercase tracking-widest mb-2 block text-left">Número de Folio</label>
-                  <div className="relative">
-                    <IconHashtag width={18} height={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#94a3b8]" />
-                    <input 
-                      type="text" 
-                      value={searchFolio}
-                      onChange={(e) => setSearchFolio(e.target.value.toUpperCase())}
-                      placeholder="ORD-XXXXXX" 
-                      className="portal-input-tech"
-                      list="folio-sugerencias"
-                    />
-                    <datalist id="folio-sugerencias">
-                      {historial.map((f, i) => <option key={i} value={f} />)}
-                    </datalist>
-                  </div>
-                </div>
-                <button type="submit" disabled={loading} className="portal-btn-naranja">
-                  {loading ? <IconCircleNotch className="animate-spin" width={20} height={20} /> : "Consultar Ahora"}
-                </button>
-                {trackingError && (
-                  <p className="text-red-500 text-center text-sm font-bold py-2 bg-red-50 rounded-lg flex items-center justify-center gap-1 mt-4">
-                    <IconWarning width={16} height={16} /> {trackingError}
-                  </p>
-                )}
-              </div>
-            </form>
-          </div>
-        )}
-
-        {loading && <PortalSkeleton />}
-
-        {view === "quote" && (
-          <div className="py-12 portal-animate-up">
-            <div className="text-center mb-10">
-              <h2 className="text-4xl font-extrabold text-[#0f172a] mb-4 tracking-tight">Solicita Presupuesto</h2>
-              <p className="text-[#64748b] font-medium max-w-md mx-auto">Cuéntanos sobre tu equipo y te enviaremos una cotización formal.</p>
-            </div>
-
-            {successQuote ? (
-               <div className="portal-tech-card p-12 text-center max-w-2xl mx-auto border-2 border-emerald-100 bg-emerald-50/30">
-                  <div className="w-16 h-16 bg-emerald-500 text-white rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg shadow-emerald-200">
-                    <IconCheckCircular width={32} height={32} />
-                  </div>
-                  <h3 className="text-2xl font-black text-[#0f172a] mb-2">¡Solicitud Enviada!</h3>
-                  <p className="text-[#475569] font-medium">Hemos recibido tus datos. Un técnico revisará tu caso y te contactará vía WhatsApp o correo electrónico muy pronto.</p>
-                  <button onClick={() => setView("search")} className="mt-8 px-6 py-3 bg-[#0f172a] text-white font-bold rounded-xl hover:bg-black transition-all">Regresar al Portal</button>
-               </div>
-            ) : (
-              <form onSubmit={handleQuoteSubmit} className="portal-tech-card p-8 max-w-2xl mx-auto">
-                <div className="grid md:grid-cols-2 gap-6">
-                  <div className="md:col-span-2">
-                    <label className="text-[11px] font-extrabold text-[#64748b] uppercase tracking-widest mb-2 block">Nombre Completo *</label>
-                    <div className="relative">
-                      <IconUser width={18} height={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#94a3b8]" />
-                      <input required type="text" value={quoteForm.customerName} onChange={e => setQuoteForm({...quoteForm, customerName: e.target.value})} className="portal-input-tech pl-12" placeholder="Ej. Juan Pérez" />
-                    </div>
-                  </div>
-                  <div>
-                    <label className="text-[11px] font-extrabold text-[#64748b] uppercase tracking-widest mb-2 block">WhatsApp / Teléfono *</label>
-                    <input required type="tel" value={quoteForm.customerPhone} onChange={e => setQuoteForm({...quoteForm, customerPhone: e.target.value})} className="portal-input-tech" placeholder="10 dígitos" />
-                  </div>
-                  <div>
-                    <label className="text-[11px] font-extrabold text-[#64748b] uppercase tracking-widest mb-2 block">Correo Electrónico</label>
-                    <input type="email" value={quoteForm.customerEmail} onChange={e => setQuoteForm({...quoteForm, customerEmail: e.target.value})} className="portal-input-tech" placeholder="usuario@gmail.com" />
-                  </div>
-                  <div>
-                    <label className="text-[11px] font-extrabold text-[#64748b] uppercase tracking-widest mb-2 block">Tipo de Equipo *</label>
-                    <div className="relative">
-                      <IconMonitor width={18} height={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#94a3b8]" />
-                      <input required type="text" value={quoteForm.deviceType} onChange={e => setQuoteForm({...quoteForm, deviceType: e.target.value})} className="portal-input-tech pl-12" placeholder="Laptop, Consola, etc." />
-                    </div>
-                  </div>
-                  <div>
-                    <label className="text-[11px] font-extrabold text-[#64748b] uppercase tracking-widest mb-2 block">Modelo / Marca</label>
-                    <input type="text" value={quoteForm.deviceModel} onChange={e => setQuoteForm({...quoteForm, deviceModel: e.target.value})} className="portal-input-tech" placeholder="Ej. Dell XPS 13" />
-                  </div>
-                  <div className="md:col-span-2">
-                    <label className="text-[11px] font-extrabold text-[#64748b] uppercase tracking-widest mb-2 block">¿Qué falla presenta? *</label>
-                    <textarea required value={quoteForm.issueDescription} onChange={e => setQuoteForm({...quoteForm, issueDescription: e.target.value})} className="portal-input-tech min-h-[100px] py-4" placeholder="Describe brevemente el problema..."></textarea>
-                  </div>
-                </div>
-
-                <div className="mt-8 bg-[#f8fafc] p-4 rounded-xl border border-[#f1f5f9]">
-                   <p className="text-[10px] text-[#64748b] leading-relaxed">
-                     * Al enviar esta solicitud, aceptas que tus datos sean utilizados únicamente para fines de contacto técnico y comercial relacionados con tu servicio. 
-                     Consulta nuestro <a href="#" className="text-[#2563eb] font-bold">Aviso de Privacidad</a>.
-                   </p>
-                </div>
-
-                <button type="submit" disabled={quoteLoading} className="portal-btn-naranja mt-6">
-                  {quoteLoading ? <IconCircleNotch className="animate-spin" width={20} height={20} /> : (
-                    <span className="flex items-center justify-center gap-2">
-                       <IconPaperPlane width={18} height={18} /> Enviar Solicitud
-                    </span>
-                  )}
-                </button>
-
-                {quoteError && (
-                  <p className="text-red-500 text-center text-sm font-bold py-2 bg-red-50 rounded-lg flex items-center justify-center gap-1 mt-4">
-                    <IconWarning width={16} height={16} /> {quoteError}
-                  </p>
-                )}
-              </form>
-            )}
-          </div>
-        )}
-
-        {view === "status" && order && !loading && (
-          <div className="space-y-6 py-6 portal-animate-up">
-            <div className="flex items-center justify-between">
-              <button 
-                onClick={() => { setActiveFolio(null); setView("search"); }} 
-                className="text-[#64748b] hover:text-[#2563eb] flex items-center gap-2 transition font-bold text-sm uppercase tracking-widest cursor-pointer bg-transparent border-none"
-              >
-                <IconArrowLeft width={16} height={16} /> Nueva Búsqueda
-              </button>
-              <div className={`portal-status-badge portal-status-${(order.status || 'Recibido').replace(/ /g, '')}`}>
-                {order.status || 'Recibido'}
-              </div>
-            </div>
-
-            <div className="portal-tech-card p-6 flex flex-col md:flex-row md:items-center justify-between gap-6">
-              <div className="flex items-center gap-4">
-                <div className="w-14 h-14 bg-[#f8fafc] rounded-xl flex items-center justify-center text-[#2563eb] border border-[#f1f5f9]">
-                  <IconLaptop width={24} height={24} />
-                </div>
-                <div className="flex flex-col text-left">
-                  <p className="text-[10px] font-extrabold text-[#64748b] uppercase tracking-widest" style={{margin:0}}>Orden de Servicio</p>
-                  <h2 className="text-3xl font-black text-[#0f172a] tracking-tighter" style={{margin:0}}>{order.folio}</h2>
-                </div>
-              </div>
-              <div className="text-left md:text-right flex flex-col">
-                <p className="text-[10px] font-extrabold text-[#64748b] uppercase tracking-widest" style={{margin:0}}>Fecha Promesa</p>
-                <p className="text-xl font-extrabold text-[#FF6A2A]" style={{margin:0}}>{order.promisedDate ? formatDateYMD(order.promisedDate) : 'Pendiente'}</p>
-              </div>
-            </div>
-
-            <div className="grid md:grid-cols-3 gap-6">
-              <div className="md:col-span-2 space-y-6 text-left">
-                <div className="portal-tech-card p-6">
-                  <h3 className="text-sm font-extrabold text-[#0f172a] uppercase tracking-widest mb-6 border-b border-[#f1f5f9] pb-4 m-0">Detalles del Equipo</h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
-                    <div>
-                      <p className="text-[10px] font-extrabold text-[#64748b] uppercase tracking-widest mb-1 mt-0">Dispositivo</p>
-                      <p className="font-bold text-[#0f172a] m-0">{order.deviceType || '---'}</p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-extrabold text-[#64748b] uppercase tracking-widest mb-1 mt-0">Modelo/Marca</p>
-                      <p className="font-bold text-[#0f172a] m-0">{order.deviceModel || '---'}</p>
-                    </div>
-                    <div className="sm:col-span-2">
-                      <p className="text-[10px] font-extrabold text-[#64748b] uppercase tracking-widest mb-1 mt-0">Falla Reportada</p>
-                      <p className="text-[#475569] leading-relaxed m-0">{order.reportedIssue || 'Diagnóstico general solicitado.'}</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="portal-tech-card p-6">
-                  <h3 className="text-sm font-extrabold text-[#0f172a] uppercase tracking-widest mb-4 mt-0">Bitácora de Avance</h3>
-                  <div className="text-sm text-[#475569] bg-[#f8fafc] p-4 rounded-xl border border-[#f1f5f9] whitespace-pre-line leading-relaxed">
-                    {order.status === 'Recibido' ? 'El técnico está trabajando en tu equipo. Pronto verás una actualización aquí.' : 'Revisión técnica en proceso.'}
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-6">
-                <div className="portal-tech-card p-6 flex flex-col items-center">
-                  <h3 className="text-sm font-extrabold text-[#0f172a] uppercase tracking-widest mb-4 w-full text-left">Ayuda Directa</h3>
-                  <a 
-                    href={`https://wa.me/${CONFIG.TIENDA_WHATSAPP}?text=${encodeURIComponent(`Hola SrFix, consulto por mi folio ${order.folio} (${order.deviceType || 'equipo'}).`)}`} 
-                    target="_blank" 
-                    rel="noreferrer"
-                    className="portal-btn-wa"
-                    style={{ textDecoration: 'none' }}
-                  >
-                    <IconWhatsApp width={20} height={20} /> WhatsApp
-                  </a>
-                  <p className="text-[10px] text-[#94a3b8] text-center font-medium mt-3">Horario: Lun-Sáb 10am-7pm</p>
-                </div>
-                {renderizarFotos(order.progressPhotos)}
-              </div>
-            </div>
-          </div>
-        )}
-      </main>
-
-      <footer className="bg-white border-t border-[#e2e8f0] p-8 text-center mt-auto">
-        <p className="text-xs font-bold text-[#94a3b8] uppercase tracking-widest m-0">© 2026 SrFix Monterrey · Sucursal San Nicolás</p>
-      </footer>
-
-      {lightboxImg && (
-        <div className="portal-lightbox" onClick={() => setLightboxImg(null)}>
-          <button className="portal-lightbox-close" onClick={() => setLightboxImg(null)}>
-            <IconClose width={32} height={32} />
+      <main className="max-w-4xl mx-auto p-6 py-20 text-center">
+        <h2 className="text-5xl font-black mb-6 tracking-tight">Rastrea tu equipo</h2>
+        <p className="text-slate-400 text-lg mb-12 max-w-xl mx-auto">
+          Ingresa el folio de tu orden de servicio para conocer el estatus actual de tu reparación en tiempo real.
+        </p>
+        
+        <div className="relative max-w-2xl mx-auto">
+          <input 
+            type="text" 
+            placeholder="Ej: ORD-000123"
+            className="w-full bg-white/5 border-2 border-white/10 rounded-3xl px-8 py-6 text-xl outline-none focus:border-blue-500 transition-all text-center font-bold tracking-widest"
+          />
+          <button className="mt-8 w-full md:w-auto md:absolute md:right-3 md:top-3 md:mt-0 bg-blue-600 hover:bg-blue-500 px-10 py-4 rounded-2xl font-black uppercase text-sm tracking-widest transition-all">
+            Consultar Estatus
           </button>
-          <img src={lightboxImg} alt="Avance ampliado" className="portal-lightbox-img" onClick={(e) => e.stopPropagation()} />
         </div>
-      )}
+      </main>
     </div>
   );
 }
