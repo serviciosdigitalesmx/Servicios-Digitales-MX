@@ -1,10 +1,10 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { Loader2, Search, Ticket } from "lucide-react";
+import { Loader2, Ticket } from "lucide-react";
 
-export default function PortalPublico() {
+function PortalContent() {
   const searchParams = useSearchParams();
   const [shop, setShop] = useState<{name: string, id: string} | null>(null);
   const [loading, setLoading] = useState(true);
@@ -67,5 +67,17 @@ export default function PortalPublico() {
         </div>
       </main>
     </div>
+  );
+}
+
+export default function PortalPublico() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+        <Loader2 className="animate-spin text-blue-500" size={40} />
+      </div>
+    }>
+      <PortalContent />
+    </Suspense>
   );
 }
