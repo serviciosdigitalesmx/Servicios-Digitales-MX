@@ -1,5 +1,9 @@
-import { MarketingLanding } from "../components/ui/MarketingLanding";
+import MarketingLanding from '@/components/ui/MarketingLanding';
 
-export default function HomePage() {
-  return <MarketingLanding />;
+export default function Home() {
+  return (
+    <main>
+      <MarketingLanding />
+    </main>
+  );
 }
