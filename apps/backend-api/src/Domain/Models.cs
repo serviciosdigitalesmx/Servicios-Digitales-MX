@@ -88,6 +88,7 @@ public sealed record CreateServiceOrderRequest(
     Guid BranchId,
     Guid CustomerId,
     Guid? ServiceRequestId,
+    Guid? AssignedUserId,
     string DeviceType,
     string? DeviceBrand,
     string? DeviceModel,
@@ -95,7 +96,13 @@ public sealed record CreateServiceOrderRequest(
     string ReportedIssue,
     string? Priority,
     DateOnly? PromisedDate,
-    decimal? EstimatedCost
+    decimal? EstimatedCost,
+    string? CustomerFollowupText,
+    string? YoutubeId,
+    string? QuoteOriginFolio,
+    string? ChecklistJson,
+    string? ReceptionPhotoUrl,
+    string? FollowupPhotosJson
 );
 
 public sealed record UploadServiceOrderAssetRequest(
@@ -117,6 +124,10 @@ public sealed record CreateServiceRequestRequest(
     decimal? QuotedTotal,
     decimal? DepositAmount,
     decimal? BalanceAmount,
+    string[]? ProblemTags,
+    DateTimeOffset? QuoteDate,
+    string? QuoteSnapshotJson,
+    string? ManualQuoteFolio,
     string? SolicitudOrigenIp = null
 );
 
@@ -191,20 +202,24 @@ public sealed record CreateTaskRequest(
     Guid? BranchId,
     Guid? ServiceOrderId,
     Guid? ServiceRequestId,
+    string? Folio,
     string Title,
     string? Description,
     string? Status,
     string? Priority,
     Guid? AssignedUserId,
+    string? Notes,
     DateTimeOffset? DueDate
 );
 
 public sealed record UpdateTaskRequest(
+    string? Folio,
     string? Title,
     string? Description,
     string? Status,
     string? Priority,
     Guid? AssignedUserId,
+    string? Notes,
     DateTimeOffset? DueDate
 );
 

@@ -420,7 +420,7 @@ public sealed class SupabaseService
     public async Task<(IReadOnlyList<object> Items, int Total)> ListServiceRequestsAsync(int page, int pageSize, CancellationToken cancellationToken = default)
     {
         var rows = await GetManyAsync<DbServiceRequest>(
-            $"service_requests?tenant_id=eq.{_bootstrap.TenantId}&order=created_at.desc&select=id,branch_id,folio,customer_name,customer_phone,customer_email,device_type,device_model,issue_description,urgency,status,quoted_total,deposit_amount,balance_amount,created_at",
+            $"service_requests?tenant_id=eq.{_bootstrap.TenantId}&order=created_at.desc&select=id,branch_id,folio,customer_name,customer_phone,customer_email,device_type,device_model,problem_tags,issue_description,urgency,status,quote_date,quote_snapshot_json,quoted_total,deposit_amount,balance_amount,manual_quote_folio,created_at,updated_at,solicitud_origen_ip",
             cancellationToken);
 
         var total = rows.Count;
@@ -463,14 +463,19 @@ public sealed class SupabaseService
             customer_email = string.IsNullOrWhiteSpace(request.CustomerEmail) ? null : request.CustomerEmail.Trim(),
             device_type = string.IsNullOrWhiteSpace(request.DeviceType) ? null : request.DeviceType.Trim(),
             device_model = string.IsNullOrWhiteSpace(request.DeviceModel) ? null : request.DeviceModel.Trim(),
+            problem_tags = request.ProblemTags,
             issue_description = string.IsNullOrWhiteSpace(request.IssueDescription) ? null : request.IssueDescription.Trim(),
             urgency = string.IsNullOrWhiteSpace(request.Urgency) ? "normal" : request.Urgency.Trim().ToLowerInvariant(),
             status = "pendiente",
+            quote_date = request.QuoteDate,
+            quote_snapshot_json = string.IsNullOrWhiteSpace(request.QuoteSnapshotJson) ? (JsonElement?)null : JsonDocument.Parse(request.QuoteSnapshotJson).RootElement,
             quoted_total = request.QuotedTotal ?? 0,
             deposit_amount = request.DepositAmount ?? 0,
             balance_amount = request.BalanceAmount ?? Math.Max((request.QuotedTotal ?? 0) - (request.DepositAmount ?? 0), 0),
-            solicitud_origen_ip = request.SolicitudOrigenIp
-        }, cancellationToken, "id,folio,customer_name,customer_phone,customer_email,device_type,device_model,issue_description,urgency,status,quoted_total,deposit_amount,balance_amount,created_at,solicitud_origen_ip");
+            manual_quote_folio = string.IsNullOrWhiteSpace(request.ManualQuoteFolio) ? null : request.ManualQuoteFolio.Trim(),
+            solicitud_origen_ip = request.SolicitudOrigenIp,
+            updated_at = DateTimeOffset.UtcNow
+        }, cancellationToken, "id,branch_id,folio,customer_name,customer_phone,customer_email,device_type,device_model,problem_tags,issue_description,urgency,status,quote_date,quote_snapshot_json,quoted_total,deposit_amount,balance_amount,manual_quote_folio,created_at,updated_at,solicitud_origen_ip");
 
         return new
         {
@@ -488,10 +493,10 @@ public sealed class SupabaseService
     }
 
     public Task<DbServiceOrder?> GetServiceOrderByIdAsync(Guid id, CancellationToken cancellationToken = default) =>
-        GetSingleAsync<DbServiceOrder>($"service_orders?id=eq.{id}&tenant_id=eq.{_bootstrap.TenantId}&select=id,tenant_id,branch_id,customer_id,folio,status,device_type,device_brand,device_model,reported_issue,priority,promised_date,estimated_cost,created_at", cancellationToken);
+        GetSingleAsync<DbServiceOrder>($"service_orders?id=eq.{id}&tenant_id=eq.{_bootstrap.TenantId}&select=id,tenant_id,branch_id,customer_id,service_request_id,assigned_user_id,folio,status,priority,device_type,device_brand,device_model,serial_number,reported_issue,internal_diagnosis,customer_followup_text,youtube_id,checklist_json,reception_photo_url,followup_photos_json,quote_origin_folio,promised_date,estimated_cost,final_cost,caso_resolucion_tecnica,received_at,completed_at,delivered_at,archived_at,created_at,updated_at", cancellationToken);
 
     public Task<DbServiceOrder?> GetServiceOrderByFolioAsync(string folio, CancellationToken cancellationToken = default) =>
-        GetSingleAsync<DbServiceOrder>($"service_orders?folio=eq.{Uri.EscapeDataString(folio)}&tenant_id=eq.{_bootstrap.TenantId}&select=id,tenant_id,branch_id,customer_id,folio,status,device_type,device_brand,device_model,reported_issue,priority,promised_date,estimated_cost,created_at", cancellationToken);
+        GetSingleAsync<DbServiceOrder>($"service_orders?folio=eq.{Uri.EscapeDataString(folio)}&tenant_id=eq.{_bootstrap.TenantId}&select=id,tenant_id,branch_id,customer_id,service_request_id,assigned_user_id,folio,status,priority,device_type,device_brand,device_model,serial_number,reported_issue,internal_diagnosis,customer_followup_text,youtube_id,checklist_json,reception_photo_url,followup_photos_json,quote_origin_folio,promised_date,estimated_cost,final_cost,caso_resolucion_tecnica,received_at,completed_at,delivered_at,archived_at,created_at,updated_at", cancellationToken);
 
     public async Task<(IReadOnlyList<object> Orders, IReadOnlyList<object> Tasks)> GetTechnicianQueueAsync(CancellationToken cancellationToken = default)
     {
@@ -624,6 +629,7 @@ public sealed class SupabaseService
             branch_id = request.BranchId,
             customer_id = request.CustomerId,
             service_request_id = request.ServiceRequestId,
+            assigned_user_id = request.AssignedUserId,
             folio,
             status = "recibido",
             priority = string.IsNullOrWhiteSpace(request.Priority) ? "normal" : request.Priority.Trim().ToLowerInvariant(),
@@ -632,12 +638,19 @@ public sealed class SupabaseService
             device_model = string.IsNullOrWhiteSpace(request.DeviceModel) ? null : request.DeviceModel.Trim(),
             serial_number = string.IsNullOrWhiteSpace(request.SerialNumber) ? null : request.SerialNumber.Trim(),
             reported_issue = request.ReportedIssue.Trim(),
+            customer_followup_text = string.IsNullOrWhiteSpace(request.CustomerFollowupText) ? null : request.CustomerFollowupText.Trim(),
+            youtube_id = string.IsNullOrWhiteSpace(request.YoutubeId) ? null : request.YoutubeId.Trim(),
+            quote_origin_folio = string.IsNullOrWhiteSpace(request.QuoteOriginFolio) ? null : request.QuoteOriginFolio.Trim(),
+            checklist_json = string.IsNullOrWhiteSpace(request.ChecklistJson) ? (JsonElement?)null : JsonDocument.Parse(request.ChecklistJson).RootElement,
+            reception_photo_url = string.IsNullOrWhiteSpace(request.ReceptionPhotoUrl) ? null : request.ReceptionPhotoUrl.Trim(),
+            followup_photos_json = string.IsNullOrWhiteSpace(request.FollowupPhotosJson) ? (JsonElement?)null : JsonDocument.Parse(request.FollowupPhotosJson).RootElement,
             promised_date = request.PromisedDate,
             estimated_cost = request.EstimatedCost ?? 0,
             received_at = DateTimeOffset.UtcNow,
             created_by = _bootstrap.UserId,
-            updated_by = _bootstrap.UserId
-        }, cancellationToken, "id,tenant_id,branch_id,customer_id,folio,status,device_type,device_brand,device_model,reported_issue,priority,promised_date,estimated_cost,created_at");
+            updated_by = _bootstrap.UserId,
+            updated_at = DateTimeOffset.UtcNow
+        }, cancellationToken, "id,tenant_id,branch_id,customer_id,service_request_id,assigned_user_id,folio,status,priority,device_type,device_brand,device_model,serial_number,reported_issue,customer_followup_text,youtube_id,quote_origin_folio,promised_date,estimated_cost,created_at,updated_at");
     }
 
     public Task<bool> CustomerExistsAsync(Guid customerId, CancellationToken cancellationToken = default) =>
@@ -1007,7 +1020,7 @@ public sealed class SupabaseService
     public async Task<(IReadOnlyList<object> Items, int Total)> ListTasksAsync(int page, int pageSize, CancellationToken cancellationToken = default)
     {
         var rows = await GetManyAsync<DbTask>(
-            $"tasks?tenant_id=eq.{_bootstrap.TenantId}&order=created_at.desc&select=id,branch_id,service_order_id,service_request_id,title,description,status,priority,assigned_user_id,due_date,created_at",
+            $"tasks?tenant_id=eq.{_bootstrap.TenantId}&order=created_at.desc&select=id,branch_id,service_order_id,service_request_id,folio,title,description,status,priority,assigned_user_id,notes,due_date,created_at,updated_at",
             cancellationToken);
         var users = await GetManyAsync<DbUser>(
             $"users?tenant_id=eq.{_bootstrap.TenantId}&select=id,tenant_id,branch_id,full_name,email,role,is_active,referral_code,balance",
@@ -1044,15 +1057,18 @@ public sealed class SupabaseService
             branch_id = request.BranchId ?? _bootstrap.BranchId,
             service_order_id = request.ServiceOrderId,
             service_request_id = request.ServiceRequestId,
+            folio = string.IsNullOrWhiteSpace(request.Folio) ? null : request.Folio.Trim().ToUpperInvariant(),
             title = request.Title.Trim(),
             description = string.IsNullOrWhiteSpace(request.Description) ? null : request.Description.Trim(),
             status = string.IsNullOrWhiteSpace(request.Status) ? "pendiente" : request.Status.Trim().ToLowerInvariant(),
             priority = string.IsNullOrWhiteSpace(request.Priority) ? "media" : request.Priority.Trim().ToLowerInvariant(),
             assigned_user_id = request.AssignedUserId,
+            notes = string.IsNullOrWhiteSpace(request.Notes) ? null : request.Notes.Trim(),
             due_date = request.DueDate,
             created_by = _bootstrap.UserId,
-            updated_by = _bootstrap.UserId
-        }, cancellationToken, "id,title,description,status,priority,assigned_user_id,due_date,created_at");
+            updated_by = _bootstrap.UserId,
+            updated_at = DateTimeOffset.UtcNow
+        }, cancellationToken, "id,folio,title,description,status,priority,assigned_user_id,notes,due_date,created_at,updated_at");
 
         await InsertSingleAsync<DbTaskHistory>("task_history", new
         {
@@ -1359,11 +1375,11 @@ public sealed class SupabaseService
     public sealed record DbReferralStatus(Guid Id, string Status, decimal CommissionAmount, string? PaymentProvider, string? ProviderPaymentId, DateTimeOffset? ConfirmedAt);
     public sealed record DbReferralListItem(Guid Id, Guid? ReferredTenantId, string ReferralCodeUsed, string Status, decimal CommissionAmount, string? PaymentProvider, string? ProviderPaymentId, DateTimeOffset? ConfirmedAt, DateTimeOffset CreatedAt);
     public sealed record DbCustomer(Guid Id, Guid TenantId, string FullName, string? Phone, string? Email, string Tag, string? Notes, DateTimeOffset CreatedAt);
-    public sealed record DbServiceRequest(Guid Id, Guid? BranchId, string Folio, string CustomerName, string? CustomerPhone, string? CustomerEmail, string? DeviceType, string? DeviceModel, string? IssueDescription, string? Urgency, string Status, decimal QuotedTotal, decimal DepositAmount, decimal BalanceAmount, DateTimeOffset CreatedAt, string? SolicitudOrigenIp = null);
-    public sealed record DbServiceOrder(Guid Id, Guid TenantId, Guid BranchId, Guid CustomerId, string Folio, string Status, string DeviceType, string? DeviceBrand, string? DeviceModel, string ReportedIssue, string Priority, DateOnly? PromisedDate, decimal EstimatedCost, DateTimeOffset CreatedAt, string? CasoResolucionTecnica = null);
+    public sealed record DbServiceRequest(Guid Id, Guid? BranchId, string Folio, string CustomerName, string? CustomerPhone, string? CustomerEmail, string? DeviceType, string? DeviceModel, string[]? ProblemTags, string? IssueDescription, string? Urgency, string Status, DateTimeOffset? QuoteDate, JsonElement? QuoteSnapshotJson, decimal QuotedTotal, decimal DepositAmount, decimal BalanceAmount, string? ManualQuoteFolio, DateTimeOffset CreatedAt, DateTimeOffset? UpdatedAt, string? SolicitudOrigenIp = null);
+    public sealed record DbServiceOrder(Guid Id, Guid TenantId, Guid BranchId, Guid CustomerId, Guid? ServiceRequestId, Guid? AssignedUserId, string Folio, string Status, string Priority, string DeviceType, string? DeviceBrand, string? DeviceModel, string? SerialNumber, string ReportedIssue, string? InternalDiagnosis, string? CustomerFollowupText, string? YoutubeId, JsonElement? ChecklistJson, string? ReceptionPhotoUrl, JsonElement? FollowupPhotosJson, string? QuoteOriginFolio, DateOnly? PromisedDate, decimal EstimatedCost, decimal FinalCost, DateTimeOffset CreatedAt, DateTimeOffset? UpdatedAt, string? CasoResolucionTecnica = null, DateTimeOffset? ReceivedAt = null, DateTimeOffset? CompletedAt = null, DateTimeOffset? DeliveredAt = null, DateTimeOffset? ArchivedAt = null);
     public sealed record DbTechnicianOrder(Guid Id, string Folio, string Status, string? DeviceType, string? DeviceBrand, string? DeviceModel, string? ReportedIssue, string? InternalDiagnosis, decimal FinalCost, string? Priority, DateOnly? PromisedDate, DateTimeOffset CreatedAt, string? CasoResolucionTecnica = null);
     public sealed record DbArchivedOrder(Guid Id, string Folio, string Status, string? DeviceType, string? DeviceBrand, string? DeviceModel, string? ReportedIssue, decimal FinalCost, DateTimeOffset? ArchivedAt, DateTimeOffset? DeliveredAt, DateTimeOffset UpdatedAt);
-    public sealed record DbTask(Guid Id, Guid? BranchId, Guid? ServiceOrderId, Guid? ServiceRequestId, string Title, string? Description, string Status, string Priority, Guid? AssignedUserId, DateTimeOffset? DueDate, DateTimeOffset CreatedAt);
+    public sealed record DbTask(Guid Id, Guid? BranchId, Guid? ServiceOrderId, Guid? ServiceRequestId, string? Folio, string Title, string? Description, string Status, string Priority, Guid? AssignedUserId, string? Notes, DateTimeOffset? DueDate, DateTimeOffset CreatedAt, DateTimeOffset? UpdatedAt);
     public sealed record DbTaskHistory(Guid Id, Guid TaskId);
     public sealed record DbSupplier(Guid Id, string BusinessName, string? ContactName, string? Phone, string? Email, string? Categories);
     public sealed record DbProduct(Guid Id, Guid TenantId, string Sku, string Name, string? Category, string? Brand, string? CompatibleModel, Guid? PrimarySupplierId, decimal Cost, decimal SalePrice, decimal MinimumStock, string? Unit, string? Location, DateTimeOffset CreatedAt);

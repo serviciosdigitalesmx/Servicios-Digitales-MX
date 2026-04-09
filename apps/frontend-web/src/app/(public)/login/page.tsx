@@ -33,7 +33,7 @@ export default function LoginPage() {
         throw new Error(payload?.message || "No se pudo iniciar sesión");
       }
 
-      router.push("/hub");
+      router.push("/interno");
     } catch (err: any) {
       setError(err.message || "Error al iniciar sesión");
     } finally {

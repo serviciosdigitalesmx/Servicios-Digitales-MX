@@ -2,7 +2,6 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
-// 1. Definimos el contrato completo basado en lo que el sistema ya consume
 export type AuthMeResponse = {
   user: {
     id: string;
@@ -37,19 +36,46 @@ export type AuthMeResponse = {
   lastPayment?: any;
 };
 
+type AuthEnvelope =
+  | AuthMeResponse
+  | {
+      success?: boolean;
+      data?: AuthMeResponse;
+      error?: {
+        code?: string;
+        message?: string;
+      };
+    };
+
 type AuthContextType = {
   session: AuthMeResponse | null;
   user: AuthMeResponse["user"] | null;
   loading: boolean;
 };
 
-const AuthContext = createContext<AuthContextType>({ 
-  session: null, 
+const AuthContext = createContext<AuthContextType>({
+  session: null,
   user: null,
-  loading: true 
+  loading: true
 });
 
 export const useAuth = () => useContext(AuthContext);
+
+function extractSession(payload: AuthEnvelope): AuthMeResponse | null {
+  if (!payload || typeof payload !== "object") return null;
+
+  // Shape nuevo: { success, data }
+  if ("data" in payload && payload.data?.user && payload.data?.shop && payload.data?.subscription) {
+    return payload.data;
+  }
+
+  // Shape legado: sesión directa
+  if ("user" in payload && "shop" in payload && "subscription" in payload) {
+    return payload as AuthMeResponse;
+  }
+
+  return null;
+}
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<AuthMeResponse | null>(null);
@@ -61,12 +87,19 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
       try {
         const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5115";
         const res = await fetch(`${apiUrl}/api/auth/me`);
-        
-        if (res.ok) {
-          const data: AuthMeResponse = await res.json();
-          // FIX: Seteamos la data directa, sin envolverla de más
-          setSession(data);
+
+        if (!res.ok) {
+          router.push("/login");
+          return;
+        }
+
+        const payload: AuthEnvelope = await res.json();
+        const parsedSession = extractSession(payload);
+
+        if (parsedSession) {
+          setSession(parsedSession);
         } else {
+          console.error("Auth payload inválido:", payload);
           router.push("/login");
         }
       } catch (err) {
@@ -76,6 +109,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
         setLoading(false);
       }
     };
+
     checkAuth();
   }, [router]);
 
@@ -85,7 +119,9 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     loading
   };
 
-  if (loading) return <div className="p-10 text-center text-gray-500">Iniciando sesión segura...</div>;
+  if (loading) {
+    return <div className="p-10 text-center text-gray-500">Iniciando sesión segura...</div>;
+  }
 
   return (
     <AuthContext.Provider value={value}>
