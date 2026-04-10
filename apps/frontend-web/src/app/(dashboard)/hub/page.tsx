@@ -1,120 +1,90 @@
-"use client";
+'use client';
+import { useState } from 'react';
+import { 
+  LayoutDashboard, 
+  Wrench, 
+  Package, 
+  DollarSign, 
+  Users, 
+  FileText 
+} from 'lucide-react';
 
-export const dynamic = "force-dynamic";
+import FinanzasNative from '@/components/ui/FinanzasNative';
+import StockNative from '@/components/ui/StockNative';
+import TecnicoNative from '@/components/ui/TecnicoNative';
+import ClientesNative from '@/components/ui/ClientesNative';
 
-import React, { useState } from "react";
-import { Menu } from "lucide-react";
-import { AuthGuard, useAuth } from "../../../components/ui/AuthGuard";
-import Sidebar from "../../../components/hub/Sidebar";
-import Dashboard from "../../../components/hub/Dashboard";
-import ReceptionForm from "../../../components/hub/ReceptionForm";
-import TechnicalPanel from "../../../components/hub/TechnicalPanel";
-import CustomersPanel from "../../../components/hub/CustomersPanel";
-import ArchivePanel from "../../../components/hub/ArchivePanel";
-import FinancePanel from "../../../components/hub/FinancePanel";
-import InventoryPanel from "../../../components/hub/InventoryPanel";
-import ExpensesPanel from "../../../components/hub/ExpensesPanel";
-import PurchasesPanel from "../../../components/hub/PurchasesPanel";
-import ReportsPanel from "../../../components/hub/ReportsPanel";
-import SolicitudesPanel from "../../../components/hub/SolicitudesPanel";
-import SecurityPanel from "../../../components/hub/SecurityPanel";
+export default function DashboardHub() {
+  const [activeTab, setActiveTab] = useState('dashboard');
 
-function Placeholder({ title }: { title: string }) {
-  return (
-    <div className="glass-card p-8 md:p-12 text-center bg-black/40 border-white/5 shadow-2xl backdrop-blur-3xl min-h-[300px] md:min-h-[400px] flex flex-col items-center justify-center rounded-3xl">
-      <div className="w-16 h-16 md:w-20 md:h-20 bg-[var(--accent-blue)]/10 border border-[var(--accent-blue)]/20 rounded-3xl flex items-center justify-center text-[var(--accent-blue)] mb-6 md:mb-8 shadow-inner">
-        <span className="text-2xl md:text-3xl">•</span>
-      </div>
-      <h2 className="text-2xl md:text-3xl font-jakarta font-black text-white mb-4">{title}</h2>
-      <p className="max-w-md text-[var(--text-secondary)] font-medium tracking-tight leading-relaxed text-sm md:text-base">
-        Este módulo se va a conectar después con Supabase y Render, pero el shell visual ya quedó montado y responsivo.
-      </p>
-    </div>
-  );
-}
-
-function HubContent() {
-  const [activeTab, setActiveTab] = useState("dashboard");
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const { session } = useAuth();
-
-  // Mapeamos la sesión real inyectada por el AuthGuard
-  const user = session?.user 
-    ? { name: session.user.fullName, role: session.user.role } 
-    : { name: "Cargando...", role: "..." };
-
-  const handleLogout = async () => {
-    if (typeof window !== "undefined") {
-      localStorage.removeItem("sdmx_session");
-      window.location.href = "/login";
-    }
-  };
-
-  const renderContent = () => {
-    switch (activeTab) {
-      case "dashboard": return <Dashboard />;
-      case "recepcion": return <ReceptionForm />;
-      case "taller": return <TechnicalPanel />;
-      case "solicitudes": return <SolicitudesPanel />;
-      case "archivo": return <ArchivePanel />;
-      case "clientes": return <CustomersPanel />;
-      case "inventario": return <InventoryPanel />;
-      case "gastos": return <ExpensesPanel />;
-      case "compras": return <PurchasesPanel />;
-      case "reportes": return <ReportsPanel />;
-      case "finanzas": return <FinancePanel />;
-      case "seguridad": return <SecurityPanel />;
-      default: return <Placeholder title="Módulo" />;
-    }
-  };
+  const menuItems = [
+    { id: 'dashboard', label: 'Resumen', icon: LayoutDashboard },
+    { id: 'tecnico', label: 'Taller / Técnico', icon: Wrench },
+    { id: 'inventario', label: 'Inventario', icon: Package },
+    { id: 'finanzas', label: 'Caja / Finanzas', icon: DollarSign },
+    { id: 'clientes', label: 'Clientes', icon: Users },
+  ];
 
   return (
-    <div className="flex min-h-screen bg-[#060608] text-white overflow-hidden">
-      <Sidebar 
-        activeTab={activeTab} 
-        onTabChange={(tab) => { setActiveTab(tab); setIsSidebarOpen(false); }} 
-        user={user} 
-        isOpen={isSidebarOpen}
-        setIsOpen={setIsSidebarOpen}
-        onLogout={handleLogout}
-      />
-      
-      <main className="flex-1 transition-all duration-300 md:ml-64 min-h-screen flex flex-col h-screen overflow-y-auto">
-        {/* Header Móvil */}
-        <div className="md:hidden flex items-center justify-between p-4 border-b border-white/5 bg-black/60 backdrop-blur-3xl sticky top-0 z-30">
-          <div className="font-jakarta font-extrabold text-xl tracking-tight text-white flex items-center gap-2">
-            <div className="w-8 h-8 bg-[var(--accent-blue)]/10 border border-[var(--accent-blue)]/20 rounded-lg flex items-center justify-center text-[var(--accent-blue)]">
-              <span className="text-lg">⚡</span>
+    <div className="flex min-h-screen bg-[#0A0F1C] text-white">
+      <aside className="w-64 bg-[#161B2C] border-r border-blue-500/10 p-6 flex flex-col">
+        <h2 className="text-xl font-black text-blue-500 mb-10 tracking-tighter italic uppercase">
+          SDMX <span className="text-white font-light tracking-normal">Pro</span>
+        </h2>
+        <nav className="space-y-2 flex-1">
+          {menuItems.map((item) => (
+            <button
+              key={item.id}
+              onClick={() => setActiveTab(item.id)}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-300 ${
+                activeTab === item.id 
+                ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20 translate-x-1' 
+                : 'text-gray-400 hover:bg-[#1E2538] hover:text-white'
+              }`}
+            >
+              <item.icon size={18} />
+              <span className="font-bold text-xs uppercase tracking-widest">{item.label}</span>
+            </button>
+          ))}
+        </nav>
+      </aside>
+
+      <main className="flex-1 p-8 overflow-y-auto">
+        <header className="mb-10 flex justify-between items-center border-b border-blue-500/10 pb-6">
+          <h1 className="text-3xl font-black uppercase tracking-tighter text-white">
+            {menuItems.find(i => i.id === activeTab)?.label}
+          </h1>
+          <div className="flex items-center gap-4">
+            <div className="bg-[#1E2538] px-4 py-2 rounded-full border border-blue-500/20 text-[10px] font-black text-blue-400 tracking-widest uppercase">
+              Sesión: Jesús Chávez
             </div>
-            SrFix<span className="text-[var(--accent-blue)]">Hub</span>
           </div>
-          <button onClick={() => setIsSidebarOpen(true)} className="p-2 bg-white/5 rounded-lg text-white hover:bg-white/10 transition-colors">
-            <Menu size={24} />
-          </button>
-        </div>
+        </header>
 
-        <div className="p-4 md:p-8 flex-1">
-          <div className="max-w-7xl mx-auto space-y-8">
-            {renderContent()}
-          </div>
+        <div className="animate-in fade-in slide-in-from-bottom-2 duration-700">
+          {activeTab === 'dashboard' && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="bg-[#161B2C] p-8 rounded-3xl border border-blue-500/10 hover:border-blue-500/30 transition-all cursor-default group">
+                <p className="text-blue-500 text-xs font-black uppercase mb-3 tracking-widest">Equipos en Taller</p>
+                <h3 className="text-5xl font-black group-hover:scale-105 transition-transform">12</h3>
+              </div>
+              <div className="bg-[#161B2C] p-8 rounded-3xl border border-blue-500/10 hover:border-blue-500/30 transition-all cursor-default group">
+                <p className="text-blue-500 text-xs font-black uppercase mb-3 tracking-widest">Caja Hoy</p>
+                <h3 className="text-5xl font-black text-green-400 group-hover:scale-105 transition-transform">$4,500</h3>
+              </div>
+              <div className="bg-[#161B2C] p-8 rounded-3xl border border-blue-500/10 hover:border-blue-500/30 transition-all cursor-default group">
+                <p className="text-blue-500 text-xs font-black uppercase mb-3 tracking-widest">Alertas Stock</p>
+                <h3 className="text-5xl font-black text-red-500 group-hover:scale-105 transition-transform">03</h3>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'tecnico' && <TecnicoNative />}
+          {activeTab === 'inventario' && <StockNative />}
+          {activeTab === 'finanzas' && <FinanzasNative />}
+          {activeTab === 'clientes' && <ClientesNative />}
         </div>
       </main>
-
-      {/* Overlay oscuro para cerrar menú en móvil */}
-      {isSidebarOpen && (
-        <div 
-          className="fixed inset-0 bg-black/80 z-40 md:hidden backdrop-blur-sm transition-opacity"
-          onClick={() => setIsSidebarOpen(false)}
-        />
-      )}
     </div>
-  );
-}
-
-export default function HubPage() {
-  return (
-    <AuthGuard>
-      <HubContent />
-    </AuthGuard>
   );
 }
