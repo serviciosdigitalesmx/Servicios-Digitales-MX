@@ -2,6 +2,9 @@ import { BillingConsole } from "../../components/ui/BillingConsole";
 import { AuthGuard } from "../../components/ui/AuthGuard";
 import { PlanLevel } from "../../lib/subscription";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 type BillingPageProps = {
   searchParams: Promise<{
     plan?: string;

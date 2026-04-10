@@ -2,6 +2,9 @@ import { ProductDashboard } from "../../components/ui/ProductDashboard";
 import { isModuleKey, type ModuleKey } from "../../lib/module-registry";
 import { AuthGuard } from "../../components/ui/AuthGuard";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 type InternalPageProps = {
   searchParams: Promise<{
     modulo?: string;

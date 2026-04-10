@@ -1,9 +1,10 @@
 "use client";
 
+export const dynamic = "force-dynamic";
+
 import React, { useState } from "react";
 import { Menu } from "lucide-react";
 import { AuthGuard, useAuth } from "../../../components/ui/AuthGuard";
-import { supabase } from "../../../lib/supabase";
 import Sidebar from "../../../components/hub/Sidebar";
 import Dashboard from "../../../components/hub/Dashboard";
 import ReceptionForm from "../../../components/hub/ReceptionForm";
@@ -43,7 +44,10 @@ function HubContent() {
     : { name: "Cargando...", role: "..." };
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("sdmx_session");
+      window.location.href = "/login";
+    }
   };
 
   const renderContent = () => {
