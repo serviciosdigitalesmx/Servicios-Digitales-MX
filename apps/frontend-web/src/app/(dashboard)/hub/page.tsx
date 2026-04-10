@@ -3,8 +3,8 @@ import { useState } from 'react';
 import { LayoutDashboard, Wrench, Package, DollarSign, Users } from 'lucide-react';
 import ModernDashboard from '@/components/hub/ModernDashboard';
 import FinancePanelPro from '@/components/hub/FinancePanelPro';
-import StockNative from '@/components/ui/StockNative';
-import TecnicoNative from '@/components/ui/TecnicoNative';
+import TechnicalPanelPro from '@/components/hub/TechnicalPanelPro';
+import InventoryPanelPro from '@/components/hub/InventoryPanelPro';
 import ClientesNative from '@/components/ui/ClientesNative';
 
 export default function DashboardHub() {
@@ -23,7 +23,7 @@ export default function DashboardHub() {
         <h2 className="text-xl font-black text-blue-500 mb-10 tracking-tighter italic uppercase">SDMX Pro</h2>
         <nav className="space-y-2 flex-1">
           {menuItems.map((item) => (
-            <button key={item.id} onClick={() => setActiveTab(item.id)} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-300 ${activeTab === item.id ? 'bg-blue-600 shadow-lg shadow-blue-600/20' : 'text-gray-400 hover:bg-[#1E2538]'}`}>
+            <button key={item.id} onClick={() => setActiveTab(item.id)} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-300 ${activeTab === item.id ? 'bg-blue-600 shadow-lg shadow-blue-600/20 translate-x-1' : 'text-gray-400 hover:bg-[#1E2538] hover:text-white'}`}>
               <item.icon size={18} /><span className="font-bold text-xs uppercase">{item.label}</span>
             </button>
           ))}
@@ -35,9 +35,9 @@ export default function DashboardHub() {
         </header>
         <div>
           {activeTab === 'dashboard' && <ModernDashboard />}
+          {activeTab === 'tecnico' && <TechnicalPanelPro />}
+          {activeTab === 'inventario' && <InventoryPanelPro />}
           {activeTab === 'finanzas' && <FinancePanelPro />}
-          {activeTab === 'tecnico' && <TecnicoNative />}
-          {activeTab === 'inventario' && <StockNative />}
           {activeTab === 'clientes' && <ClientesNative />}
         </div>
       </main>
