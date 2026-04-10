@@ -1,23 +1,21 @@
-import type { Metadata } from "next";
-import { Inter, Plus_Jakarta_Sans } from "next/font/google";
-import "./globals.css";
+import './globals.css';
+import { Inter } from 'next/font/google';
 
-const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
-const jakarta = Plus_Jakarta_Sans({ subsets: ["latin"], variable: "--font-jakarta" });
+const inter = Inter({ subsets: ['latin'] });
 
-export const metadata: Metadata = {
-  title: "Servicios Digitales MX",
-  description: "Management Hub",
+export const metadata = {
+  title: 'Servicios Digitales MX',
+  description: 'Gestión Inteligente para Microelectrónica',
 };
 
 export default function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode;
-}>) {
+}) {
   return (
     <html lang="es">
-      <body className={`${inter.variable} ${jakarta.variable} font-inter bg-[#0A0F1C] text-white`}>
+      <body className={`${inter.className} bg-[#0A0F1C] text-white antialiased`}>
         {children}
       </body>
     </html>
