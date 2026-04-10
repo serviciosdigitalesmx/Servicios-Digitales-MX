@@ -18,7 +18,7 @@ export default function RegisterPage() {
     <div className="min-h-screen bg-[#0A0F1C] flex items-center justify-center p-6">
       <div className="w-full max-w-md bg-[#161B2C] border border-blue-500/20 p-8 rounded-3xl shadow-2xl">
         <h1 className="text-3xl font-black text-white mb-8 text-center italic">
-          CREAR CUENTA V1775780006 <span className="text-blue-500">PRO</span>
+          CREAR CUENTA V1775780082 V1775780006 <span className="text-blue-500">PRO</span>
         </h1>
         <form onSubmit={handleSubmit} className="space-y-4">
           <input placeholder="Nombre completo" className="w-full bg-[#1E2538] border border-blue-500/20 p-4 rounded-xl text-white outline-none focus:border-blue-500" onChange={e => setFormData({...formData, fullName: e.target.value})} required />
