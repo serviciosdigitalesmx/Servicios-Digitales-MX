@@ -56,7 +56,7 @@ app.MapPost("/api/auth/login", ([FromBody] LoginRequest request) =>
         success = true,
         session = new
         {
-            token = Guid.NewGuid().ToString("N"),
+            accessToken = Guid.NewGuid().ToString("N"),
             email = request.Email
         }
     });
