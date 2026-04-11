@@ -48,15 +48,10 @@ interface Customer {
   moroso?: boolean;
 }
 
-const MOCK_CUSTOMERS: Customer[] = [
-  { id: '1', nombre: 'Eduardo Torres', telefono: '8115556677', email: 'edu@mail.com', etiqueta: 'vip', totalEquipos: 12, totalReparaciones: 10, totalCotizaciones: 15, ticketPromedio: 2450, ultimaVisita: '2026-04-01' },
-  { id: '2', nombre: 'Brenda Luna', telefono: '8184443322', email: 'b@luna.mx', etiqueta: 'frecuente', totalEquipos: 3, totalReparaciones: 2, totalCotizaciones: 4, ticketPromedio: 1200, ultimaVisita: '2026-03-28' },
-  { id: '3', nombre: 'Marcos Ruiz', telefono: '8121110099', email: 'm@ruiz.com', etiqueta: 'nuevo', totalEquipos: 1, totalReparaciones: 0, totalCotizaciones: 1, ticketPromedio: 0, ultimaVisita: '2026-04-04' },
-  { id: '4', nombre: 'Ricardo Salinas', telefono: '8100000000', email: 'r@elektra.com', etiqueta: 'moroso', totalEquipos: 40, totalReparaciones: 35, totalCotizaciones: 50, ticketPromedio: 15000, ultimaVisita: '2026-01-10', moroso: true },
-];
+const MOCK_CUSTOMERS: Customer[] = [];
 
 export default function CustomersPanel() {
-  const [customers, setCustomers] = useState<Customer[]>(MOCK_CUSTOMERS);
+  const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<Customer | null>(null);

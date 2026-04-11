@@ -48,15 +48,10 @@ interface Equipment {
 }
 
 // --- MOCK DATA ---
-const MOCK_EQUIPOS: Equipment[] = [
-  { id: '1', folio: 'SR-4922', cliente: 'Juan Pérez', telefono: '8112345678', equipo: 'Laptop ASUS ROG', fechaPromesa: '2026-04-05', estado: 'En Reparación', costo: 1500, falla: 'No enciende, posible corto en tarjeta madre', tecnico: 'Carlos T.' },
-  { id: '2', folio: 'SR-4890', cliente: 'María García', telefono: '8119876543', equipo: 'iPhone 15 Pro', fechaPromesa: '2026-04-04', estado: 'En Diagnóstico', costo: 800, falla: 'Pantalla estrellada y no da touch', tecnico: 'Luis M.' },
-  { id: '3', folio: 'SR-4875', cliente: 'Robert De Niro', telefono: '8110001112', equipo: 'MacBook Air M2', fechaPromesa: '2026-04-10', estado: 'Recibido', costo: 2200, falla: 'Limpieza preventiva y cambio de pasta térmica' },
-  { id: '4', folio: 'SR-4860', cliente: 'Elon Musk', telefono: '8180009000', equipo: 'Tesla Tablet', fechaPromesa: '2026-04-03', estado: 'Esperando Refacción', costo: 4500, falla: 'Batería inflada' },
-];
+const MOCK_EQUIPOS: Equipment[] = [];
 
 export default function TechnicalPanel() {
-  const [items, setItems] = useState<Equipment[]>(MOCK_EQUIPOS);
+  const [items, setItems] = useState<Equipment[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedItem, setSelectedItem] = useState<Equipment | null>(null);
   const [tab, setTab] = useState<'detalles' | 'notas' | 'checklist' | 'historial'>('detalles');
