@@ -1,4 +1,3 @@
-```typescript
 /**
  * apiClient.ts
  * Unified HTTP client for the Servicios-Digitales-MX frontend.
@@ -148,4 +147,3 @@ export const apiClient = {
   delete: <T>(endpoint: string, options?: RequestInit) => 
     fetchWithAuth<T>(endpoint, { ...options, method: 'DELETE' }),
 };
-```
