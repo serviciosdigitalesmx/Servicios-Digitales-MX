@@ -9,7 +9,7 @@ import {
   AlertCircle, 
   CheckCircle2, 
   Boxes,
-  Screwdriver,
+  Wrench,
   Eye,
   MoreVertical,
   X,
@@ -223,7 +223,7 @@ function TechnicalModal({ item, tab, setTab, onClose }: any) {
         <div className="p-8 border-b border-white/5 flex justify-between items-center bg-white/[0.02]">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 bg-accent-blue/10 rounded-2xl flex items-center justify-center text-accent-blue border border-accent-blue/20 shadow-inner">
-               <Screwdriver size={24} />
+               <Wrench size={24} />
             </div>
             <div>
               <h3 className="text-2xl font-jakarta font-black text-white">{item.folio}</h3>
@@ -268,7 +268,7 @@ function TechnicalModal({ item, tab, setTab, onClose }: any) {
                        <div className="flex flex-col gap-1">
                           <span className="text-xl font-bold text-white tracking-tight">{item.cliente}</span>
                           <span className="text-text-secondary flex items-center gap-2 text-sm">
-                             < smartphone size={14} /> {item.telefono}
+                             <Smartphone size={14} /> {item.telefono}
                           </span>
                        </div>
                        <button className="w-full bg-[#25D366]/10 hover:bg-[#25D366]/20 text-[#25D366] font-bold py-3 rounded-xl transition-all flex items-center justify-center gap-2 text-sm border border-[#25D366]/10">

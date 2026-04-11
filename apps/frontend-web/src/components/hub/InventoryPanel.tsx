@@ -1,337 +1,549 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
-import { 
-  Package, 
-  Search, 
-  Plus, 
-  ArrowRightLeft, 
-  History as HistoryIcon, 
-  Trash2, 
-  Edit3, 
-  AlertTriangle, 
-  ShoppingCart, 
-  ChevronRight,
-  ChevronDown,
-  Filter,
+import React, { FormEvent, useMemo, useState } from "react";
+import {
+  AlertTriangle,
   DollarSign,
-  Layers,
-  ArrowUpRight,
-  ArrowDownRight,
+  Package,
+  Plus,
+  Search,
   X,
-  Save,
-  RotateCcw
-} from 'lucide-react';
-import { clsx, type ClassValue } from 'clsx';
-import { twMerge } from 'tailwind-merge';
+} from "lucide-react";
+import { clsx, type ClassValue } from "clsx";
+import { twMerge } from "tailwind-merge";
+import { apiClient } from "../../lib/apiClient";
+import { useApiData } from "../../hooks/useApiData";
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-// --- TYPES ---
-interface Product {
+type Supplier = {
+  id: string;
+  businessName: string;
+};
+
+type Product = {
+  id: string;
   sku: string;
-  nombre: string;
-  categoria: string;
-  marca: string;
-  stockActual: number;
-  stockMinimo: number;
-  costo: number;
-  precio: number;
-  estatus: 'activo' | 'inactivo';
-  proveedor?: string;
-  alertaNivel?: 'agotado' | 'critico' | 'bajo' | 'normal';
+  name: string;
+  category?: string | null;
+  brand?: string | null;
+  supplierName?: string | null;
+  stockCurrent: number;
+  minimumStock: number;
+  cost: number;
+  salePrice: number;
+};
+
+type StockLevel = "agotado" | "critico" | "bajo" | "normal";
+
+const initialProductForm = {
+  sku: "",
+  name: "",
+  category: "",
+  brand: "",
+  primarySupplierId: "",
+  cost: "0",
+  salePrice: "0",
+  minimumStock: "0",
+  initialStock: "0",
+};
+
+function formatMoney(value: number) {
+  return new Intl.NumberFormat("es-MX", {
+    style: "currency",
+    currency: "MXN",
+    maximumFractionDigits: 0,
+  }).format(value || 0);
 }
 
-const MOCK_PRODUCTS: Product[] = [
-  { sku: 'DIS-001', nombre: 'Pantalla iPhone 13 OLED', categoria: 'Refacciones', marca: 'Apple', stockActual: 3, stockMinimo: 5, costo: 1200, precio: 2800, estatus: 'activo', alertaNivel: 'bajo' },
-  { sku: 'BAT-402', nombre: 'Batería HP Pavilion 15', categoria: 'Baterías', marca: 'HP', stockActual: 0, stockMinimo: 2, costo: 450, precio: 950, estatus: 'activo', alertaNivel: 'agotado' },
-  { sku: 'CAR-099', nombre: 'Cargador Original MacBook 60W', categoria: 'Cargadores', marca: 'Apple', stockActual: 1, stockMinimo: 5, costo: 600, precio: 1400, estatus: 'activo', alertaNivel: 'critico' },
-  { sku: 'ACC-010', nombre: 'Cable USB-C 2M Trenzado', categoria: 'Accesorios', marca: 'SrFix', stockActual: 45, stockMinimo: 10, costo: 80, precio: 250, estatus: 'activo', alertaNivel: 'normal' },
-];
+function getStockLevel(product: Product): StockLevel {
+  if (product.stockCurrent <= 0) return "agotado";
+  if (product.stockCurrent <= Math.max(1, product.minimumStock * 0.5)) return "critico";
+  if (product.stockCurrent <= product.minimumStock) return "bajo";
+  return "normal";
+}
+
+function getLevelMeta(level: StockLevel) {
+  switch (level) {
+    case "agotado":
+      return {
+        label: "Agotado",
+        card: "bg-red-500/10 border-red-500/20 text-red-500",
+      };
+    case "critico":
+      return {
+        label: "Critico",
+        card: "bg-orange-500/10 border-orange-500/20 text-orange-400",
+      };
+    case "bajo":
+      return {
+        label: "Stock Bajo",
+        card: "bg-yellow-500/10 border-yellow-500/20 text-yellow-400",
+      };
+    default:
+      return {
+        label: "Activo",
+        card: "bg-green-500/10 border-green-500/20 text-green-400",
+      };
+  }
+}
 
 export default function InventoryPanel() {
-  const [products, setProducts] = useState<Product[]>(MOCK_PRODUCTS);
-  const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
-  const [showProductModal, setShowProductModal] = useState(false);
+  const {
+    data: products,
+    loading: loadingProducts,
+    error: productsError,
+    refresh: refreshProducts,
+  } = useApiData<Product[]>("/api/products");
+  const {
+    data: suppliers,
+    loading: loadingSuppliers,
+    error: suppliersError,
+  } = useApiData<Supplier[]>("/api/suppliers");
+
+  const [search, setSearch] = useState("");
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [savingProduct, setSavingProduct] = useState(false);
+  const [createError, setCreateError] = useState("");
+  const [createMessage, setCreateMessage] = useState("");
+  const [productForm, setProductForm] = useState(initialProductForm);
 
-  useEffect(() => {
-    const timer = setTimeout(() => setLoading(false), 700);
-    return () => clearTimeout(timer);
-  }, []);
+  const loading = loadingProducts || loadingSuppliers;
+  const apiError = productsError || suppliersError;
+  const productList = Array.isArray(products) ? products : [];
+  const supplierList = Array.isArray(suppliers) ? suppliers : [];
 
-  const stats = {
-    total: products.length,
-    alerts: products.filter(p => (p.alertaNivel || 'normal') !== 'normal').length,
-    out: products.filter(p => p.stockActual <= 0).length,
-    value: products.reduce((acc, p) => acc + (p.stockActual * p.costo), 0)
-  };
+  const filteredProducts = useMemo(() => {
+    const normalized = search.trim().toLowerCase();
+    return productList.filter((product) => {
+      if (!normalized) return true;
+      return (
+        product.sku.toLowerCase().includes(normalized) ||
+        product.name.toLowerCase().includes(normalized) ||
+        (product.brand || "").toLowerCase().includes(normalized) ||
+        (product.category || "").toLowerCase().includes(normalized) ||
+        (product.supplierName || "").toLowerCase().includes(normalized)
+      );
+    });
+  }, [productList, search]);
 
-  const filteredProducts = products.filter(p => 
-    p.nombre.toLowerCase().includes(search.toLowerCase()) || 
-    p.sku.toLowerCase().includes(search.toLowerCase())
-  );
+  const stats = useMemo(() => {
+    return {
+      total: productList.length,
+      alerts: productList.filter((product) => getStockLevel(product) !== "normal").length,
+      out: productList.filter((product) => product.stockCurrent <= 0).length,
+      value: productList.reduce((sum, product) => sum + product.stockCurrent * product.cost, 0),
+    };
+  }, [productList]);
+
+  const criticalProducts = useMemo(() => {
+    return productList
+      .filter((product) => getStockLevel(product) !== "normal")
+      .sort((a, b) => a.stockCurrent - b.stockCurrent)
+      .slice(0, 6);
+  }, [productList]);
+
+  async function handleCreateProduct(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSavingProduct(true);
+    setCreateError("");
+    setCreateMessage("");
+
+    try {
+      const result = await apiClient.post<Product>("/api/products", {
+        sku: productForm.sku.trim(),
+        name: productForm.name.trim(),
+        category: productForm.category.trim() || null,
+        brand: productForm.brand.trim() || null,
+        primarySupplierId: productForm.primarySupplierId || null,
+        cost: Number(productForm.cost || 0),
+        salePrice: Number(productForm.salePrice || 0),
+        minimumStock: Number(productForm.minimumStock || 0),
+        initialStock: Number(productForm.initialStock || 0),
+      });
+
+      if (!result.success) {
+        throw new Error(result.error?.message || "No se pudo guardar el producto.");
+      }
+
+      await refreshProducts();
+      setProductForm(initialProductForm);
+      setShowCreateModal(false);
+      setCreateMessage("Producto creado y sincronizado con inventario real.");
+    } catch (error: any) {
+      setCreateError(error.message || "No se pudo guardar el producto.");
+    } finally {
+      setSavingProduct(false);
+    }
+  }
 
   return (
     <div className="space-y-8 animate-in fade-in duration-700 pb-10">
-      {/* Header */}
       <header className="flex flex-col lg:flex-row justify-between items-start lg:items-center bg-white/5 border border-white/5 p-6 rounded-3xl backdrop-blur-xl gap-4">
         <div>
-          <h1 className="text-2xl font-jakarta font-extrabold text-white">Gestión de Inventario</h1>
-          <p className="text-text-secondary text-xs font-bold uppercase tracking-widest mt-1">Control de stock y suministros global</p>
+          <h1 className="text-2xl font-jakarta font-extrabold text-white">Gestion de Inventario</h1>
+          <p className="text-text-secondary text-xs font-bold uppercase tracking-widest mt-1">
+            Conectado al backend real de productos y proveedores
+          </p>
         </div>
         <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
-           <div className="relative flex-1 min-w-[200px]">
-             <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary" />
-             <input 
-               type="text" 
-               placeholder="Buscar por SKU o nombre..." 
-               value={search}
-               onChange={(e) => setSearch(e.target.value)}
-               className="w-full bg-white/5 border border-white/10 rounded-xl py-2.5 pl-10 pr-4 text-sm font-medium outline-none focus:border-accent-blue transition-all"
-             />
-           </div>
-           <button 
-             onClick={() => { setSelectedProduct(null); setShowProductModal(true); }}
-             className="bg-accent-blue hover:bg-blue-600 text-white font-bold py-2.5 px-5 rounded-xl transition-all shadow-lg shadow-blue-500/20 flex items-center gap-2 text-sm"
-           >
-              <Plus size={18} /> Nuevo Producto
-           </button>
+          <div className="relative flex-1 min-w-[220px]">
+            <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary" />
+            <input
+              type="text"
+              placeholder="Buscar por SKU, nombre o proveedor..."
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              className="w-full bg-white/5 border border-white/10 rounded-xl py-2.5 pl-10 pr-4 text-sm font-medium outline-none focus:border-accent-blue transition-all"
+            />
+          </div>
+          <button
+            onClick={() => {
+              setCreateError("");
+              setShowCreateModal(true);
+            }}
+            className="bg-accent-blue hover:bg-blue-600 text-white font-bold py-2.5 px-5 rounded-xl transition-all shadow-lg shadow-blue-500/20 flex items-center gap-2 text-sm"
+          >
+            <Plus size={18} /> Nuevo Producto
+          </button>
         </div>
       </header>
 
-      {/* KPIs */}
+      {createMessage ? (
+        <div className="rounded-2xl border border-green-500/20 bg-green-500/10 px-4 py-3 text-sm text-green-100">
+          {createMessage}
+        </div>
+      ) : null}
+
+      {apiError ? (
+        <div className="rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-100">
+          {apiError}
+        </div>
+      ) : null}
+
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         {[
           { label: "Productos en Stock", value: stats.total, icon: Package, color: "text-blue-500", bg: "bg-blue-500/10" },
           { label: "Alertas Activas", value: stats.alerts, icon: AlertTriangle, color: "text-orange-500", bg: "bg-orange-500/10" },
-          { label: "Agotados (0)", value: stats.out, icon: X, color: "text-red-500", bg: "bg-red-500/10" },
-          { label: "Valor Inventario", value: `$${stats.value.toLocaleString()}`, icon: DollarSign, color: "text-green-500", bg: "bg-green-500/10" },
+          { label: "Agotados", value: stats.out, icon: X, color: "text-red-500", bg: "bg-red-500/10" },
+          { label: "Valor Inventario", value: formatMoney(stats.value), icon: DollarSign, color: "text-green-500", bg: "bg-green-500/10" },
         ].map((stat) => (
           <div key={stat.label} className="bg-black/40 border border-white/10 rounded-[32px] p-6 hover:scale-[1.02] transition-all group shadow-2xl backdrop-blur-md">
             <div className={cn("p-3 rounded-xl w-fit mb-4", stat.bg, stat.color)}>
               <stat.icon size={20} />
             </div>
-            <div className="text-2xl font-jakarta font-black text-white mb-1">{loading ? '...' : stat.value}</div>
+            <div className="text-2xl font-jakarta font-black text-white mb-1">{loading ? "..." : stat.value}</div>
             <div className="text-[10px] font-bold text-text-secondary uppercase tracking-widest">{stat.label}</div>
           </div>
         ))}
       </div>
 
-      {/* Main Grid View */}
       <div className="grid grid-cols-1 xl:grid-cols-4 gap-8">
-        
-        {/* Sidebar Alerts */}
         <div className="xl:col-span-1 space-y-6">
-           <div className="glass-card p-6 border-white/5 space-y-6">
-              <h3 className="text-sm font-black text-white uppercase tracking-widest flex items-center gap-2">
-                <AlertTriangle size={16} className="text-accent-orange" /> Stock Crítico
-              </h3>
-              <div className="space-y-4">
-                 {products.filter(p => p.stockActual <= p.stockMinimo).slice(0, 4).map(p => (
-                   <div key={p.sku} className="group p-4 bg-white/5 rounded-2xl border border-white/5 hover:border-accent-orange/30 transition-all cursor-pointer">
-                      <div className="flex justify-between items-start mb-2">
-                         <span className="text-[10px] font-mono text-accent-orange">{p.sku}</span>
-                         <span className={cn(
-                           "text-[8px] font-black uppercase px-2 py-0.5 rounded-full",
-                           p.stockActual === 0 ? "bg-red-500 text-white" : "bg-orange-500/20 text-orange-500"
-                         )}>
-                           {p.stockActual === 0 ? 'Agotado' : 'Crítico'}
-                         </span>
+          <div className="glass-card p-6 border-white/5 space-y-6">
+            <h3 className="text-sm font-black text-white uppercase tracking-widest flex items-center gap-2">
+              <AlertTriangle size={16} className="text-accent-orange" /> Stock Critico
+            </h3>
+            <div className="space-y-4">
+              {criticalProducts.length === 0 ? (
+                <div className="p-4 bg-white/5 rounded-2xl border border-white/5 text-sm text-slate-300">
+                  El inventario actual se ve saludable.
+                </div>
+              ) : (
+                criticalProducts.map((product) => {
+                  const meta = getLevelMeta(getStockLevel(product));
+                  return (
+                    <button
+                      key={product.id}
+                      onClick={() => setSelectedProduct(product)}
+                      className="w-full text-left group p-4 bg-white/5 rounded-2xl border border-white/5 hover:border-accent-orange/30 transition-all"
+                    >
+                      <div className="flex justify-between items-start mb-2 gap-3">
+                        <span className="text-[10px] font-mono text-accent-orange">{product.sku}</span>
+                        <span className={cn("text-[8px] font-black uppercase px-2 py-0.5 rounded-full border", meta.card)}>
+                          {meta.label}
+                        </span>
                       </div>
-                      <p className="text-xs font-bold text-white truncate mb-2">{p.nombre}</p>
+                      <p className="text-xs font-bold text-white truncate mb-2">{product.name}</p>
                       <div className="flex justify-between items-center text-[10px] text-text-secondary">
-                         <span>Actual: {p.stockActual}</span>
-                         <span>Mín: {p.stockMinimo}</span>
+                        <span>Actual: {product.stockCurrent}</span>
+                        <span>Min: {product.minimumStock}</span>
                       </div>
-                   </div>
-                 ))}
-              </div>
-              <button className="w-full text-center text-[10px] font-black text-accent-blue uppercase tracking-widest pt-2 hover:underline">Ver todas las alertas</button>
-           </div>
+                    </button>
+                  );
+                })
+              )}
+            </div>
+          </div>
         </div>
 
-        {/* Table View */}
         <div className="xl:col-span-3 space-y-6">
-           <div className="bg-black/40 border border-white/10 rounded-[32px] overflow-hidden backdrop-blur-md shadow-2xl">
-              <div className="overflow-x-auto">
-                <table className="w-full border-collapse">
-                  <thead>
-                    <tr className="bg-white/5 text-[10px] font-black text-text-secondary uppercase tracking-[0.2em] text-left">
-                      <th className="px-6 py-4">SKU / Producto</th>
-                      <th className="px-6 py-4">Categoría</th>
-                      <th className="px-6 py-4 text-center">Stock</th>
-                      <th className="px-6 py-4 text-right">Precio</th>
-                      <th className="px-6 py-4">Estado</th>
-                      <th className="px-6 py-4">Acciones</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-white/5">
-                    {filteredProducts.map((p) => (
-                      <tr key={p.sku} className="group hover:bg-white/[0.02] transition-colors">
+          <div className="bg-black/40 border border-white/10 rounded-[32px] overflow-hidden backdrop-blur-md shadow-2xl">
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse">
+                <thead>
+                  <tr className="bg-white/5 text-[10px] font-black text-text-secondary uppercase tracking-[0.2em] text-left">
+                    <th className="px-6 py-4">SKU / Producto</th>
+                    <th className="px-6 py-4">Categoria</th>
+                    <th className="px-6 py-4">Proveedor</th>
+                    <th className="px-6 py-4 text-center">Stock</th>
+                    <th className="px-6 py-4 text-right">Precio</th>
+                    <th className="px-6 py-4">Estado</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/5">
+                  {filteredProducts.map((product) => {
+                    const level = getStockLevel(product);
+                    const meta = getLevelMeta(level);
+                    return (
+                      <tr
+                        key={product.id}
+                        className="group hover:bg-white/[0.02] transition-colors cursor-pointer"
+                        onClick={() => setSelectedProduct(product)}
+                      >
                         <td className="px-6 py-4">
                           <div className="flex flex-col">
-                            <span className="text-xs font-mono font-bold text-accent-blue">{p.sku}</span>
-                            <span className="text-sm font-bold text-white mt-1 group-hover:text-accent-blue transition-colors">{p.nombre}</span>
-                            <span className="text-[10px] text-text-secondary font-medium tracking-tight">{p.marca}</span>
+                            <span className="text-xs font-mono font-bold text-accent-blue">{product.sku}</span>
+                            <span className="text-sm font-bold text-white mt-1 group-hover:text-accent-blue transition-colors">
+                              {product.name}
+                            </span>
+                            <span className="text-[10px] text-text-secondary font-medium tracking-tight">
+                              {product.brand || "Sin marca"}
+                            </span>
                           </div>
                         </td>
                         <td className="px-6 py-4">
-                           <span className="text-xs font-bold text-text-secondary bg-white/5 px-3 py-1 rounded-full">{p.categoria}</span>
+                          <span className="text-xs font-bold text-text-secondary bg-white/5 px-3 py-1 rounded-full">
+                            {product.category || "Sin categoria"}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-sm text-slate-300">
+                          {product.supplierName || "Sin proveedor"}
                         </td>
                         <td className="px-6 py-4 text-center">
-                           <div className="flex flex-col items-center">
-                             <span className={cn("text-sm font-black", p.stockActual <= p.stockMinimo ? "text-accent-orange" : "text-white")}>
-                               {p.stockActual}
-                             </span>
-                             <span className="text-[8px] text-text-secondary uppercase font-bold tracking-widest">Min: {p.stockMinimo}</span>
-                           </div>
+                          <div className="flex flex-col items-center">
+                            <span className={cn("text-sm font-black", level !== "normal" ? "text-accent-orange" : "text-white")}>
+                              {product.stockCurrent}
+                            </span>
+                            <span className="text-[8px] text-text-secondary uppercase font-bold tracking-widest">
+                              Min: {product.minimumStock}
+                            </span>
+                          </div>
                         </td>
                         <td className="px-6 py-4 text-right">
-                           <div className="flex flex-col items-end">
-                             <span className="text-sm font-bold text-white">${p.precio.toLocaleString()}</span>
-                             <span className="text-[10px] text-text-secondary">Costo: ${p.costo}</span>
-                           </div>
+                          <div className="flex flex-col items-end">
+                            <span className="text-sm font-bold text-white">{formatMoney(product.salePrice)}</span>
+                            <span className="text-[10px] text-text-secondary">Costo: {formatMoney(product.cost)}</span>
+                          </div>
                         </td>
                         <td className="px-6 py-4">
-                           <StatusBadge level={p.alertaNivel || 'normal'} />
-                        </td>
-                        <td className="px-6 py-4">
-                           <div className="flex items-center gap-2">
-                             <button className="p-2 rounded-lg bg-white/5 border border-white/5 text-text-secondary hover:text-accent-blue hover:bg-accent-blue/10 transition-all shadow-inner">
-                               <ArrowRightLeft size={16} />
-                             </button>
-                             <button className="p-2 rounded-lg bg-white/5 border border-white/5 text-text-secondary hover:text-white hover:bg-white/10 transition-all shadow-inner">
-                               <HistoryIcon size={16} />
-                             </button>
-                             <button 
-                               onClick={() => { setSelectedProduct(p); setShowProductModal(true); }}
-                               className="p-2 rounded-lg bg-white/5 border border-white/5 text-text-secondary hover:text-accent-orange hover:bg-accent-orange/10 transition-all shadow-inner"
-                              >
-                               <Edit3 size={16} />
-                             </button>
-                           </div>
+                          <span className={cn("px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border", meta.card)}>
+                            {meta.label}
+                          </span>
                         </td>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-           </div>
-           
-           <div className="flex justify-center">
-              <button className="text-xs font-bold text-text-secondary uppercase tracking-[0.2em] flex items-center gap-2 hover:text-white transition-all py-4">
-                Mostrar más productos <ChevronDown size={14} />
-              </button>
-           </div>
+                    );
+                  })}
+
+                  {!loading && filteredProducts.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="px-6 py-12 text-center text-slate-400">
+                        No hay productos reales disponibles con esos filtros.
+                      </td>
+                    </tr>
+                  ) : null}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Product Modal */}
-      {showProductModal && (
-        <ProductModal 
-          product={selectedProduct} 
-          onClose={() => setShowProductModal(false)} 
-        />
-      )}
+      {selectedProduct ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-300">
+          <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setSelectedProduct(null)} />
+          <div className="bg-[#121214] border border-white/10 w-full max-w-2xl rounded-[40px] shadow-3xl overflow-hidden relative flex flex-col">
+            <div className="p-8 border-b border-white/5 flex justify-between items-center">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-accent-blue/10 rounded-2xl flex items-center justify-center text-accent-blue">
+                  <Package size={24} />
+                </div>
+                <div>
+                  <h3 className="text-2xl font-jakarta font-black text-white">{selectedProduct.name}</h3>
+                  <p className="text-[10px] font-bold text-text-secondary uppercase tracking-[0.3em]">
+                    SKU {selectedProduct.sku}
+                  </p>
+                </div>
+              </div>
+              <button onClick={() => setSelectedProduct(null)} className="text-text-secondary hover:text-white transition-all">
+                <X size={24} />
+              </button>
+            </div>
+
+            <div className="p-8 grid grid-cols-1 sm:grid-cols-2 gap-6">
+              <DetailCard label="Categoria" value={selectedProduct.category || "Sin categoria"} />
+              <DetailCard label="Marca" value={selectedProduct.brand || "Sin marca"} />
+              <DetailCard label="Proveedor" value={selectedProduct.supplierName || "Sin proveedor"} />
+              <DetailCard label="Stock actual" value={String(selectedProduct.stockCurrent)} />
+              <DetailCard label="Stock minimo" value={String(selectedProduct.minimumStock)} />
+              <DetailCard label="Costo" value={formatMoney(selectedProduct.cost)} />
+              <DetailCard label="Precio" value={formatMoney(selectedProduct.salePrice)} />
+              <DetailCard label="Valor en existencia" value={formatMoney(selectedProduct.stockCurrent * selectedProduct.cost)} />
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {showCreateModal ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-300">
+          <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setShowCreateModal(false)} />
+          <div className="bg-[#121214] border border-white/10 w-full max-w-2xl rounded-[40px] shadow-3xl overflow-hidden relative flex flex-col">
+            <div className="p-8 border-b border-white/5 flex justify-between items-center">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-accent-blue/10 rounded-2xl flex items-center justify-center text-accent-blue">
+                  <Plus size={24} />
+                </div>
+                <h3 className="text-2xl font-jakarta font-black text-white">Nuevo Producto Real</h3>
+              </div>
+              <button onClick={() => setShowCreateModal(false)} className="text-text-secondary hover:text-white transition-all">
+                <X size={24} />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateProduct} className="p-8 space-y-6">
+              {createError ? (
+                <div className="rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-100">
+                  {createError}
+                </div>
+              ) : null}
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                <FormField label="SKU">
+                  <input
+                    value={productForm.sku}
+                    onChange={(event) => setProductForm({ ...productForm, sku: event.target.value })}
+                    className="w-full input-srf p-3 font-mono font-bold text-accent-blue"
+                    required
+                  />
+                </FormField>
+                <FormField label="Nombre">
+                  <input
+                    value={productForm.name}
+                    onChange={(event) => setProductForm({ ...productForm, name: event.target.value })}
+                    className="w-full input-srf p-3"
+                    required
+                  />
+                </FormField>
+                <FormField label="Categoria">
+                  <input
+                    value={productForm.category}
+                    onChange={(event) => setProductForm({ ...productForm, category: event.target.value })}
+                    className="w-full input-srf p-3"
+                  />
+                </FormField>
+                <FormField label="Marca">
+                  <input
+                    value={productForm.brand}
+                    onChange={(event) => setProductForm({ ...productForm, brand: event.target.value })}
+                    className="w-full input-srf p-3"
+                  />
+                </FormField>
+                <FormField label="Proveedor">
+                  <select
+                    value={productForm.primarySupplierId}
+                    onChange={(event) => setProductForm({ ...productForm, primarySupplierId: event.target.value })}
+                    className="w-full input-srf p-3"
+                  >
+                    <option value="">Sin proveedor</option>
+                    {supplierList.map((supplier) => (
+                      <option key={supplier.id} value={supplier.id}>
+                        {supplier.businessName}
+                      </option>
+                    ))}
+                  </select>
+                </FormField>
+                <FormField label="Stock inicial">
+                  <input
+                    type="number"
+                    min="0"
+                    value={productForm.initialStock}
+                    onChange={(event) => setProductForm({ ...productForm, initialStock: event.target.value })}
+                    className="w-full input-srf p-3"
+                  />
+                </FormField>
+                <FormField label="Costo">
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={productForm.cost}
+                    onChange={(event) => setProductForm({ ...productForm, cost: event.target.value })}
+                    className="w-full input-srf p-3"
+                  />
+                </FormField>
+                <FormField label="Precio">
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={productForm.salePrice}
+                    onChange={(event) => setProductForm({ ...productForm, salePrice: event.target.value })}
+                    className="w-full input-srf p-3"
+                  />
+                </FormField>
+                <FormField label="Stock minimo">
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={productForm.minimumStock}
+                    onChange={(event) => setProductForm({ ...productForm, minimumStock: event.target.value })}
+                    className="w-full input-srf p-3"
+                  />
+                </FormField>
+              </div>
+
+              <div className="flex gap-4">
+                <button
+                  type="button"
+                  onClick={() => setShowCreateModal(false)}
+                  className="flex-1 bg-white/5 hover:bg-white/10 text-white font-bold py-4 rounded-xl transition-all border border-white/5 text-xs uppercase tracking-widest"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingProduct}
+                  className="flex-1 btn-accent py-4 text-xs uppercase tracking-widest font-bold"
+                >
+                  {savingProduct ? "Guardando..." : "Guardar Producto"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
 
-function StatusBadge({ level }: { level: string }) {
-  const config: any = {
-    agotado: { label: 'Agotado', color: 'text-red-500 bg-red-500/10 border-red-500/20' },
-    critico: { label: 'Crítico', color: 'text-orange-500 bg-orange-500/10 border-orange-500/20' },
-    bajo: { label: 'Stock Bajo', color: 'text-yellow-500 bg-yellow-500/10 border-yellow-500/20' },
-    normal: { label: 'Activo', color: 'text-green-500 bg-green-500/10 border-green-500/20' },
-  };
-
-  const style = config[level] || config.normal;
-
+function DetailCard({ label, value }: { label: string; value: string }) {
   return (
-    <span className={cn("px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border", style.color)}>
-      {style.label}
-    </span>
+    <div className="bg-white/5 p-5 rounded-3xl border border-white/5">
+      <p className="text-[10px] font-bold text-text-secondary uppercase tracking-widest mb-2">{label}</p>
+      <p className="text-white font-bold text-lg">{value}</p>
+    </div>
   );
 }
 
-function ProductModal({ product, onClose }: { product: Product | null, onClose: () => void }) {
+function FormField({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-300">
-      <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={onClose} />
-      
-      <div className="bg-[#121214] border border-white/10 w-full max-w-2xl rounded-[40px] shadow-3xl overflow-hidden relative flex flex-col scale-in">
-        <div className="p-8 border-b border-white/5 flex justify-between items-center">
-           <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-accent-blue/10 rounded-2xl flex items-center justify-center text-accent-blue">
-                 <Package size={24} />
-              </div>
-              <h3 className="text-2xl font-jakarta font-black text-white">
-                {product ? `Editar ${product.sku}` : 'Nuevo Producto'}
-              </h3>
-           </div>
-           <button onClick={onClose} className="text-text-secondary hover:text-white transition-all">
-             <X size={24} />
-           </button>
-        </div>
-
-        <div className="p-10 space-y-8 overflow-y-auto max-h-[60vh] scrollbar-hide">
-           <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
-              <div className="space-y-2">
-                <label className="text-[10px] font-bold text-text-secondary uppercase tracking-widest px-1">SKU / Identificador</label>
-                <input type="text" defaultValue={product?.sku} className="w-full input-srf p-3 font-mono font-bold text-accent-blue" placeholder="Ej: DIS-001" />
-              </div>
-              <div className="space-y-2">
-                <label className="text-[10px] font-bold text-text-secondary uppercase tracking-widest px-1">Nombre Comercial</label>
-                <input type="text" defaultValue={product?.nombre} className="w-full input-srf p-3" placeholder="Pantalla iPhone..." />
-              </div>
-              <div className="space-y-2">
-                <label className="text-[10px] font-bold text-text-secondary uppercase tracking-widest px-1">Categoría</label>
-                <select className="w-full input-srf p-3 appearance-none cursor-pointer">
-                  <option>Refacciones</option>
-                  <option>Accesorios</option>
-                  <option>Baterías</option>
-                  <option>Cargadores</option>
-                </select>
-              </div>
-              <div className="space-y-2">
-                <label className="text-[10px] font-bold text-text-secondary uppercase tracking-widest px-1">Marca</label>
-                <input type="text" defaultValue={product?.marca} className="w-full input-srf p-3" placeholder="Ej: Apple" />
-              </div>
-           </div>
-
-           <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 bg-white/5 p-8 rounded-3xl border border-white/5">
-              <div className="space-y-2">
-                <label className="text-[8px] font-bold text-text-secondary uppercase tracking-widest">Stock Act.</label>
-                <input type="number" defaultValue={product?.stockActual} className="w-full bg-transparent border-b border-white/10 text-xl font-bold text-white p-1 outline-none focus:border-accent-blue" />
-              </div>
-              <div className="space-y-2">
-                <label className="text-[8px] font-bold text-text-secondary uppercase tracking-widest">Stock Mín.</label>
-                <input type="number" defaultValue={product?.stockMinimo} className="w-full bg-transparent border-b border-white/10 text-xl font-bold text-white p-1 outline-none focus:border-accent-blue" />
-              </div>
-              <div className="space-y-2">
-                <label className="text-[8px] font-bold text-text-secondary uppercase tracking-widest">Costo $</label>
-                <input type="number" defaultValue={product?.costo} className="w-full bg-transparent border-b border-white/10 text-xl font-bold text-white p-1 outline-none focus:border-accent-blue" />
-              </div>
-              <div className="space-y-2">
-                <label className="text-[8px] font-bold text-text-secondary uppercase tracking-widest">Precio $</label>
-                <input type="number" defaultValue={product?.precio} className="w-full bg-transparent border-b border-white/10 text-xl font-bold text-accent-blue p-1 outline-none focus:border-accent-blue" />
-              </div>
-           </div>
-        </div>
-
-        <div className="p-8 border-t border-white/5 flex gap-4 bg-white/[0.02]">
-           <button className="flex-1 bg-white/5 hover:bg-white/10 text-white font-bold py-4 rounded-xl transition-all border border-white/5 text-xs uppercase tracking-widest">
-             Descartar
-           </button>
-           <button className="flex-2 btn-accent py-4 flex items-center justify-center gap-3">
-             <Save size={20} /> Guardar Cambios
-           </button>
-        </div>
-      </div>
+    <div className="space-y-2">
+      <label className="text-[10px] font-bold text-text-secondary uppercase tracking-widest px-1">{label}</label>
+      {children}
     </div>
   );
 }

@@ -103,8 +103,8 @@ export function ProductDashboard({ initialModule = "operativo", shopSlug }: Prod
         MODULES.map((module) => [
           module.key,
           module.key === "operativo" 
-            ? `/interno${shopSlug ? `?shop=${shopSlug}` : ''}`
-            : `/interno?modulo=${encodeURIComponent(module.key)}${shopSlug ? `&shop=${shopSlug}` : ''}`
+            ? `/hub${shopSlug ? `?shop=${shopSlug}` : ''}`
+            : `/hub?modulo=${encodeURIComponent(module.key)}${shopSlug ? `&shop=${shopSlug}` : ''}`
         ])
       ) as Record<ModuleKey, string>,
     [shopSlug]
@@ -216,7 +216,7 @@ export function ProductDashboard({ initialModule = "operativo", shopSlug }: Prod
                  <div className="w-24 h-24 bg-slate-800 flex items-center justify-center rounded-full mb-8 text-5xl opacity-50">⛔</div>
                  <h2 className="font-tech text-3xl text-white uppercase tracking-tighter mb-4">Módulo de Acceso Restringido</h2>
                  <p className="font-label text-slate-400 max-w-md mb-10 text-lg">Tu perfil de <strong className="text-blue-400 uppercase tracking-widest">{userRole}</strong> no tiene privilegios para visualizar o gestionar este segmento.</p>
-                 <a href="/interno" className="bg-slate-800 hover:bg-slate-700 text-white px-10 py-5 rounded-2xl font-tech text-xs uppercase tracking-[0.2em] transition-all">Volver al Dashboard</a>
+                 <a href="/hub" className="bg-slate-800 hover:bg-slate-700 text-white px-10 py-5 rounded-2xl font-tech text-xs uppercase tracking-[0.2em] transition-all">Volver al Dashboard</a>
               </div>
             ) : activeModule === "operativo" ? <OperativoNative tenantId={session?.shop?.id || "default"} /> 
               : activeModule === "tecnico" ? <TecnicoNative tenantId={session?.shop?.id || "default"} />

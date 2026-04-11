@@ -4,7 +4,7 @@ import { FormEvent, useEffect, useState, useMemo } from "react";
 import { useAuth } from "./AuthGuard";
 import { FeatureGuard } from "./FeatureGuard";
 import { PlanLevel } from "../../lib/subscription";
-import { supabase } from "../../lib/supabase";
+import { fetchWithAuth } from "../../lib/apiClient";
 
 type Customer = { id: string; fullName: string; phone?: string; email?: string; tag: string; };
 
@@ -81,20 +81,30 @@ export function OperativoNative({ tenantId }: any = {}) {
     setLoading(true); setApiStateError(""); setApiStateMessage("");
     try {
       if (!session.subscription.operationalAccess) { setCustomers([]); setOrders([]); return; }
-      
+
       const [customersRes, ordersRes, requestsRes] = await Promise.all([
-        supabase.from('customers').select('*').eq('tenant_id', session.shop.id).eq('is_active', true).order('full_name'),
-        supabase.from('service_orders').select('*').eq('tenant_id', session.shop.id).order('created_at', { ascending: false }),
-        supabase.from('service_requests').select('*').eq('tenant_id', session.shop.id).order('created_at', { ascending: false }).limit(25)
+        fetchWithAuth<any>('/api/customers?page=1&pageSize=250'),
+        fetchWithAuth<any>('/api/service-orders?page=1&pageSize=250'),
+        fetchWithAuth<any>('/api/service-requests?page=1&pageSize=25')
       ]);
 
-      if (customersRes.error) throw customersRes.error;
-      if (ordersRes.error) throw ordersRes.error;
-      if (requestsRes.error) throw requestsRes.error;
+      const [customersPayload, ordersPayload, requestsPayload] = await Promise.all([
+        customersRes.json(),
+        ordersRes.json(),
+        requestsRes.json()
+      ]);
 
-      const mappedCustomers = (customersRes.data || []).map((c: any) => ({
+      if (!customersRes.ok) throw new Error(customersPayload.error?.message || "No se pudieron cargar los clientes.");
+      if (!ordersRes.ok) throw new Error(ordersPayload.error?.message || "No se pudieron cargar las órdenes.");
+      if (!requestsRes.ok) throw new Error(requestsPayload.error?.message || "No se pudieron cargar las solicitudes.");
+
+      const customerRows = Array.isArray(customersPayload.data) ? customersPayload.data : [];
+      const orderRows = Array.isArray(ordersPayload.data) ? ordersPayload.data : [];
+      const requestRows = Array.isArray(requestsPayload.data) ? requestsPayload.data : [];
+
+      const mappedCustomers = customerRows.map((c: any) => ({
         id: c.id,
-        fullName: c.full_name,
+        fullName: c.fullName,
         phone: c.phone,
         email: c.email,
         tag: c.tag || 'nuevo'
@@ -104,39 +114,39 @@ export function OperativoNative({ tenantId }: any = {}) {
 
       setCustomers(mappedCustomers);
 
-      setOrders(ordersRes.data.map((o: any) => ({
+      setOrders(orderRows.map((o: any) => ({
         id: o.id,
         folio: o.folio,
         status: o.status,
-        customerId: o.customer_id,
-        customerName: customerMap.get(o.customer_id)?.fullName,
-        customerPhone: customerMap.get(o.customer_id)?.phone,
-        deviceType: o.device_type,
-        deviceBrand: o.device_brand,
-        deviceModel: o.device_model,
+        customerId: o.customerId,
+        customerName: customerMap.get(o.customerId)?.fullName,
+        customerPhone: customerMap.get(o.customerId)?.phone,
+        deviceType: o.deviceType,
+        deviceBrand: o.deviceBrand,
+        deviceModel: o.deviceModel,
         priority: o.priority,
-        estimatedCost: Number(o.estimated_cost || 0),
-        reportedIssue: o.reported_issue,
-        promisedDate: o.promised_date,
-        createdAt: o.created_at
+        estimatedCost: Number(o.estimatedCost || 0),
+        reportedIssue: o.reportedIssue,
+        promisedDate: o.promisedDate,
+        createdAt: o.createdAt
       })));
 
-      setRequests((requestsRes.data || []).map((r: any) => ({
+      setRequests(requestRows.map((r: any) => ({
         id: r.id,
         folio: r.folio,
-        customerName: r.customer_name,
-        customerPhone: r.customer_phone,
-        customerEmail: r.customer_email,
-        deviceType: r.device_type,
-        deviceBrand: r.device_brand,
-        deviceModel: r.device_model,
-        issueDescription: r.issue_description,
+        customerName: r.customerName,
+        customerPhone: r.customerPhone,
+        customerEmail: r.customerEmail,
+        deviceType: r.deviceType,
+        deviceBrand: r.deviceBrand,
+        deviceModel: r.deviceModel,
+        issueDescription: r.issueDescription,
         urgency: r.urgency,
-        quotedTotal: Number(r.quoted_total || 0),
+        quotedTotal: Number(r.quotedTotal || 0),
       })));
 
     } catch (error: any) {
-       setApiStateError(error.message || "Error al conectar con Supabase.");
+       setApiStateError(error.message || "Error al conectar con la API real.");
     } finally {
       setLoading(false);
     }
@@ -167,23 +177,6 @@ export function OperativoNative({ tenantId }: any = {}) {
     [customers, orderForm.customerId]
   );
 
-  const generateFolio = async () => {
-    const { data: lastOrder } = await supabase
-      .from('service_orders')
-      .select('folio')
-      .eq('tenant_id', session?.shop.id)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .single();
-
-    let nextNumber = 1;
-    if (lastOrder && lastOrder.folio.startsWith('ORD-')) {
-      const lastNum = parseInt(lastOrder.folio.split('-')[1]);
-      if (!isNaN(lastNum)) nextNumber = lastNum + 1;
-    }
-    return `ORD-${String(nextNumber).padStart(6, '0')}`;
-  };
-
   async function handleCreateOrder(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setFormErrorOrder(""); setApiStateError(""); setApiStateMessage("");
 
@@ -194,34 +187,29 @@ export function OperativoNative({ tenantId }: any = {}) {
 
     setLoading(true);
     try {
-      const folio = await generateFolio();
-      
-      const payload = {
-        tenant_id: session.shop.id,
-        branch_id: session.user.branchId,
-        customer_id: orderForm.customerId,
-        folio,
-        status: 'recibido',
-        priority: orderForm.priority,
-        device_type: orderForm.deviceType,
-        device_brand: orderForm.deviceBrand,
-        device_model: orderForm.deviceModel,
-        serial_number: orderForm.serialNumber,
-        reported_issue: orderForm.reportedIssue,
-        promised_date: orderForm.promisedDate || null,
-        estimated_cost: Number(orderForm.estimatedCost || 0),
-        received_at: new Date().toISOString(),
-        created_by: session.user.id,
-        updated_by: session.user.id
-      };
-
-      const { error } = await supabase.from('service_orders').insert(payload);
-
-      if (error) throw error;
+      const response = await fetchWithAuth<any>('/api/service-orders', {
+        method: 'POST',
+        body: JSON.stringify({
+          branchId: session.user.branchId,
+          customerId: orderForm.customerId,
+          serviceRequestId: selectedRequestId || null,
+          deviceType: orderForm.deviceType,
+          deviceBrand: orderForm.deviceBrand || null,
+          deviceModel: orderForm.deviceModel || null,
+          serialNumber: orderForm.serialNumber || null,
+          reportedIssue: orderForm.reportedIssue,
+          priority: orderForm.priority,
+          promisedDate: orderForm.promisedDate || null,
+          estimatedCost: Number(orderForm.estimatedCost || 0),
+        }),
+      });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error?.message || "No se pudo crear la orden.");
+      const created = payload.data;
 
       setLastCreatedOrder({
-        id: `temp-${folio}`,
-        folio,
+        id: created.id,
+        folio: created.folio,
         status: 'recibido',
         customerId: orderForm.customerId,
         customerName: selectedCustomer?.fullName,
@@ -233,7 +221,7 @@ export function OperativoNative({ tenantId }: any = {}) {
         estimatedCost: Number(orderForm.estimatedCost || 0),
         reportedIssue: orderForm.reportedIssue,
         promisedDate: orderForm.promisedDate || undefined,
-        createdAt: payload.received_at,
+        createdAt: created.createdAt || new Date().toISOString(),
       });
       setOrderForm({ customerId: "", deviceType: "", deviceBrand: "", deviceModel: "", serialNumber: "", reportedIssue: "", priority: "normal", promisedDate: "", estimatedCost: "0" });
       setSelectedRequestId("");

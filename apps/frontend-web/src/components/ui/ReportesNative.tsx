@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { supabase } from "../../lib/supabase";
 import { useAuth } from "./AuthGuard";
 import { FeatureGuard } from "./FeatureGuard";
 import { PlanLevel } from "../../lib/subscription";
+import { fetchWithAuth } from "../../lib/apiClient";
 
 type ReportRange = "7d" | "30d" | "90d";
 
@@ -34,60 +34,38 @@ export function ReportesNative() {
     if (!session?.shop.id) return;
     setLoading(true);
     try {
-      const fromDate = new Date();
-      fromDate.setDate(fromDate.getDate() - (range === "7d" ? 7 : range === "30d" ? 30 : 90));
-      const fromIso = fromDate.toISOString();
+      const rangeDays = range === "7d" ? 7 : range === "30d" ? 30 : 90;
+      const response = await fetchWithAuth<ReportData>(`/api/reports/operational?rangeDays=${rangeDays}`);
+      const payload = await response.json();
+      if (!response.ok || !payload.data) {
+        throw new Error(payload.error?.message || "No se pudo generar el reporte operativo.");
+      }
 
-      const [ordersRes, tasksRes, productsRes] = await Promise.all([
-        supabase.from('service_orders').select('status, estimated_cost, final_cost, reported_issue, created_at').eq('tenant_id', session.shop.id).gte('created_at', fromIso),
-        supabase.from('tasks').select('status, priority, created_at').eq('tenant_id', session.shop.id).gte('created_at', fromIso),
-        supabase.from('products').select('sku, name, minimum_stock, stock_current').eq('tenant_id', session.shop.id).eq('is_active', true)
-      ]);
-
-      if (ordersRes.error) throw ordersRes.error;
-      if (tasksRes.error) throw tasksRes.error;
-      if (productsRes.error) throw productsRes.error;
-
-      const products = productsRes.data || [];
-      const criticalStock = products.filter((p: any) => (p.stock_current || 0) <= (p.minimum_stock || 0));
-
-      const orders = ordersRes.data || [];
-      const tasks = tasksRes.data || [];
-      
-      const ordersOpen = orders.filter((o: any) => !['entregado', 'cancelado', 'archivado'].includes(o.status)).length;
-      const ordersDelivered = orders.filter((o: any) => o.status === 'entregado').length;
-      const revenue = orders.reduce((acc: number, o: any) => acc + (Number(o.final_cost || o.estimated_cost || 0)), 0);
-      const commonIssues = Array.from(
-        orders.reduce((map: Map<string, number>, order: any) => {
-          const issue = (order.reported_issue || "Sin detalle").trim();
-          map.set(issue, (map.get(issue) || 0) + 1);
-          return map;
-        }, new Map<string, number>())
-      )
-        .map(([issue, total]) => ({ issue, total }))
-        .sort((a, b) => b.total - a.total)
-        .slice(0, 5);
-
-      const tasksOpen = tasks.filter((t: any) => t.status === 'pendiente').length;
-      const tasksUrgent = tasks.filter((t: any) => t.priority === 'urgente' && t.status === 'pendiente').length;
-
+      const remote = payload.data as any;
       setData({
-        ordersTotal: orders.length,
-        ordersOpen,
-        ordersDelivered,
-        tasksOpen,
-        tasksUrgent,
-        estimatedRevenue: revenue,
-        criticalStock: criticalStock.map((p: any) => ({
-          sku: p.sku,
-          name: p.name,
-          minimumStock: p.minimum_stock,
-          stockCurrent: p.stock_current
-        })),
-        commonIssues,
-        averagePerOrder: orders.length ? revenue / orders.length : 0,
-        completionRate: orders.length ? Math.round((ordersDelivered / orders.length) * 100) : 0,
-        totalDevicesInFlow: orders.length
+        ordersTotal: Number(remote.ordersTotal || 0),
+        ordersOpen: Number(remote.ordersOpen || 0),
+        ordersDelivered: Number(remote.ordersDelivered || 0),
+        tasksOpen: Number(remote.tasksOpen || 0),
+        tasksUrgent: Number(remote.tasksUrgent || 0),
+        estimatedRevenue: Number(remote.estimatedRevenue || 0),
+        criticalStock: Array.isArray(remote.criticalStock)
+          ? remote.criticalStock.map((item: any) => ({
+              sku: item.sku,
+              name: item.name,
+              minimumStock: Number(item.minimumStock || 0),
+              stockCurrent: Number(item.stockCurrent || 0),
+            }))
+          : [],
+        commonIssues: Array.isArray(remote.commonIssues)
+          ? remote.commonIssues.map((item: any) => ({
+              issue: item.issue,
+              total: Number(item.total || 0),
+            }))
+          : [],
+        averagePerOrder: Number(remote.averagePerOrder || 0),
+        completionRate: Number(remote.completionRate || 0),
+        totalDevicesInFlow: Number(remote.totalDevicesInFlow || 0)
       });
 
     } catch (error: any) {

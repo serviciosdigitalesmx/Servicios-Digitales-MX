@@ -6,10 +6,10 @@ import {
   IconThumbsUp, IconChart, IconSync, IconArchive, IconMonitor, 
   IconClose, IconUser, IconPaperPlane, IconCircleNotch 
 } from "./Icons";
-import { supabase } from "../../lib/supabase";
 import { useAuth } from "./AuthGuard";
 import { FeatureGuard } from "./FeatureGuard";
 import { PlanLevel } from "../../lib/subscription";
+import { fetchWithAuth } from "../../lib/apiClient";
 
 type ServiceRequest = {
   id: string; folio: string; customerName: string; customerPhone?: string; customerEmail?: string;
@@ -63,30 +63,27 @@ export function SolicitudesNative() {
     if (!session?.shop.id) return;
     setLoading(true); setApiStateMessage(""); setApiStateError("");
     try {
-      const { data, error } = await supabase
-        .from('service_requests')
-        .select('*')
-        .eq('tenant_id', session.shop.id)
-        .order('created_at', { ascending: false });
+      const response = await fetchWithAuth<any>('/api/service-requests?page=1&pageSize=200');
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error?.message || "No se pudo cargar la bandeja.");
 
-      if (error) throw error;
-
-      setItems((data || []).map((t: any) => ({
+      const rows = Array.isArray(payload.data) ? payload.data : [];
+      setItems(rows.map((t: any) => ({
         id: t.id,
         folio: t.folio,
-        customerName: t.customer_name,
-        customerPhone: t.customer_phone,
-        customerEmail: t.customer_email,
-        deviceType: t.device_type,
-        deviceModel: t.device_model,
-        issueDescription: t.issue_description,
+        customerName: t.customerName,
+        customerPhone: t.customerPhone,
+        customerEmail: t.customerEmail,
+        deviceType: t.deviceType,
+        deviceModel: t.deviceModel,
+        issueDescription: t.issueDescription,
         urgency: t.urgency,
         status: t.status,
-        quotedTotal: Number(t.quoted_total || 0),
-        depositAmount: Number(t.deposit_amount || 0),
-        balanceAmount: Number(t.balance_amount || 0),
-        solicitudOrigenIp: t.solicitud_origen_ip,
-        createdAt: t.created_at
+        quotedTotal: Number(t.quotedTotal || 0),
+        depositAmount: Number(t.depositAmount || 0),
+        balanceAmount: Number(t.balanceAmount || 0),
+        solicitudOrigenIp: t.solicitudOrigenIp,
+        createdAt: t.createdAt
       })));
     } catch (error: any) {
        setApiStateError(error.message || "Error de conexión al cargar la bandeja.");
@@ -98,23 +95,6 @@ export function SolicitudesNative() {
   useEffect(() => { 
     if (session) void loadData(); 
   }, [session]);
-
-  const generateFolio = async () => {
-    const { data: lastReq } = await supabase
-      .from('service_requests')
-      .select('folio')
-      .eq('tenant_id', session?.shop.id)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .single();
-
-    let nextNumber = 1;
-    if (lastReq && lastReq.folio.startsWith('COT-')) {
-      const lastNum = parseInt(lastReq.folio.split('-')[1]);
-      if (!isNaN(lastNum)) nextNumber = lastNum + 1;
-    }
-    return `COT-${String(nextNumber).padStart(6, '0')}`;
-  };
 
   const quoteItemsTotal = useMemo(
     () => quoteItems.reduce((acc, item) => acc + Number(item.amount || 0), 0),
@@ -132,30 +112,30 @@ export function SolicitudesNative() {
 
     setLoading(true);
     try {
-      const folio = await generateFolio();
-
-      const { error } = await supabase.from('service_requests').insert({
-        tenant_id: session.shop.id,
-        branch_id: session.user.branchId,
-        folio,
-        customer_name: form.customerName.trim(),
-        customer_phone: form.customerPhone.trim() || null,
-        customer_email: form.customerEmail.trim() || null,
-        device_type: form.deviceType.trim(),
-        device_model: form.deviceModel.trim() || null,
-        issue_description: form.issueDescription.trim() || null,
-        urgency: form.urgency,
-        status: "pendiente",
-        quoted_total: quoted,
-        deposit_amount: deposit,
-        balance_amount: Math.max(quoted - deposit, 0),
-        created_by: session.user.id
+      const response = await fetchWithAuth<any>('/api/service-requests', {
+        method: 'POST',
+        body: JSON.stringify({
+          branchId: session.user.branchId || null,
+          customerName: form.customerName.trim(),
+          customerPhone: form.customerPhone.trim() || null,
+          customerEmail: form.customerEmail.trim() || null,
+          deviceType: form.deviceType.trim(),
+          deviceModel: form.deviceModel.trim() || null,
+          issueDescription: form.issueDescription.trim() || null,
+          urgency: form.urgency,
+          quotedTotal: quoted,
+          depositAmount: deposit,
+          balanceAmount: Math.max(quoted - deposit, 0),
+        }),
       });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error?.message || "No se pudo registrar la cotización.");
 
-      if (error) throw error;
+      const created = payload.data;
+      const folio = created?.folio || "";
 
       const validItems = quoteItems.filter((item) => item.description.trim() && Number(item.amount || 0) > 0);
-      if (validItems.length > 0) {
+      if (validItems.length > 0 && folio) {
         const currentItems = getStoredQuoteItems();
         currentItems[folio] = validItems;
         saveStoredQuoteItems(currentItems);
@@ -186,13 +166,12 @@ export function SolicitudesNative() {
 
   async function updateRequestStatus(item: ServiceRequest, status: string) {
     try {
-      const { error } = await supabase
-        .from("service_requests")
-        .update({ status })
-        .eq("id", item.id)
-        .eq("tenant_id", session?.shop.id);
-
-      if (error) throw error;
+      const response = await fetchWithAuth<any>(`/api/service-requests/${item.id}/status`, {
+        method: "PATCH",
+        body: JSON.stringify({ status }),
+      });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error?.message || "No se pudo actualizar el estatus.");
 
       setItems((prev) => prev.map((request) => request.id === item.id ? { ...request, status } : request));
       setApiStateMessage(`Cotización ${item.folio} actualizada a ${getRequestStatusLabel(status)}.`);

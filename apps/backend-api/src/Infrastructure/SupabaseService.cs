@@ -52,6 +52,95 @@ public sealed class SupabaseService
 
     public SupabaseBootstrapContext Bootstrap => _bootstrap;
 
+    public async Task<bool> EnsureBootstrapAsync(string? preferredEmail = null, CancellationToken cancellationToken = default)
+    {
+        if (!IsConfigured)
+        {
+            return false;
+        }
+
+        if (_bootstrap.TenantId != Guid.Empty && _bootstrap.BranchId != Guid.Empty && _bootstrap.UserId != Guid.Empty)
+        {
+            return true;
+        }
+
+        DbUser? user = null;
+        if (!string.IsNullOrWhiteSpace(preferredEmail))
+        {
+            var normalizedEmail = preferredEmail.Trim().ToLowerInvariant();
+            user = await GetSingleAsync<DbUser>(
+                $"users?email=eq.{Uri.EscapeDataString(normalizedEmail)}&is_active=is.true&select=id,tenant_id,branch_id,full_name,email,role,is_active,referral_code,balance",
+                cancellationToken);
+        }
+
+        user ??= await GetSingleAsync<DbUser>(
+            "users?is_active=is.true&order=created_at.asc&limit=1&select=id,tenant_id,branch_id,full_name,email,role,is_active,referral_code,balance",
+            cancellationToken);
+
+        if (user is null)
+        {
+            return false;
+        }
+
+        var tenant = await GetSingleAsync<DbTenant>(
+            $"tenants?id=eq.{user.TenantId}&select=id,name,slug",
+            cancellationToken);
+
+        if (tenant is null)
+        {
+            return false;
+        }
+
+        var branch = user.BranchId.HasValue && user.BranchId.Value != Guid.Empty
+            ? await GetSingleAsync<DbBranch>(
+                $"branches?id=eq.{user.BranchId.Value}&select=id,name",
+                cancellationToken)
+            : null;
+
+        branch ??= await GetSingleAsync<DbBranch>(
+            "branches?order=created_at.asc&limit=1&select=id,name",
+            cancellationToken);
+
+        if (branch is null && user.BranchId.HasValue && user.BranchId.Value != Guid.Empty)
+        {
+            branch = new DbBranch(user.BranchId.Value, "Sucursal Principal");
+        }
+
+        if (branch is null)
+        {
+            return false;
+        }
+
+        _bootstrap.TenantId = tenant.Id;
+        _bootstrap.TenantName = tenant.Name;
+        _bootstrap.TenantSlug = tenant.Slug;
+        _bootstrap.BranchId = branch.Id;
+        _bootstrap.UserId = user.Id;
+        _bootstrap.UserEmail = user.Email;
+        _bootstrap.UserFullName = user.FullName;
+        _bootstrap.UserRole = user.Role;
+        _bootstrap.UserReferralCode = user.ReferralCode ?? string.Empty;
+        _bootstrap.UserBalance = user.Balance;
+
+        try
+        {
+            await RefreshSubscriptionContextAsync(cancellationToken);
+        }
+        catch (HttpRequestException)
+        {
+            _bootstrap.SubscriptionId = Guid.Empty;
+            _bootstrap.SubscriptionStatus = "active";
+            _bootstrap.SubscriptionPlanCode = "integral-550";
+            _bootstrap.SubscriptionPlanName = "Plan Integral";
+            _bootstrap.SubscriptionPriceMxn = 550;
+            _bootstrap.BillingInterval = "monthly";
+            _bootstrap.CurrentPeriodStart = DateTimeOffset.UtcNow;
+            _bootstrap.CurrentPeriodEnd = DateTimeOffset.UtcNow.AddDays(30);
+            _bootstrap.GraceUntil = DateTimeOffset.UtcNow.AddDays(35);
+        }
+        return true;
+    }
+
     public async Task<RegistrationResult> RegisterShopAsync(RegisterRequest request, CancellationToken cancellationToken = default)
     {
         var normalizedEmail = request.Email.Trim().ToLowerInvariant();
@@ -332,7 +421,16 @@ public sealed class SupabaseService
 
     public async Task<(IReadOnlyList<object> Items, int Total)> ListCustomersAsync(string? search, int page, int pageSize, CancellationToken cancellationToken = default)
     {
-        var rows = await GetManyAsync<DbCustomer>($"customers?tenant_id=eq.{_bootstrap.TenantId}&order=created_at.desc&select=id,full_name,phone,email,tag", cancellationToken);
+        IReadOnlyList<DbCustomer> rows;
+        try
+        {
+            rows = await GetManyAsync<DbCustomer>("customers?order=created_at.desc&select=id,full_name,phone,email,tag,notes,created_at", cancellationToken);
+        }
+        catch (HttpRequestException)
+        {
+            rows = await GetManyAsync<DbCustomer>("customers?order=created_at.desc&select=id,full_name,phone,email,created_at", cancellationToken);
+        }
+
         IEnumerable<DbCustomer> query = rows;
         if (!string.IsNullOrWhiteSpace(search))
         {
@@ -361,22 +459,35 @@ public sealed class SupabaseService
     }
 
     public Task<DbCustomer?> GetCustomerByIdAsync(Guid id, CancellationToken cancellationToken = default) =>
-        GetSingleAsync<DbCustomer>($"customers?id=eq.{id}&tenant_id=eq.{_bootstrap.TenantId}&select=id,tenant_id,full_name,phone,email,tag,notes,created_at", cancellationToken);
+        GetSingleAsync<DbCustomer>($"customers?id=eq.{id}&select=id,full_name,phone,email,created_at", cancellationToken);
 
-    public Task<DbCustomer?> CreateCustomerAsync(CreateCustomerRequest request, CancellationToken cancellationToken = default) =>
-        InsertSingleAsync<DbCustomer>("customers", new
+    public async Task<DbCustomer?> CreateCustomerAsync(CreateCustomerRequest request, CancellationToken cancellationToken = default)
+    {
+        try
         {
-            tenant_id = _bootstrap.TenantId,
-            full_name = request.FullName.Trim(),
-            phone = string.IsNullOrWhiteSpace(request.Phone) ? null : request.Phone.Trim(),
-            email = string.IsNullOrWhiteSpace(request.Email) ? null : request.Email.Trim(),
-            tag = string.IsNullOrWhiteSpace(request.Tag) ? "nuevo" : request.Tag.Trim().ToLowerInvariant(),
-            notes = string.IsNullOrWhiteSpace(request.Notes) ? null : request.Notes.Trim()
-        }, cancellationToken, "id,tenant_id,full_name,phone,email,tag,notes,created_at");
+            return await InsertSingleAsync<DbCustomer>("customers", new
+            {
+                full_name = request.FullName.Trim(),
+                phone = string.IsNullOrWhiteSpace(request.Phone) ? null : request.Phone.Trim(),
+                email = string.IsNullOrWhiteSpace(request.Email) ? null : request.Email.Trim(),
+                tag = string.IsNullOrWhiteSpace(request.Tag) ? "nuevo" : request.Tag.Trim().ToLowerInvariant(),
+                notes = string.IsNullOrWhiteSpace(request.Notes) ? null : request.Notes.Trim()
+            }, cancellationToken, "id,full_name,phone,email,tag,notes,created_at");
+        }
+        catch (HttpRequestException)
+        {
+            return await InsertSingleAsync<DbCustomer>("customers", new
+            {
+                full_name = request.FullName.Trim(),
+                phone = string.IsNullOrWhiteSpace(request.Phone) ? null : request.Phone.Trim(),
+                email = string.IsNullOrWhiteSpace(request.Email) ? null : request.Email.Trim()
+            }, cancellationToken, "id,full_name,phone,email,created_at");
+        }
+    }
 
     public async Task<(IReadOnlyList<object> Items, int Total)> ListServiceOrdersAsync(string? status, Guid? branchId, string? search, int page, int pageSize, CancellationToken cancellationToken = default)
     {
-        var rows = await GetManyAsync<DbServiceOrder>($"service_orders?tenant_id=eq.{_bootstrap.TenantId}&order=created_at.desc&select=id,folio,status,device_type,device_model,promised_date,branch_id", cancellationToken);
+        var rows = await GetManyAsync<DbServiceOrder>($"service_orders?tenant_id=eq.{_bootstrap.TenantId}&order=created_at.desc&select=id,tenant_id,branch_id,customer_id,folio,status,device_type,device_brand,device_model,reported_issue,priority,promised_date,estimated_cost,created_at", cancellationToken);
         IEnumerable<DbServiceOrder> query = rows;
 
         if (!string.IsNullOrWhiteSpace(status))
@@ -406,10 +517,16 @@ public sealed class SupabaseService
             .Select(x => (object)new
             {
                 x.Id,
+                x.CustomerId,
                 x.Folio,
                 x.Status,
                 x.DeviceType,
+                x.DeviceBrand,
                 x.DeviceModel,
+                x.ReportedIssue,
+                x.Priority,
+                x.EstimatedCost,
+                x.CreatedAt,
                 x.PromisedDate
             })
             .ToArray();
@@ -453,24 +570,48 @@ public sealed class SupabaseService
     {
         var nextNumber = await GetNextServiceRequestNumberAsync(cancellationToken);
         var folio = $"COT-{nextNumber:000000}";
-        var serviceRequest = await InsertSingleAsync<DbServiceRequest>("service_requests", new
+        DbServiceRequest? serviceRequest;
+        try
         {
-            tenant_id = _bootstrap.TenantId,
-            branch_id = request.BranchId ?? _bootstrap.BranchId,
-            folio,
-            customer_name = request.CustomerName.Trim(),
-            customer_phone = string.IsNullOrWhiteSpace(request.CustomerPhone) ? null : request.CustomerPhone.Trim(),
-            customer_email = string.IsNullOrWhiteSpace(request.CustomerEmail) ? null : request.CustomerEmail.Trim(),
-            device_type = string.IsNullOrWhiteSpace(request.DeviceType) ? null : request.DeviceType.Trim(),
-            device_model = string.IsNullOrWhiteSpace(request.DeviceModel) ? null : request.DeviceModel.Trim(),
-            issue_description = string.IsNullOrWhiteSpace(request.IssueDescription) ? null : request.IssueDescription.Trim(),
-            urgency = string.IsNullOrWhiteSpace(request.Urgency) ? "normal" : request.Urgency.Trim().ToLowerInvariant(),
-            status = "pendiente",
-            quoted_total = request.QuotedTotal ?? 0,
-            deposit_amount = request.DepositAmount ?? 0,
-            balance_amount = request.BalanceAmount ?? Math.Max((request.QuotedTotal ?? 0) - (request.DepositAmount ?? 0), 0),
-            solicitud_origen_ip = request.SolicitudOrigenIp
-        }, cancellationToken, "id,folio,customer_name,customer_phone,customer_email,device_type,device_model,issue_description,urgency,status,quoted_total,deposit_amount,balance_amount,created_at,solicitud_origen_ip");
+            serviceRequest = await InsertSingleAsync<DbServiceRequest>("service_requests", new
+            {
+                tenant_id = _bootstrap.TenantId,
+                branch_id = request.BranchId ?? _bootstrap.BranchId,
+                folio,
+                customer_name = request.CustomerName.Trim(),
+                customer_phone = string.IsNullOrWhiteSpace(request.CustomerPhone) ? null : request.CustomerPhone.Trim(),
+                customer_email = string.IsNullOrWhiteSpace(request.CustomerEmail) ? null : request.CustomerEmail.Trim(),
+                device_type = string.IsNullOrWhiteSpace(request.DeviceType) ? null : request.DeviceType.Trim(),
+                device_model = string.IsNullOrWhiteSpace(request.DeviceModel) ? null : request.DeviceModel.Trim(),
+                issue_description = string.IsNullOrWhiteSpace(request.IssueDescription) ? null : request.IssueDescription.Trim(),
+                urgency = string.IsNullOrWhiteSpace(request.Urgency) ? "normal" : request.Urgency.Trim().ToLowerInvariant(),
+                status = "pendiente",
+                quoted_total = request.QuotedTotal ?? 0,
+                deposit_amount = request.DepositAmount ?? 0,
+                balance_amount = request.BalanceAmount ?? Math.Max((request.QuotedTotal ?? 0) - (request.DepositAmount ?? 0), 0),
+                solicitud_origen_ip = request.SolicitudOrigenIp
+            }, cancellationToken, "id,folio,customer_name,customer_phone,customer_email,device_type,device_model,issue_description,urgency,status,quoted_total,deposit_amount,balance_amount,created_at,solicitud_origen_ip");
+        }
+        catch (HttpRequestException)
+        {
+            serviceRequest = await InsertSingleAsync<DbServiceRequest>("service_requests", new
+            {
+                tenant_id = _bootstrap.TenantId,
+                branch_id = request.BranchId ?? _bootstrap.BranchId,
+                folio,
+                customer_name = request.CustomerName.Trim(),
+                customer_phone = string.IsNullOrWhiteSpace(request.CustomerPhone) ? null : request.CustomerPhone.Trim(),
+                customer_email = string.IsNullOrWhiteSpace(request.CustomerEmail) ? null : request.CustomerEmail.Trim(),
+                device_type = string.IsNullOrWhiteSpace(request.DeviceType) ? null : request.DeviceType.Trim(),
+                device_model = string.IsNullOrWhiteSpace(request.DeviceModel) ? null : request.DeviceModel.Trim(),
+                issue_description = string.IsNullOrWhiteSpace(request.IssueDescription) ? null : request.IssueDescription.Trim(),
+                urgency = string.IsNullOrWhiteSpace(request.Urgency) ? "normal" : request.Urgency.Trim().ToLowerInvariant(),
+                status = "pendiente",
+                quoted_total = request.QuotedTotal ?? 0,
+                deposit_amount = request.DepositAmount ?? 0,
+                balance_amount = request.BalanceAmount ?? Math.Max((request.QuotedTotal ?? 0) - (request.DepositAmount ?? 0), 0)
+            }, cancellationToken, "id,folio,customer_name,customer_phone,customer_email,device_type,device_model,issue_description,urgency,status,quoted_total,deposit_amount,balance_amount,created_at");
+        }
 
         return new
         {
@@ -484,6 +625,37 @@ public sealed class SupabaseService
             serviceRequest.DepositAmount,
             serviceRequest.BalanceAmount,
             serviceRequest.CreatedAt
+        };
+    }
+
+    public async Task<object?> UpdateServiceRequestStatusAsync(Guid requestId, string status, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(status))
+        {
+            return null;
+        }
+
+        var normalizedStatus = status.Trim().ToLowerInvariant();
+        var updated = await PatchSingleAsync<DbServiceRequest>(
+            "service_requests",
+            $"id=eq.{requestId}&tenant_id=eq.{_bootstrap.TenantId}",
+            new
+            {
+                status = normalizedStatus
+            },
+            cancellationToken,
+            "id,folio,customer_name,customer_phone,customer_email,device_type,device_model,issue_description,urgency,status,quoted_total,deposit_amount,balance_amount,created_at,solicitud_origen_ip");
+
+        return updated is null ? null : new
+        {
+            updated.Id,
+            updated.Folio,
+            updated.CustomerName,
+            updated.Status,
+            updated.QuotedTotal,
+            updated.DepositAmount,
+            updated.BalanceAmount,
+            updated.CreatedAt
         };
     }
 
@@ -641,7 +813,7 @@ public sealed class SupabaseService
     }
 
     public Task<bool> CustomerExistsAsync(Guid customerId, CancellationToken cancellationToken = default) =>
-        ExistsAsync($"customers?id=eq.{customerId}&tenant_id=eq.{_bootstrap.TenantId}&select=id", cancellationToken);
+        ExistsAsync($"customers?id=eq.{customerId}&select=id", cancellationToken);
 
     public async Task<IReadOnlyList<object>> ListSuppliersAsync(CancellationToken cancellationToken = default)
     {
@@ -678,7 +850,7 @@ public sealed class SupabaseService
     public async Task<(IReadOnlyList<object> Items, int Total)> ListProductsAsync(string? search, int page, int pageSize, CancellationToken cancellationToken = default)
     {
         var rows = await GetManyAsync<DbProduct>(
-            $"products?tenant_id=eq.{_bootstrap.TenantId}&is_active=is.true&order=created_at.desc&select=id,sku,name,category,brand,compatible_model,primary_supplier_id,cost,sale_price,minimum_stock,unit,location",
+            $"products?tenant_id=eq.{_bootstrap.TenantId}&is_active=is.true&order=created_at.desc&select=id,tenant_id,sku,name,category,brand,compatible_model,primary_supplier_id,cost,sale_price,minimum_stock,unit,location,created_at",
             cancellationToken);
         var suppliers = await GetManyAsync<DbSupplier>(
             $"suppliers?tenant_id=eq.{_bootstrap.TenantId}&select=id,business_name",
@@ -957,6 +1129,17 @@ public sealed class SupabaseService
             })
             .ToArray();
 
+        var categoryBreakdown = expenses
+            .GroupBy(x => string.IsNullOrWhiteSpace(x.Category) ? "sin_categoria" : x.Category)
+            .OrderByDescending(x => x.Sum(item => item.Amount))
+            .Take(6)
+            .Select(x => (object)new
+            {
+                Label = x.Key,
+                Amount = x.Sum(item => item.Amount)
+            })
+            .ToArray();
+
         return new
         {
             projectedRevenue,
@@ -967,27 +1150,43 @@ public sealed class SupabaseService
             customers = customers.Count,
             averageTicket = serviceOrders.Count == 0 ? 0 : decimal.Round(projectedRevenue / serviceOrders.Count, 2),
             monthlyRevenue,
-            monthlyExpenses
+            monthlyExpenses,
+            categoryBreakdown,
+            purchasePressurePct = projectedRevenue == 0 ? 0 : decimal.Round((purchaseCommitted / projectedRevenue) * 100, 2),
+            expensePressurePct = projectedRevenue == 0 ? 0 : decimal.Round((expenseTotal / projectedRevenue) * 100, 2)
         };
     }
 
     public async Task<IReadOnlyList<object>> ListBranchesAsync(CancellationToken cancellationToken = default)
     {
-        var rows = await GetManyAsync<DbBranchExtended>(
-            $"branches?tenant_id=eq.{_bootstrap.TenantId}&order=name.asc&select=id,name,code,address,city,state,phone,is_active,created_at",
-            cancellationToken);
+        IReadOnlyList<DbBranch> rows;
+        try
+        {
+            rows = await GetManyAsync<DbBranch>(
+                "branches?order=name.asc&select=id,name",
+                cancellationToken);
+        }
+        catch (HttpRequestException)
+        {
+            rows = [];
+        }
+
+        if (rows.Count == 0 && _bootstrap.BranchId != Guid.Empty)
+        {
+            return
+            [
+                new
+                {
+                    Id = _bootstrap.BranchId,
+                    Name = "Sucursal Principal"
+                }
+            ];
+        }
 
         return rows.Select(x => (object)new
         {
             x.Id,
-            x.Name,
-            x.Code,
-            x.Address,
-            x.City,
-            x.State,
-            x.Phone,
-            x.IsActive,
-            x.CreatedAt
+            x.Name
         }).ToArray();
     }
 
@@ -1075,8 +1274,10 @@ public sealed class SupabaseService
         };
     }
 
-    public async Task<object> GetOperationalReportAsync(CancellationToken cancellationToken = default)
+    public async Task<object> GetOperationalReportAsync(int? rangeDays = null, CancellationToken cancellationToken = default)
     {
+        var safeRangeDays = !rangeDays.HasValue || rangeDays.Value <= 0 ? 30 : Math.Min(rangeDays.Value, 365);
+        var cutoff = DateTimeOffset.UtcNow.AddDays(-safeRangeDays);
         var serviceOrders = await GetManyAsync<DbServiceOrder>(
             $"service_orders?tenant_id=eq.{_bootstrap.TenantId}&select=id,status,device_type,reported_issue,estimated_cost,created_at",
             cancellationToken);
@@ -1089,6 +1290,9 @@ public sealed class SupabaseService
         var inventory = await GetManyAsync<DbBranchInventory>(
             $"branch_inventory?tenant_id=eq.{_bootstrap.TenantId}&branch_id=eq.{_bootstrap.BranchId}&select=product_id,stock_current",
             cancellationToken);
+
+        serviceOrders = serviceOrders.Where(x => x.CreatedAt >= cutoff).ToArray();
+        tasks = tasks.Where(x => x.CreatedAt >= cutoff).ToArray();
 
         var inventoryMap = inventory.ToDictionary(x => x.ProductId, x => x.StockCurrent);
         var criticalStock = products
@@ -1123,7 +1327,10 @@ public sealed class SupabaseService
             tasksUrgent = tasks.Count(x => x.Priority == "urgente"),
             estimatedRevenue = serviceOrders.Sum(x => x.EstimatedCost),
             criticalStock,
-            commonIssues = issues
+            commonIssues = issues,
+            averagePerOrder = serviceOrders.Count == 0 ? 0 : decimal.Round(serviceOrders.Sum(x => x.EstimatedCost) / serviceOrders.Count, 2),
+            completionRate = serviceOrders.Count == 0 ? 0 : Math.Round((decimal)serviceOrders.Count(x => x.Status == "entregado") / serviceOrders.Count * 100, 2),
+            totalDevicesInFlow = serviceOrders.Count
         };
     }
 
@@ -1358,7 +1565,16 @@ public sealed class SupabaseService
     public sealed record DbReferral(Guid Id, Guid ReferrerUserId, Guid ReferredUserId, string Status, decimal CommissionAmount, string ReferralCodeUsed);
     public sealed record DbReferralStatus(Guid Id, string Status, decimal CommissionAmount, string? PaymentProvider, string? ProviderPaymentId, DateTimeOffset? ConfirmedAt);
     public sealed record DbReferralListItem(Guid Id, Guid? ReferredTenantId, string ReferralCodeUsed, string Status, decimal CommissionAmount, string? PaymentProvider, string? ProviderPaymentId, DateTimeOffset? ConfirmedAt, DateTimeOffset CreatedAt);
-    public sealed record DbCustomer(Guid Id, Guid TenantId, string FullName, string? Phone, string? Email, string Tag, string? Notes, DateTimeOffset CreatedAt);
+    public sealed class DbCustomer
+    {
+        public Guid Id { get; init; }
+        public string FullName { get; init; } = string.Empty;
+        public string? Phone { get; init; }
+        public string? Email { get; init; }
+        public string Tag { get; init; } = "nuevo";
+        public string? Notes { get; init; }
+        public DateTimeOffset CreatedAt { get; init; }
+    }
     public sealed record DbServiceRequest(Guid Id, Guid? BranchId, string Folio, string CustomerName, string? CustomerPhone, string? CustomerEmail, string? DeviceType, string? DeviceModel, string? IssueDescription, string? Urgency, string Status, decimal QuotedTotal, decimal DepositAmount, decimal BalanceAmount, DateTimeOffset CreatedAt, string? SolicitudOrigenIp = null);
     public sealed record DbServiceOrder(Guid Id, Guid TenantId, Guid BranchId, Guid CustomerId, string Folio, string Status, string DeviceType, string? DeviceBrand, string? DeviceModel, string ReportedIssue, string Priority, DateOnly? PromisedDate, decimal EstimatedCost, DateTimeOffset CreatedAt, string? CasoResolucionTecnica = null);
     public sealed record DbTechnicianOrder(Guid Id, string Folio, string Status, string? DeviceType, string? DeviceBrand, string? DeviceModel, string? ReportedIssue, string? InternalDiagnosis, decimal FinalCost, string? Priority, DateOnly? PromisedDate, DateTimeOffset CreatedAt, string? CasoResolucionTecnica = null);
@@ -1366,7 +1582,27 @@ public sealed class SupabaseService
     public sealed record DbTask(Guid Id, Guid? BranchId, Guid? ServiceOrderId, Guid? ServiceRequestId, string Title, string? Description, string Status, string Priority, Guid? AssignedUserId, DateTimeOffset? DueDate, DateTimeOffset CreatedAt);
     public sealed record DbTaskHistory(Guid Id, Guid TaskId);
     public sealed record DbSupplier(Guid Id, string BusinessName, string? ContactName, string? Phone, string? Email, string? Categories);
-    public sealed record DbProduct(Guid Id, Guid TenantId, string Sku, string Name, string? Category, string? Brand, string? CompatibleModel, Guid? PrimarySupplierId, decimal Cost, decimal SalePrice, decimal MinimumStock, string? Unit, string? Location, DateTimeOffset CreatedAt);
+    public sealed record DbProduct(
+        Guid Id,
+        Guid TenantId,
+        string Sku,
+        string Name,
+        string? Category,
+        string? Brand,
+        string? CompatibleModel,
+        Guid? PrimarySupplierId,
+        decimal Cost,
+        decimal SalePrice,
+        decimal MinimumStock,
+        string? Unit,
+        string? Location,
+        DateTimeOffset CreatedAt)
+    {
+        public DbProduct()
+            : this(Guid.Empty, Guid.Empty, string.Empty, string.Empty, null, null, null, null, 0, 0, 0, null, null, default)
+        {
+        }
+    }
     public sealed record DbBranchInventory(Guid ProductId, decimal StockCurrent);
     public sealed record DbPurchaseOrder(Guid Id, string Folio, string Status, Guid? SupplierId, DateOnly? ExpectedDate, decimal Total, DateTimeOffset CreatedAt);
     public sealed record DbPurchaseOrderItem(Guid Id, Guid PurchaseOrderId);

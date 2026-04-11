@@ -2,10 +2,10 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { IconMoneyUp, IconMoneyDown, IconReceipt, IconVault, IconChart, IconSync, IconDownload, IconWarning } from "./Icons";
-import { supabase } from "../../lib/supabase";
 import { useAuth } from "./AuthGuard";
 import { FeatureGuard } from "./FeatureGuard";
 import { PlanLevel } from "../../lib/subscription";
+import { fetchWithAuth } from "../../lib/apiClient";
 
 type MonthlyFinancePoint = { label: string; revenue?: number; expenses?: number };
 
@@ -34,6 +34,14 @@ function getMonthLabel(dateInput?: string) {
   return new Intl.DateTimeFormat("es-MX", { month: "short", year: "2-digit" }).format(date);
 }
 
+function normalizeMonthLabel(label?: string) {
+  if (!label) return "Sin fecha";
+  if (/^\d{4}-\d{2}$/.test(label)) {
+    return getMonthLabel(`${label}-01T00:00:00`);
+  }
+  return label;
+}
+
 export function FinanzasNative({ tenantId }: any = {}) {
   const { session } = useAuth();
   const [summary, setSummary] = useState<FinanceSummary | null>(null);
@@ -47,65 +55,32 @@ export function FinanzasNative({ tenantId }: any = {}) {
     setApiStateMessage("");
     setApiStateError("");
     try {
-      // Aggregate data from Supabase
-      const [ordersRes, expensesRes, purchaseRes, customersRes] = await Promise.all([
-        supabase.from('service_orders').select('final_cost, estimated_cost, status, created_at').eq('tenant_id', session.shop.id),
-        supabase.from('expenses').select('amount, category, expense_date').eq('tenant_id', session.shop.id),
-        supabase.from('purchase_orders').select('total_amount, status, created_at').eq('tenant_id', session.shop.id).neq('status', 'cancelled'),
-        supabase.from('customers').select('id', { count: 'exact', head: true }).eq('tenant_id', session.shop.id)
-      ]);
-
-      if (ordersRes.error) throw ordersRes.error;
-      if (expensesRes.error) throw expensesRes.error;
-      if (purchaseRes.error) throw purchaseRes.error;
-      if (customersRes.error) throw customersRes.error;
-
-      const revenue = ordersRes.data.reduce((acc: number, o: any) => acc + (Number(o.final_cost || o.estimated_cost || 0)), 0);
-      const expenses = expensesRes.data.reduce((acc: number, e: any) => acc + (Number(e.amount || 0)), 0);
-      const committed = purchaseRes.data.reduce((acc: number, p: any) => acc + (Number(p.total_amount || 0)), 0);
-      const activeOrders = ordersRes.data.filter((o: any) => !['entregado', 'cancelado'].includes(o.status)).length;
-
-      const monthlyRevenueMap = new Map<string, number>();
-      for (const order of ordersRes.data) {
-        const label = getMonthLabel(order.created_at);
-        monthlyRevenueMap.set(label, (monthlyRevenueMap.get(label) || 0) + Number(order.final_cost || order.estimated_cost || 0));
+      const response = await fetchWithAuth<FinanceSummary>('/api/finance/summary');
+      const payload = await response.json();
+      if (!response.ok || !payload.data) {
+        throw new Error(payload.error?.message || "Error al obtener el consolidado.");
       }
 
-      const monthlyExpenseMap = new Map<string, number>();
-      const categoryMap = new Map<string, number>();
-      for (const expense of expensesRes.data) {
-        const label = getMonthLabel(expense.expense_date);
-        monthlyExpenseMap.set(label, (monthlyExpenseMap.get(label) || 0) + Number(expense.amount || 0));
-        const categoryLabel = expense.category || "sin_categoria";
-        categoryMap.set(categoryLabel, (categoryMap.get(categoryLabel) || 0) + Number(expense.amount || 0));
-      }
-
-      const monthlyRevenue = Array.from(monthlyRevenueMap.entries())
-        .map(([label, value]) => ({ label, revenue: value }))
-        .sort((a, b) => a.label.localeCompare(b.label, "es-MX"));
-
-      const monthlyExpenses = Array.from(monthlyExpenseMap.entries())
-        .map(([label, value]) => ({ label, expenses: value }))
-        .sort((a, b) => a.label.localeCompare(b.label, "es-MX"));
-
-      const categoryBreakdown = Array.from(categoryMap.entries())
-        .map(([label, amount]) => ({ label, amount }))
-        .sort((a, b) => b.amount - a.amount)
-        .slice(0, 4);
-
+      const remote = payload.data as any;
       setSummary({
-        projectedRevenue: revenue,
-        expenseTotal: expenses,
-        purchaseCommitted: committed,
-        netProjected: revenue - expenses - committed,
-        activeOrders,
-        customers: customersRes.count || 0,
-        averageTicket: revenue / (ordersRes.data.length || 1),
-        monthlyRevenue,
-        monthlyExpenses,
-        categoryBreakdown,
-        purchasePressurePct: revenue > 0 ? Math.round((committed / revenue) * 100) : 0,
-        expensePressurePct: revenue > 0 ? Math.round((expenses / revenue) * 100) : 0
+        projectedRevenue: Number(remote.projectedRevenue || 0),
+        expenseTotal: Number(remote.expenseTotal || 0),
+        purchaseCommitted: Number(remote.purchaseCommitted || 0),
+        netProjected: Number(remote.netProjected || 0),
+        activeOrders: Number(remote.activeOrders || 0),
+        customers: Number(remote.customers || 0),
+        averageTicket: Number(remote.averageTicket || 0),
+        monthlyRevenue: Array.isArray(remote.monthlyRevenue)
+          ? remote.monthlyRevenue.map((item: any) => ({ label: normalizeMonthLabel(item.label), revenue: Number(item.revenue || 0) }))
+          : [],
+        monthlyExpenses: Array.isArray(remote.monthlyExpenses)
+          ? remote.monthlyExpenses.map((item: any) => ({ label: normalizeMonthLabel(item.label), expenses: Number(item.expenses || 0) }))
+          : [],
+        categoryBreakdown: Array.isArray(remote.categoryBreakdown)
+          ? remote.categoryBreakdown.map((item: any) => ({ label: item.label, amount: Number(item.amount || 0) }))
+          : [],
+        purchasePressurePct: Math.round(Number(remote.purchasePressurePct || 0)),
+        expensePressurePct: Math.round(Number(remote.expensePressurePct || 0))
       });
 
     } catch (error: any) {

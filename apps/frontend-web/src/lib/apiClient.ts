@@ -18,13 +18,28 @@ export type ApiResponse<T> = {
   };
 };
 
+export type ApiFetchLikeResponse<T> = ApiResponse<T> & {
+  ok: boolean;
+  status: number;
+  json: () => Promise<ApiResponse<T>>;
+};
+
+function toFetchLikeResponse<T>(payload: ApiResponse<T>, status: number): ApiFetchLikeResponse<T> {
+  return {
+    ...payload,
+    ok: status >= 200 && status < 300 && !!payload.success,
+    status,
+    json: async () => payload,
+  };
+}
+
 /**
  * Core fetch wrapper that handles auth tokens and 401 redirects.
  */
 export async function fetchWithAuth<T>(
   endpoint: string,
   options: RequestInit = {}
-): Promise<ApiResponse<T>> {
+): Promise<ApiFetchLikeResponse<T>> {
   // 1. Get token from localStorage (sdmx_session is our convention)
   const sessionRaw = typeof window !== 'undefined' ? localStorage.getItem('sdmx_session') : null;
   let token = null;
@@ -65,17 +80,27 @@ export async function fetchWithAuth<T>(
       throw new Error('Unauthorized');
     }
 
-    const result = await response.json();
-    return result as ApiResponse<T>;
+    const result = await response.json().catch(() => ({
+      success: response.ok,
+      data: undefined,
+      error: response.ok
+        ? undefined
+        : {
+            code: "INVALID_JSON",
+            message: "La respuesta del servidor no se pudo interpretar.",
+          },
+    }));
+
+    return toFetchLikeResponse(result as ApiResponse<T>, response.status);
   } catch (error: any) {
     console.error(`API Error [${endpoint}]:`, error);
-    return {
+    return toFetchLikeResponse({
       success: false,
       error: {
         code: 'NETWORK_ERROR',
         message: error.message || 'Error de conexión con el servidor',
       },
-    };
+    }, 500);
   }
 }
 
@@ -85,7 +110,7 @@ export async function fetchWithAuth<T>(
 export async function fetchPublic<T>(
   endpoint: string,
   options: RequestInit = {}
-): Promise<ApiResponse<T>> {
+): Promise<ApiFetchLikeResponse<T>> {
   const url = endpoint.startsWith('http') ? endpoint : `${API_BASE_URL}${endpoint}`;
   
   try {
@@ -97,16 +122,26 @@ export async function fetchPublic<T>(
       },
     });
 
-    const result = await response.json();
-    return result as ApiResponse<T>;
+    const result = await response.json().catch(() => ({
+      success: response.ok,
+      data: undefined,
+      error: response.ok
+        ? undefined
+        : {
+            code: "INVALID_JSON",
+            message: "La respuesta del servidor no se pudo interpretar.",
+          },
+    }));
+
+    return toFetchLikeResponse(result as ApiResponse<T>, response.status);
   } catch (error: any) {
-    return {
+    return toFetchLikeResponse({
       success: false,
       error: {
         code: 'NETWORK_ERROR',
         message: error.message || 'Servicio no disponible',
       },
-    };
+    }, 500);
   }
 }
 

@@ -127,6 +127,10 @@ public sealed record UpdateTechnicianOrderRequest(
     string? CasoResolucionTecnica = null
 );
 
+public sealed record UpdateServiceRequestStatusRequest(
+    string Status
+);
+
 public sealed record CreateSupplierRequest(
     string BusinessName,
     string? ContactName,
