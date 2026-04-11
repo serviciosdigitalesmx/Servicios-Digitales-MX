@@ -62,33 +62,32 @@ app.MapPost("/api/auth/login", ([FromBody] LoginRequest request) =>
     });
 });
 
-// MOCK COMPLETO: Para que el Frontend (AuthGuard) y Selenium pasen 100%
-app.MapGet("/api/auth/me", () => Results.Ok(new { 
-    user = new { 
-        id = "user_123", 
-        fullName = "Jesús Villa", 
-        email = "admin@srfix.com", 
-        role = "admin" 
+app.MapGet("/api/auth/me", () => Results.Ok(new {
+    user = new {
+        id = "",
+        fullName = "",
+        email = "",
+        role = ""
     },
-    shop = new { 
-        id = shopBranding.Id,
-        name = shopBranding.Name,
-        slug = shopBranding.Slug,
-        legalName = shopBranding.LegalName,
-        address = shopBranding.Address,
-        phone = shopBranding.Phone,
-        supportEmail = shopBranding.SupportEmail,
-        logoUrl = shopBranding.LogoUrl,
-        primaryColor = shopBranding.PrimaryColor,
-        secondaryColor = shopBranding.SecondaryColor
+    shop = new {
+        id = "",
+        name = "",
+        slug = "",
+        legalName = "",
+        address = "",
+        phone = "",
+        supportEmail = "",
+        logoUrl = (string?)null,
+        primaryColor = "",
+        secondaryColor = ""
     },
-    subscription = new { 
-        status = "active", 
-        planCode = "pro", 
-        planName = "Pro Plan",
-        priceMxn = 499,
-        billingInterval = "monthly",
-        operationalAccess = true
+    subscription = new {
+        status = "",
+        planCode = "",
+        planName = "",
+        priceMxn = 0,
+        billingInterval = "",
+        operationalAccess = false
     }
 }));
 
