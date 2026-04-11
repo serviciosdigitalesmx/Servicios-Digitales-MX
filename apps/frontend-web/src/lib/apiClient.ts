@@ -1,3 +1,4 @@
+```typescript
 /**
  * apiClient.ts
  * Unified HTTP client for the Servicios-Digitales-MX frontend.
@@ -31,7 +32,7 @@ export async function fetchWithAuth<T>(
   if (sessionRaw) {
     try {
       const session = JSON.parse(sessionRaw);
-      token = session.accessToken;
+      token = session.accessToken || session.token || null;
     } catch (e) {
       console.warn("Failed to parse sdmx_session", e);
     }
@@ -66,7 +67,10 @@ export async function fetchWithAuth<T>(
     }
 
     const result = await response.json();
-    return result as ApiResponse<T>;
+    return {
+      success: response.ok,
+      data: result,
+    } as ApiResponse<T>;
   } catch (error: any) {
     console.error(`API Error [${endpoint}]:`, error);
     return {
@@ -98,7 +102,10 @@ export async function fetchPublic<T>(
     });
 
     const result = await response.json();
-    return result as ApiResponse<T>;
+    return {
+      success: response.ok,
+      data: result,
+    } as ApiResponse<T>;
   } catch (error: any) {
     return {
       success: false,
@@ -141,3 +148,4 @@ export const apiClient = {
   delete: <T>(endpoint: string, options?: RequestInit) => 
     fetchWithAuth<T>(endpoint, { ...options, method: 'DELETE' }),
 };
+```
