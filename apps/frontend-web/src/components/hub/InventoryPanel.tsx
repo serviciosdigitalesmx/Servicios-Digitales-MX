@@ -44,15 +44,10 @@ interface Product {
   alertaNivel?: 'agotado' | 'critico' | 'bajo' | 'normal';
 }
 
-const MOCK_PRODUCTS: Product[] = [
-  { sku: 'DIS-001', nombre: 'Pantalla iPhone 13 OLED', categoria: 'Refacciones', marca: 'Apple', stockActual: 3, stockMinimo: 5, costo: 1200, precio: 2800, estatus: 'activo', alertaNivel: 'bajo' },
-  { sku: 'BAT-402', nombre: 'Batería HP Pavilion 15', categoria: 'Baterías', marca: 'HP', stockActual: 0, stockMinimo: 2, costo: 450, precio: 950, estatus: 'activo', alertaNivel: 'agotado' },
-  { sku: 'CAR-099', nombre: 'Cargador Original MacBook 60W', categoria: 'Cargadores', marca: 'Apple', stockActual: 1, stockMinimo: 5, costo: 600, precio: 1400, estatus: 'activo', alertaNivel: 'critico' },
-  { sku: 'ACC-010', nombre: 'Cable USB-C 2M Trenzado', categoria: 'Accesorios', marca: 'SrFix', stockActual: 45, stockMinimo: 10, costo: 80, precio: 250, estatus: 'activo', alertaNivel: 'normal' },
-];
+const MOCK_PRODUCTS: any[] = [];
 
 export default function InventoryPanel() {
-  const [products, setProducts] = useState<Product[]>(MOCK_PRODUCTS);
+  const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [showProductModal, setShowProductModal] = useState(false);

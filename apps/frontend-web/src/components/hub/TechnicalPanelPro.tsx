@@ -3,10 +3,7 @@ $(cat << 'INNER_EOF'
 import React, { useState, useEffect } from 'react';
 import { Search, RotateCcw, Clock, AlertCircle, CheckCircle2, Boxes, Screwdriver, Eye, X, FileText, Save, MessageSquare, History, ClipboardCheck, Video, Smartphone, ChevronRight } from 'lucide-react';
 
-const MOCK_EQUIPOS = [
-  { id: '1', folio: 'SR-4922', cliente: 'Juan Pérez', equipo: 'Laptop ASUS ROG', fechaPromesa: '2026-04-05', estado: 'En Reparación', costo: 1500, falla: 'No enciende, posible corto en tarjeta madre' },
-  { id: '2', folio: 'SR-4890', cliente: 'María García', equipo: 'iPhone 15 Pro', fechaPromesa: '2026-04-04', estado: 'En Diagnóstico', costo: 800, falla: 'Pantalla estrellada y no da touch' },
-];
+const MOCK_EQUIPOS = [];
 
 export default function TechnicalPanelPro() {
   const [loading, setLoading] = useState(true);

@@ -45,23 +45,13 @@ interface SecurityAction {
   requiereAdmin: boolean;
 }
 
-const MOCK_USERS: InternalUser[] = [
-  { usuario: 'admin', nombre: 'Jesús Villa', rol: 'admin', activo: true, notas: 'Super Administrador' },
-  { usuario: 'carlos_t', nombre: 'Carlos Torres', rol: 'tecnico', activo: true, notas: 'Taller Principal' },
-  { usuario: 'brenda_l', nombre: 'Brenda Luna', rol: 'operativo', activo: true, notas: 'Recepción Matutina' },
-  { usuario: 'invitado', nombre: 'User Demo', rol: 'operativo', activo: false },
-];
+const MOCK_USERS: any[] = [];
 
-const MOCK_ACTIONS: SecurityAction[] = [
-  { clave: 'eliminar_orden', titulo: 'Eliminar Órden de Servicio', descripcion: 'Permite borrar permanentemente un folio del sistema.', requiereAdmin: true },
-  { clave: 'modificar_caja', titulo: 'Ajustar Caja Manual', descripcion: 'Permite editar ingresos/egresos ya cerrados.', requiereAdmin: true },
-  { clave: 'ver_finanzas', titulo: 'Acceso a Finanzas', descripcion: 'Ver utilidades, egresos y reportes fiscales.', requiereAdmin: true },
-  { clave: 'editar_stock', titulo: 'Modificar Stock Manual', descripcion: 'Cambiar cantidades de inventario sin folio de compra.', requiereAdmin: false },
-];
+const MOCK_ACTIONS: any[] = [];
 
 export default function SecurityPanel() {
-  const [users, setUsers] = useState<InternalUser[]>(MOCK_USERS);
-  const [actions, setActions] = useState<SecurityAction[]>(MOCK_ACTIONS);
+  const [users, setUsers] = useState<InternalUser[]>([]);
+  const [actions, setActions] = useState<SecurityAction[]>([]);
   const [loading, setLoading] = useState(true);
   const [showUserModal, setShowUserModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState<InternalUser | null>(null);

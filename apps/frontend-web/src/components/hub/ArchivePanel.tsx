@@ -38,16 +38,10 @@ interface ArchiveItem {
   total: number;
 }
 
-const MOCK_ARCHIVE: ArchiveItem[] = [
-  { id: '1', tipo: 'entrega', fecha: '2026-03-30', folio: 'SR-4812', cliente: 'Eduardo Torres', telefono: '8115556677', detalle: 'iPhone 13 Pro - Batería Original', total: 1540 },
-  { id: '2', tipo: 'entrega', fecha: '2026-03-29', folio: 'SR-4811', cliente: 'Brenda Luna', telefono: '8184443322', detalle: 'MacBook Air M1 - Limpieza Interna', total: 850 },
-  { id: '3', tipo: 'cotizacion', fecha: '2026-03-28', folio: 'COT-7712', cliente: 'Marcos Ruiz', telefono: '8121110099', detalle: 'iPad Air 5 - Pantalla Estrellada', total: 4200 },
-  { id: '4', tipo: 'solicitud', fecha: '2026-03-27', folio: 'WEB-9912', cliente: 'Ricardo Salinas', telefono: '8100000000', detalle: 'Solicitud Web Reparación Laptop', total: 0 },
-  { id: '5', tipo: 'entrega', fecha: '2026-03-25', folio: 'SR-4805', cliente: 'Sofia Garcia', telefono: '8199998877', detalle: 'Samsung S22 - Centro de Carga', total: 1200 },
-];
+const MOCK_ARCHIVE: any[] = [];
 
 export default function ArchivePanel() {
-  const [items, setItems] = useState<ArchiveItem[]>(MOCK_ARCHIVE);
+  const [items, setItems] = useState<ArchiveItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [filterType, setFilterType] = useState('all');

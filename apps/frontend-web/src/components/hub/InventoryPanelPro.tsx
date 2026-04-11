@@ -3,10 +3,7 @@ $(cat << 'INNER_EOF'
 import React, { useState, useEffect } from 'react';
 import { Package, Search, Plus, DollarSign, AlertTriangle, X } from 'lucide-react';
 
-const MOCK_PRODUCTS = [
-  { sku: 'DIS-001', nombre: 'Pantalla iPhone 13 OLED', stock: 3, precio: 2800, alerta: 'bajo' },
-  { sku: 'BAT-402', nombre: 'Batería HP Pavilion 15', stock: 0, precio: 950, alerta: 'agotado' },
-];
+const MOCK_PRODUCTS = [];
 
 export default function InventoryPanelPro() {
   const [loading, setLoading] = useState(true);

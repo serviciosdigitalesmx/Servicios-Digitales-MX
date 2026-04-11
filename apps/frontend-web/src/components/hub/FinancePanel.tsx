@@ -37,18 +37,9 @@ const MOCK_STATS = {
   anticipos: 3200, // Anticipos pendientes
 };
 
-const MOCK_MONTHLY = [
-  { mes: 'Abril 2026', ingresos: 45200, egresos: 12800, utilidad: 32400 },
-  { mes: 'Marzo 2026', ingresos: 38900, egresos: 15400, utilidad: 23500 },
-  { mes: 'Febrero 2026', ingresos: 41200, egresos: 12900, utilidad: 28300 },
-];
+const MOCK_MONTHLY = [];
 
-const MOCK_CATEGORIES = [
-  { name: 'Pantallas', total: 18400, color: 'bg-blue-500' },
-  { name: 'Baterías', total: 6200, color: 'bg-purple-500' },
-  { name: 'Labor de Técnico', total: 12500, color: 'bg-green-500' },
-  { name: 'Accesorios', total: 8100, color: 'bg-orange-500' },
-];
+const MOCK_CATEGORIES = [];
 
 export default function FinancePanel() {
   const [loading, setLoading] = useState(true);

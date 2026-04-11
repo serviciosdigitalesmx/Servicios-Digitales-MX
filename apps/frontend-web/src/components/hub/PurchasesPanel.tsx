@@ -51,23 +51,10 @@ interface PurchaseOrder {
   items: PurchaseOrderItem[];
 }
 
-const MOCK_ORDERS: PurchaseOrder[] = [
-  { 
-    folio: 'OC-2201', fecha: '2026-04-01', proveedor: 'Refas Global', referencia: 'Stock Abril', total: 12500, estado: 'recibida',
-    items: [{ id: '1', sku: 'IP13-PANT', producto: 'Pantalla iPhone 13 Original', cantidadPedida: 5, cantidadRecibida: 5, costoUnitario: 1800 }]
-  },
-  { 
-    folio: 'OC-2205', fecha: '2026-04-03', proveedor: 'Química Pro', referencia: 'Insumos Taller', total: 1850, estado: 'enviada',
-    items: [{ id: '2', sku: 'ALC-ISO', producto: 'Alcohol Isopropílico 1L', cantidadPedida: 10, cantidadRecibida: 0, costoUnitario: 120 }]
-  },
-  { 
-    folio: 'OC-2208', fecha: '2026-04-04', proveedor: 'ChinaDirect', referencia: 'Importación Baterías', total: 32000, estado: 'parcial',
-    items: [{ id: '3', sku: 'BAT-MAC-A1706', producto: 'Batería MacBook A1706', cantidadPedida: 20, cantidadRecibida: 12, costoUnitario: 950 }]
-  },
-];
+const MOCK_ORDERS: any[] = [];
 
 export default function PurchasesPanel() {
-  const [orders, setOrders] = useState<PurchaseOrder[]>(MOCK_ORDERS);
+  const [orders, setOrders] = useState<PurchaseOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [showOrderModal, setShowOrderModal] = useState(false);

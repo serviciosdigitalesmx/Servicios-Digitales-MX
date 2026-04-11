@@ -50,14 +50,10 @@ interface QuoteItem {
   precio: number;
 }
 
-const MOCK_SOLICITUDES: QuoteRequest[] = [
-  { folio: 'COT-7721', nombre: 'Eduardo Torres', telefono: '8115556677', email: 'edu@mail.com', dispositivo: 'Smartphone', modelo: 'Samsung S23 Ultra', problemas: 'Tapa trasera rota', urgencia: 'Normal', fecha: '2026-04-03' },
-  { folio: 'COT-7718', nombre: 'Brenda Luna', telefono: '8184443322', email: 'b@luna.mx', dispositivo: 'Laptop', modelo: 'Dell XPS 13', problemas: 'No detecta redes WiFi', urgencia: 'Alta', fecha: '2026-04-04' },
-  { folio: 'COT-7715', nombre: 'Marcos Ruiz', telefono: '8121110099', email: 'm@ruiz.com', dispositivo: 'Tablet', modelo: 'iPad Air 5', problemas: 'Batería dura poco', urgencia: 'Normal', fecha: '2026-04-04' },
-];
+const MOCK_SOLICITUDES: any[] = [];
 
 export default function InboxPanel() {
-  const [solicitudes, setSolicitudes] = useState<QuoteRequest[]>(MOCK_SOLICITUDES);
+  const [solicitudes, setSolicitudes] = useState<QuoteRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<QuoteRequest | null>(null);
   const [quoteItems, setQuoteItems] = useState<QuoteItem[]>([{ id: '1', concepto: '', cantidad: 1, precio: 0 }]);

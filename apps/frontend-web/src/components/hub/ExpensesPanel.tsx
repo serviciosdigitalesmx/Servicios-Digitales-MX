@@ -42,15 +42,10 @@ interface Expense {
   folioRelacionado?: string;
 }
 
-const MOCK_GASTOS: Expense[] = [
-  { id: '101', fecha: '2026-04-01', tipo: 'fijo', categoria: 'Renta', concepto: 'Renta Local Abril', monto: 8500, metodoPago: 'Transferencia', proveedor: 'Inmobiliaria RT' },
-  { id: '102', fecha: '2026-04-02', tipo: 'variable', categoria: 'Insumos', concepto: 'Compra de alcohol isopropílico y flux', monto: 450, metodoPago: 'Efectivo', proveedor: 'Química Pro' },
-  { id: '103', fecha: '2026-04-03', tipo: 'fijo', categoria: 'Servicios', concepto: 'Pago de Internet / Telefonía', monto: 650, metodoPago: 'Tarjeta', proveedor: 'Telmex' },
-  { id: '104', fecha: '2026-04-04', tipo: 'variable', categoria: 'Publicidad', concepto: 'Campaña Facebook Ads - Reparación Pantallas', monto: 1200, metodoPago: 'Tarjeta', proveedor: 'Meta' },
-];
+const MOCK_GASTOS: any[] = [];
 
 export default function ExpensesPanel() {
-  const [expenses, setExpenses] = useState<Expense[]>(MOCK_GASTOS);
+  const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [showModal, setShowModal] = useState(false);
